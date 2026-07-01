@@ -1,0 +1,16 @@
+{
+    "name": "UsefulToolkit.Debugging.Editor",
+    "rootNamespace": "UsefulToolkit.Debugging",
+    "references": [
+        "GUID:d3999bded4111024b8b50ede5f538d2f"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

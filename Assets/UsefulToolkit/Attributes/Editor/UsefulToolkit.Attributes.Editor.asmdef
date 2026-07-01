@@ -1,0 +1,16 @@
+{
+    "name": "UsefulToolkit.Attributes.Editor",
+    "rootNamespace": "UsefulToolkit.Attributes",
+    "references": [
+        "GUID:eeadaa7ad57d305458d53fbbb2dea355"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

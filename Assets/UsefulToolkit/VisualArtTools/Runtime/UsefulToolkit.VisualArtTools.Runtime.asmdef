@@ -1,0 +1,14 @@
+{
+    "name": "UsefulToolkit.VisualArtTools.Runtime",
+    "rootNamespace": "UsefulToolkit.VisualArtTools",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

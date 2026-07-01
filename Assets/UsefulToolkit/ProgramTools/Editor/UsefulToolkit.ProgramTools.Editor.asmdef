@@ -1,0 +1,16 @@
+{
+    "name": "UsefulToolkit.ProgramTools.Editor",
+    "rootNamespace": "UsefulToolkit.ProgramTools",
+    "references": [
+        "GUID:0e3e1eb3f2af230469a8de1408204cd8"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

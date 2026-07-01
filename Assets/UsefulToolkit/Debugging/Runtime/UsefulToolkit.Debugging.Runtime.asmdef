@@ -1,0 +1,14 @@
+{
+    "name": "UsefulToolkit.Debugging.Runtime",
+    "rootNamespace": "UsefulToolkit.Debugging",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

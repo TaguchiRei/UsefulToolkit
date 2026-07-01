@@ -1,0 +1,14 @@
+{
+    "name": "UsefulToolkit.QualityControlTools.Runtime",
+    "rootNamespace": "UsefulToolkit.QualityControlTools",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
