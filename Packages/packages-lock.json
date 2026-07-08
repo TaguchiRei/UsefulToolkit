@@ -5,10 +5,64 @@
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "e5acc106ee196bc5a32fb14cdf2987b0f96d11e0"
+      "hash": "ceac8d6946b1125fe782cd171fbcb245b567dbf9"
+    },
+    "com.rei.usefultoolkit.architecture": {
+      "version": "file:com.rei.usefultoolkit.architecture",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.rei.usefultoolkit.attributes": {
+      "version": "file:com.rei.usefultoolkit.attributes",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.rei.usefultoolkit.debugging": {
+      "version": "file:com.rei.usefultoolkit.debugging",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.rei.usefultoolkit.framework": {
       "version": "file:com.rei.usefultoolkit.framework",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.rei.usefultoolkit.networking": {
+      "version": "file:com.rei.usefultoolkit.networking",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.rei.usefultoolkit.programtools": {
+      "version": "file:com.rei.usefultoolkit.programtools",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.rei.usefultoolkit.qualitycontroltools": {
+      "version": "file:com.rei.usefultoolkit.qualitycontroltools",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.rei.usefultoolkit.soundarttools": {
+      "version": "file:com.rei.usefultoolkit.soundarttools",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.rei.usefultoolkit.staticdatatools": {
+      "version": "file:com.rei.usefultoolkit.staticdatatools",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.rei.usefultoolkit.visualarttools": {
+      "version": "file:com.rei.usefultoolkit.visualarttools",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}

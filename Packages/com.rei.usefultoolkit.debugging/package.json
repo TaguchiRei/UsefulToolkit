@@ -1,0 +1,10 @@
+{
+  "name": "com.rei.usefultoolkit.debugging",
+  "displayName": "Useful Toolkit - Debugging",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "description": "Collection of useful debugging utilities for Unity.",
+  "author": {
+    "name": "Rei"
+  }
+}

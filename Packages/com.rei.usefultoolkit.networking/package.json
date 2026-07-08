@@ -1,0 +1,10 @@
+{
+  "name": "com.rei.usefultoolkit.networking",
+  "displayName": "Useful Toolkit - Networking",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "description": "Collection of useful networking utilities for Unity.",
+  "author": {
+    "name": "Rei"
+  }
+}

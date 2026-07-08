@@ -1,0 +1,14 @@
+{
+    "name": "UsefulToolkit.SoundArtTools.Runtime",
+    "rootNamespace": "UsefulToolkit.SoundArtTools",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

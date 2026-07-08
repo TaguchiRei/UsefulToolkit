@@ -1,9 +1,9 @@
 {
-  "name": "com.rei.usefultoolkit.attributes",
-  "displayName": "Useful Toolkit - Attributes",
+  "name": "com.rei.usefultoolkit.framework",
+  "displayName": "Useful Toolkit - Framework",
   "version": "1.0.0",
   "unity": "6000.0",
-  "description": "Collection of useful attributes for Unity.",
+  "description": "Collection of useful framework utilities for Unity.",
   "author": {
     "name": "Rei"
   }
