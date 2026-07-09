@@ -6,5 +6,8 @@
   "description": "Collection of useful visual art tools for Unity.",
   "author": {
     "name": "Rei"
+  },
+  "dependencies": {
+    "com.rei.usefultoolkit.framework": "1.0.0"
   }
 }

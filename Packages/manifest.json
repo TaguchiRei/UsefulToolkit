@@ -1,7 +1,6 @@
 {
   "dependencies": {
     "com.rei.usefultoolkit.architecture": "file:./com.rei.usefultoolkit.architecture",
-    "com.rei.usefultoolkit.attributes": "file:./com.rei.usefultoolkit.attributes",
     "com.rei.usefultoolkit.debugging": "file:./com.rei.usefultoolkit.debugging",
     "com.rei.usefultoolkit.framework": "file:./com.rei.usefultoolkit.framework",
     "com.rei.usefultoolkit.networking": "file:./com.rei.usefultoolkit.networking",

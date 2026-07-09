@@ -1,7 +1,9 @@
 {
     "name": "UsefulToolkit.QualityControlTools.Editor",
     "rootNamespace": "UsefulToolkit.QualityControlTools",
-    "references": [],
+    "references": [
+        "UsefulToolkit.QualityControlTools.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

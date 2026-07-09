@@ -1,7 +1,9 @@
 {
     "name": "UsefulToolkit.SoundArtTools.Editor",
     "rootNamespace": "UsefulToolkit.SoundArtTools",
-    "references": [],
+    "references": [
+        "UsefulToolkit.SoundArtTools.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

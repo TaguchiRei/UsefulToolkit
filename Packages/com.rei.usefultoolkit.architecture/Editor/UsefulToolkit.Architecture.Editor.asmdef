@@ -1,7 +1,9 @@
 {
     "name": "UsefulToolkit.Architecture.Editor",
     "rootNamespace": "UsefulToolkit.Architecture",
-    "references": [],
+    "references": [
+        "UsefulToolkit.Architecture.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

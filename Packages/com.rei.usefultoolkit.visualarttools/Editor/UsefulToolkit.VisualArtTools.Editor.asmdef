@@ -1,7 +1,9 @@
 {
     "name": "UsefulToolkit.VisualArtTools.Editor",
     "rootNamespace": "UsefulToolkit.VisualArtTools",
-    "references": [],
+    "references": [
+        "UsefulToolkit.VisualArtTools.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

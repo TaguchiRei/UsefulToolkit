@@ -1,7 +1,9 @@
 {
     "name": "UsefulToolkit.StaticDataTools.Editor",
     "rootNamespace": "UsefulToolkit.StaticDataTools",
-    "references": [],
+    "references": [
+        "UsefulToolkit.StaticDataTools.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

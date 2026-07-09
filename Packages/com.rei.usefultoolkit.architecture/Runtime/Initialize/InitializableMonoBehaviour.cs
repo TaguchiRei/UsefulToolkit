@@ -1,19 +1,31 @@
+using System;
 using UnityEngine;
+using UsefulToolkit.Attributes;
 
 namespace UsefulToolkit.Architecture
 {
-    public class InitializableMonoBehaviour : MonoBehaviour
+    [DefaultExecutionOrder(100)]
+    public abstract class InitializableMonoBehaviour : MonoBehaviour, IComparable<InitializableMonoBehaviour>
     {
-        // Start is called once before the first execution of Update after the MonoBehaviour is created
-        void Start()
+        public int InitializationOrder = 0;
+        [ShowOnly] public bool Initialized { get; protected set; } = false;
+
+        private protected void Awake()
         {
-        
+            enabled = false;
         }
 
-        // Update is called once per frame
-        void Update()
+        public virtual void Initialize()
         {
-        
+            if (Initialized) return;
+
+            Initialized = true;
+            enabled = true;
+        }
+
+        public int CompareTo(InitializableMonoBehaviour other)
+        {
+            return InitializationOrder.CompareTo(other.InitializationOrder);
         }
     }
 }

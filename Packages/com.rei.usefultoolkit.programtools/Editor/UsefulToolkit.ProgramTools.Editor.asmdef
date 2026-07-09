@@ -1,7 +1,9 @@
 {
     "name": "UsefulToolkit.ProgramTools.Editor",
     "rootNamespace": "UsefulToolkit.ProgramTools",
-    "references": [],
+    "references": [
+        "UsefulToolkit.ProgramTools.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

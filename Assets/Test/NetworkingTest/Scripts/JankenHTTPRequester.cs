@@ -17,7 +17,7 @@ public class JankenHTTPRequester : MonoBehaviour
     private static readonly byte[] IV =
         Encoding.UTF8.GetBytes("1234567890123456");
 
-    private const string API_URL = "http://10.40.12.231/GameApi/janken_api.php";
+    private const string API_URL = "";
     private const string PlayerWinKey = "PLAYER_WIN";
     private const string PlayerLoseKey = "PLAYER_LOSE";
 

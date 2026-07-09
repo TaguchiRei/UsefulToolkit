@@ -1,7 +1,9 @@
 {
     "name": "UsefulToolkit.Architecture.Runtime",
     "rootNamespace": "UsefulToolkit.Architecture",
-    "references": [],
+    "references": [
+        "UsefulToolkit.Framework.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

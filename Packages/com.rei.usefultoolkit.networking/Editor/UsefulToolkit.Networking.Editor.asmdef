@@ -1,7 +1,9 @@
 {
     "name": "UsefulToolkit.Networking.Editor",
     "rootNamespace": "UsefulToolkit.Networking",
-    "references": [],
+    "references": [
+        "UsefulToolkit.Networking.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

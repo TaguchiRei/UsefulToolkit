@@ -1,5 +1,6 @@
 using System.Globalization;
 using UnityEngine;
+using UsefulToolkit.Attributes;
 using UsefulToolkit.Debugging;
 
 public class Test : MonoBehaviour
@@ -16,5 +17,11 @@ public class Test : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+    }
+
+    [MethodExecutor]
+    void TestMethod()
+    {
+        Debug.Log("TestMethod");
     }
 }

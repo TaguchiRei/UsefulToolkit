@@ -6,5 +6,8 @@
   "description": "Collection of useful networking utilities for Unity.",
   "author": {
     "name": "Rei"
+  },
+  "dependencies": {
+    "com.rei.usefultoolkit.framework": "1.0.0"
   }
 }

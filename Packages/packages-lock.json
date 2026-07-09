@@ -11,19 +11,17 @@
       "version": "file:com.rei.usefultoolkit.architecture",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
-    },
-    "com.rei.usefultoolkit.attributes": {
-      "version": "file:com.rei.usefultoolkit.attributes",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.rei.usefultoolkit.framework": "1.0.0"
+      }
     },
     "com.rei.usefultoolkit.debugging": {
       "version": "file:com.rei.usefultoolkit.debugging",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.rei.usefultoolkit.framework": "1.0.0"
+      }
     },
     "com.rei.usefultoolkit.framework": {
       "version": "file:com.rei.usefultoolkit.framework",
@@ -35,37 +33,49 @@
       "version": "file:com.rei.usefultoolkit.networking",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.rei.usefultoolkit.framework": "1.0.0"
+      }
     },
     "com.rei.usefultoolkit.programtools": {
       "version": "file:com.rei.usefultoolkit.programtools",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.rei.usefultoolkit.framework": "1.0.0"
+      }
     },
     "com.rei.usefultoolkit.qualitycontroltools": {
       "version": "file:com.rei.usefultoolkit.qualitycontroltools",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.rei.usefultoolkit.framework": "1.0.0"
+      }
     },
     "com.rei.usefultoolkit.soundarttools": {
       "version": "file:com.rei.usefultoolkit.soundarttools",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.rei.usefultoolkit.framework": "1.0.0"
+      }
     },
     "com.rei.usefultoolkit.staticdatatools": {
       "version": "file:com.rei.usefultoolkit.staticdatatools",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.rei.usefultoolkit.framework": "1.0.0"
+      }
     },
     "com.rei.usefultoolkit.visualarttools": {
       "version": "file:com.rei.usefultoolkit.visualarttools",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.rei.usefultoolkit.framework": "1.0.0"
+      }
     },
     "com.unity.ai.navigation": {
       "version": "2.0.10",

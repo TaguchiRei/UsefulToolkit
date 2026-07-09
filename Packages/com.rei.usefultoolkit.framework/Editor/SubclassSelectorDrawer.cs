@@ -1,17 +1,21 @@
+using UnityEngine;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
-using UnityEngine;
+using UsefulToolkit.Attributes;
 
-namespace UsefulToolkit.Attributes
+namespace UsefulToolkit.Framework
 {
     [CustomPropertyDrawer(typeof(SubclassSelectorAttribute))]
     public class SubclassSelectorDrawer : PropertyDrawer
     {
+        // Start of Change for Caching
         private static readonly
             Dictionary<string, (Type[] inheritedTypes, string[] typePopupNameArray, string[] typeFullNameArray)>
-            typeCache = new();
+            typeCache =
+                new();
+        // End of Change for Caching
 
         bool initialized = false;
         Type[] inheritedTypes;
@@ -29,13 +33,15 @@ namespace UsefulToolkit.Attributes
                 initialized = true;
             }
 
-            
-            const int maxDepth = 10; 
+            // Start of Change for Recursive Drawing Bug
+            const int maxDepth = 10; // 10階層より深いネストは描画しない
             bool includeChildren = EditorGUI.indentLevel < maxDepth;
+            // End of Change for Recursive Drawing Bug
 
             int selectedTypeIndex = EditorGUI.Popup(GetPopupPosition(position), currentTypeIndex, typePopupNameArray);
             UpdatePropertyToSelectedTypeIndex(property, selectedTypeIndex);
-            
+
+            // 子要素を描画するかどうかを `includeChildren` で制御する
             EditorGUI.PropertyField(position, property, label, includeChildren);
         }
 
@@ -48,9 +54,11 @@ namespace UsefulToolkit.Attributes
         {
             SubclassSelectorAttribute utility = (SubclassSelectorAttribute)attribute;
             string baseTypeIdentifier = property.managedReferenceFieldTypename;
-            
+
+            // Start of Change for Caching
             if (string.IsNullOrEmpty(baseTypeIdentifier))
             {
+                // 型が取得できない場合は何もしない
                 inheritedTypes = new Type[] { null };
                 typePopupNameArray = new string[] { "<error: base type not found>" };
                 typeFullNameArray = new string[] { "" };
@@ -100,7 +108,7 @@ namespace UsefulToolkit.Attributes
         {
             typePopupNameArray = inheritedTypes.Select(type => type == null ? "<null>" : type.ToString()).ToArray();
             typeFullNameArray = inheritedTypes.Select(type =>
-                    type == null ? "" : $"{type.Assembly.ToString().Split(',')[0]} {type.FullName}")
+                    type == null ? "" : string.Format("{0} {1}", type.Assembly.ToString().Split(',')[0], type.FullName))
                 .ToArray();
         }
 
@@ -135,7 +143,7 @@ namespace UsefulToolkit.Attributes
                 }
             }
 
-            return null;
+            return null; // managedReferenceFieldTypenameから取得できなかった場合はnullを返す
         }
     }
 }
