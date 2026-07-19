@@ -2,7 +2,9 @@
     "name": "UsefulToolkit.Debugging.Editor",
     "rootNamespace": "UsefulToolkit.Debugging",
     "references": [
-        "UsefulToolkit.Debugging.Runtime"
+        "UsefulToolkit.Debugging.Runtime",
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Editor"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

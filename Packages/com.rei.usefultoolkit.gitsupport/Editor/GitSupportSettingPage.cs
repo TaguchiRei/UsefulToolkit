@@ -12,7 +12,7 @@ namespace UsefulToolkit.GitSupport
         private string _newBranch = "";
         private bool _showGitIgnore = true;
 
-        public override string Name => "GitSupport";
+        public override string Name => "Git";
 
         public override void Initialize()
         {

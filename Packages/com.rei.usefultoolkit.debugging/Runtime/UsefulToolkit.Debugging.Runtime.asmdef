@@ -1,7 +1,9 @@
 {
     "name": "UsefulToolkit.Debugging.Runtime",
     "rootNamespace": "UsefulToolkit.Debugging",
-    "references": [],
+    "references": [
+        "GUID:b7937238e736e2e46a05c1ade2ecca7e"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
