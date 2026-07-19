@@ -8,7 +8,7 @@ namespace UsefulToolkit.Debugging
     public class DebugGuiSetUp
     {
         [MenuItem("UsefulToolkit/ProgramTools/DebugGUI Setup")]
-        private static void Setup()
+        public static void Setup()
         {
             var debugGUI = Object.FindAnyObjectByType<DebugGUI>();
             if (debugGUI == null)

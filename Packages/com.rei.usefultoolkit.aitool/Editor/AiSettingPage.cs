@@ -13,7 +13,7 @@ namespace UsefulToolkit.Ai
         private Vector2 scrollPosition;
         private SerializedObject serializedChatSettings;
 
-        public override string Name => "AI Settings";
+        public override string Name => "AI";
 
         public override void Initialize()
         {
