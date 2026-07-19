@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
     "com.rei.usefultoolkit.architecture": "file:./com.rei.usefultoolkit.architecture",
     "com.rei.usefultoolkit.debugging": "file:./com.rei.usefultoolkit.debugging",
     "com.rei.usefultoolkit.framework": "file:./com.rei.usefultoolkit.framework",
@@ -9,13 +10,13 @@
     "com.rei.usefultoolkit.soundarttools": "file:./com.rei.usefultoolkit.soundarttools",
     "com.rei.usefultoolkit.staticdatatools": "file:./com.rei.usefultoolkit.staticdatatools",
     "com.rei.usefultoolkit.visualarttools": "file:./com.rei.usefultoolkit.visualarttools",
-    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
     "com.unity.ai.navigation": "2.0.10",
     "com.unity.collab-proxy": "2.11.3",
     "com.unity.ide.rider": "3.0.39",
     "com.unity.ide.visualstudio": "2.0.26",
     "com.unity.inputsystem": "1.18.0",
     "com.unity.multiplayer.center": "1.0.1",
+    "com.unity.nuget.newtonsoft-json": "3.2.1",
     "com.unity.render-pipelines.universal": "17.3.0",
     "com.unity.test-framework": "1.6.0",
     "com.unity.timeline": "1.8.10",

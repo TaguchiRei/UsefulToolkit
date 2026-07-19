@@ -1,0 +1,12 @@
+{
+  "name": "com.rei.usefultoolkit.gitsupport",
+  "displayName": "Useful Toolkit - Git Support",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "description": "Collection of useful Git support utilities for Unity.",
+  "author": {
+    "name": "Rei"
+  },
+  "dependencies": {
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "com.rei.usefultoolkit.aitool",
+  "displayName": "Useful Toolkit - AI Tools",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "description": "Collection of AI tools for Unity.",
+  "author": {
+    "name": "Rei"
+  },
+  "dependencies": {
+    "com.rei.usefultoolkit.framework": "1.0.0"
+  }
+}

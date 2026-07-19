@@ -1,0 +1,16 @@
+{
+    "name": "UsefulToolkit.GitSupport.Runtime",
+    "rootNamespace": "UsefulToolkit.GitSupport",
+    "references": [
+        "UsefulToolkit.Framework.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

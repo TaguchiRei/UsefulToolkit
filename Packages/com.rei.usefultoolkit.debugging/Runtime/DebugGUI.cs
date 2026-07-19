@@ -12,17 +12,17 @@ namespace UsefulToolkit.Debugging
     {
 #if UNITY_EDITOR
 
-        private Vector2 Position => new Vector2(UnityEditor.EditorPrefs.GetFloat("UsefulTools.Debug.PosX", 10f),
-            UnityEditor.EditorPrefs.GetFloat("UsefulTools.Debug.PosY", 10f));
+        private Vector2 Position => new Vector2(UnityEditor.EditorPrefs.GetFloat("UsefulToolkit.Debug.PosX", 10f),
+            UnityEditor.EditorPrefs.GetFloat("UsefulToolkit.Debug.PosY", 10f));
 
-        private int FontSize => UnityEditor.EditorPrefs.GetInt("UsefulTools.Debug.FontSize", 20);
-        private int FPSSampling => UnityEditor.EditorPrefs.GetInt("UsefulTools.Debug.FPSSampling", 10);
+        private int FontSize => UnityEditor.EditorPrefs.GetInt("UsefulToolkit.Debug.FontSize", 20);
+        private int FPSSampling => UnityEditor.EditorPrefs.GetInt("UsefulToolkit.Debug.FPSSampling", 10);
 
         private bool RemoveMissingReferences =>
-            UnityEditor.EditorPrefs.GetBool("UsefulTools.Debug.RemoveMissing", true);
+            UnityEditor.EditorPrefs.GetBool("UsefulToolkit.Debug.RemoveMissing", true);
 
-        private int MaxLogCount => UnityEditor.EditorPrefs.GetInt("UsefulTools.Debug.MaxLogCount", 10);
-        private float LogTimeout => UnityEditor.EditorPrefs.GetFloat("UsefulTools.Debug.LogTimeout", 5.0f);
+        private int MaxLogCount => UnityEditor.EditorPrefs.GetInt("UsefulToolkit.Debug.MaxLogCount", 10);
+        private float LogTimeout => UnityEditor.EditorPrefs.GetFloat("UsefulToolkit.Debug.LogTimeout", 5.0f);
 
         private struct LogData
         {
@@ -94,7 +94,7 @@ namespace UsefulToolkit.Debugging
 
         private void OnLogReceived(string condition, string stackTrace, LogType type)
         {
-            if (!UnityEditor.EditorPrefs.GetBool("UsefulTools.Debug.LogCaptureEnabled", false)) return;
+            if (!UnityEditor.EditorPrefs.GetBool("UsefulToolkit.Debug.LogCaptureEnabled", false)) return;
 
             // メインスレッド以外からも呼ばれるためキューに積む
             _threadedLogQueue.Enqueue(new LogData
