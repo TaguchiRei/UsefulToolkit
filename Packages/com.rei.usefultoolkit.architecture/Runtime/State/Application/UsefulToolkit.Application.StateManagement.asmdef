@@ -1,0 +1,16 @@
+{
+    "name": "UsefulToolkit.Application.StateManagement",
+    "rootNamespace": "UsefulToolkit.Application.StateManagement",
+    "references": [
+        "UsefulToolkit.Framework.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
