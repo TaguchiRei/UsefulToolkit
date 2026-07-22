@@ -160,10 +160,10 @@ MonoBehaviour:
   _pointD:
     Gradient: {x: 0, y: 0}
     Transform: {fileID: 780971947}
-  _scale: 220
+  _scale: 20
   _boxScale: 1
   _colorType: 1
-  _targetPoint: {x: 1, y: 1}
+  _targetPoint: {x: 0, y: 0}
 --- !u!4 &231940537
 Transform:
   m_ObjectHideFlags: 0
