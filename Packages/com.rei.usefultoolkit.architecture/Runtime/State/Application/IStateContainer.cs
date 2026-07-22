@@ -56,12 +56,5 @@ namespace UsefulToolkit.Application.StateManagement
         public bool TryRegisterState<TGetter, TState>(TState state)
             where TGetter : IStateGetter
             where TState : StateBase, TGetter;
-
-        /// <summary>
-        /// Stateの登録を解除する
-        /// </summary>
-        /// <typeparam name="TGetter">登録解除するStateGetterの型</typeparam>
-        /// <returns>解除できたか</returns>
-        public bool TryUnRegisterState<TGetter>() where TGetter : IStateGetter;
     }
 }

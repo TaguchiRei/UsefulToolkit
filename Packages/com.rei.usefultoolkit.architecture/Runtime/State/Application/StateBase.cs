@@ -21,9 +21,10 @@ namespace UsefulToolkit.Application.StateManagement
     /// }
     /// </code>
     /// </summary>
-    public abstract class StateBase 
+    public abstract class StateBase
     {
-        
+        /// <summary> ステートの生存時間 </summary>
+        public abstract StateLifeScope LifeScope { get; }
     }
 
     /// <summary>
@@ -33,11 +34,12 @@ namespace UsefulToolkit.Application.StateManagement
     /// public interface IPlayerStateGetter : IStateGetter
     /// {
     ///     int PlayerHp { get; }
+    ///
+    ///     
     /// }
     /// </code>
     /// </summary>
     public interface IStateGetter
     {
-        bool TryRegisterStateEvent<T>(Action<StateContext<T>> action);
     }
 }
