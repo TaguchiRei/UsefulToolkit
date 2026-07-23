@@ -29,20 +29,32 @@ namespace UsefulToolkit.Application.StateManagement
     public interface IStateContainerRegistration
     {
         /// <summary>
-        /// Stateを登録する
+        /// ゲームステートを登録する
         /// </summary>
-        /// <param name="state">登録するState</param>
-        /// <returns>登録できた場合はtrueを返す(同一Getter型が登録済みの場合はfalse)</returns>
-        public bool TryRegisterState<T>(T state)
-            where T : StateBase, IStateGetter;
-
+        /// <param name="state">登録するステートの実体</param>
+        /// <typeparam name="T">登録するステートのクラス</typeparam>
+        /// <returns>登録できたらtrueを返す</returns>
         public bool TryRegisterGameState<T>(T state)
             where T : GameStateBase, IStateGetter;
 
+        /// <summary>
+        /// シーンステートを登録する
+        /// </summary>
+        /// <param name="state">登録するステートの実体</param>
+        /// <param name="scene">シーン名Enumを利用</param>
+        /// <typeparam name="T">登録するステートのクラス</typeparam>
+        /// <typeparam name="TSceneEnum">ステートが依存するシーン</typeparam>
+        /// <returns>登録できたらtrueを返す</returns>
         public bool TryRegisterSceneState<T, TSceneEnum>(T state, TSceneEnum scene)
             where T : SceneStateBase, IStateGetter
             where TSceneEnum : Enum;
 
+        /// <summary>
+        /// 登録解除が可能なステートを登録する
+        /// </summary>
+        /// <param name="state">登録するステートの実体</param>
+        /// <typeparam name="T">登録するステートのクラス</typeparam>
+        /// <returns>登録できたらtrueを返す</returns>
         public bool TryRegisterUnRegistableState<T>(T state)
             where T : UnRegistableStateBase, IStateGetter;
     }
