@@ -57,5 +57,13 @@ namespace UsefulToolkit.Application.StateManagement
         /// <returns>登録できたらtrueを返す</returns>
         public bool TryRegisterUnRegistableState<T>(T state)
             where T : UnRegistableStateBase, IStateGetter;
+
+        /// <summary>
+        /// ステートの登録を解除する。 
+        /// </summary>
+        /// <typeparam name="T">UnRegistableStateBaseを継承したステートのクラス</typeparam>
+        /// <returns></returns>
+        public bool TryUnRegisterState<T>()
+            where T : UnRegistableStateBase, IStateGetter;
     }
 }
