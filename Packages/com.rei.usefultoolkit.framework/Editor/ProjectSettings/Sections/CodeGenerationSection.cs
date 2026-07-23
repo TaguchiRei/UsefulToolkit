@@ -17,11 +17,21 @@ namespace UsefulToolkit.Framework
             // -----------------以下各種設定項目描画---------------------
             EditorGUILayout.LabelField("Runtime Save Path", EditorStyles.boldLabel);
             DrawSelectGenerateDirectory(settings);
-            
+
             EditorGUILayout.Space();
-            
+
             EditorGUILayout.LabelField("Local Save Path", EditorStyles.boldLabel);
             DrawSelectLocalGenerateDirectory(settings);
+
+            EditorGUILayout.Space();
+
+            EditorGUILayout.LabelField("Namespace", EditorStyles.boldLabel);
+            DrawNamespaceField(settings);
+
+            EditorGUILayout.Space();
+
+            EditorGUILayout.LabelField("Generate Timing", EditorStyles.boldLabel);
+            DrawTimingField(settings);
             //---------------------描画ここまで-------------------------
 
             if (EditorGUI.EndChangeCheck())
@@ -43,11 +53,8 @@ namespace UsefulToolkit.Framework
 
             if (GUILayout.Button("保存先を選択"))
             {
-                var selectedPath = EditorUtility.OpenFolderPanel(
-                    "Select Save Path",
-                    settings.RuntimeSavePath,
-                    ""
-                );
+                var selectedPath =
+                    EditorUtility.OpenFolderPanel("Select Save Path", settings.RuntimeSavePath, "");
 
                 if (!string.IsNullOrEmpty(selectedPath))
                 {
@@ -56,16 +63,24 @@ namespace UsefulToolkit.Framework
 
                     if (!fullSelectedPath.StartsWith(assetsPath, StringComparison.OrdinalIgnoreCase))
                     {
-                        EditorUtility.DisplayDialog(
-                            "エラー",
-                            "Assetsフォルダ内を選択してください。",
-                            "OK");
+                        EditorUtility.DisplayDialog("エラー", "Assetsフォルダ内を選択してください。", "OK");
                         return;
                     }
 
-                    settings.RuntimeSavePath = "Assets" + fullSelectedPath.Substring(assetsPath.Length).Replace('\\', '/');
+                    settings.RuntimeSavePath =
+                        "Assets" + fullSelectedPath.Substring(assetsPath.Length).Replace('\\', '/');
                 }
             }
+        }
+
+        private void DrawNamespaceField(CodeGenerationSectionSettings settings)
+        {
+            settings.Namespace = EditorGUILayout.TextField("Namespace", settings.Namespace);
+        }
+
+        private void DrawTimingField(CodeGenerationSectionSettings settings)
+        {
+            settings.Timing = (GenerateTiming)EditorGUILayout.EnumPopup("Generate Timing", settings.Timing);
         }
 
         private void DrawSelectLocalGenerateDirectory(CodeGenerationSectionSettings settings)
@@ -101,7 +116,8 @@ namespace UsefulToolkit.Framework
                         return;
                     }
 
-                    settings.LocalSavePath = "Assets" + fullSelectedPath.Substring(assetsPath.Length).Replace('\\', '/');
+                    settings.LocalSavePath =
+                        "Assets" + fullSelectedPath.Substring(assetsPath.Length).Replace('\\', '/');
                 }
             }
         }
