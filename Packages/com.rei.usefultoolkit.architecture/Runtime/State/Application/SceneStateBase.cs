@@ -7,6 +7,6 @@ namespace UsefulToolkit.Application.StateManagement
     /// </summary>
     public class SceneStateBase : StateBase
     {
-        public override StateLifeScope LifeScope => StateLifeScope.OnSceneEnd;
+        public sealed override StateLifeScope LifeScope => StateLifeScope.OnSceneEnd;
     }
 }

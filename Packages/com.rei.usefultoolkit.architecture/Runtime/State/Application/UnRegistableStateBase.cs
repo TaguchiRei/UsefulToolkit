@@ -7,6 +7,6 @@ namespace UsefulToolkit.Application.StateManagement
     /// </summary>
     public class UnRegistableStateBase : StateBase
     {
-        public override StateLifeScope LifeScope => StateLifeScope.Other;
+        public sealed override StateLifeScope LifeScope => StateLifeScope.Other;
     }
 }
