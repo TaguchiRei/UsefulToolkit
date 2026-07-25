@@ -17,7 +17,7 @@ namespace UsefulToolkit.Application.StateManagement
         // 具象型 + 実装しているIStateGetter系interface型 -> 実体。TryGetStateGetterの検索用エイリアス。
         private readonly Dictionary<Type, StateBase> _lookup = new();
 
-        // SceneStateのみ: 具象型 -> 登録時に渡されたシーン識別値(boxedEnum)
+        // SceneStateのコンテナ
         private readonly Dictionary<Type, Enum> _sceneOwners = new();
 
         public bool TryGetStateGetter<T>(out T state) where T : IStateGetter
