@@ -1,6 +1,6 @@
 {
-    "name": "UsefulToolkit.Framework.Runtime",
-    "rootNamespace": "UsefulToolkit.Framework",
+    "name": "UsefulToolkit.Framework.Runtime.External",
+    "rootNamespace": "UsefulToolkit.Framework.External",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

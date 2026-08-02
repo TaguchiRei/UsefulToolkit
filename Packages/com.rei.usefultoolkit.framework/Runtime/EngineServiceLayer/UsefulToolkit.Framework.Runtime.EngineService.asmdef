@@ -1,7 +1,10 @@
 {
-    "name": "UsefulToolkit.BlackBoard.Runtime",
-    "rootNamespace": "UsefulToolkit.BlackBoard",
-    "references": [],
+    "name": "UsefulToolkit.Framework.Runtime.EngineService",
+    "rootNamespace": "UsefulToolkit.Framework.EngineService",
+    "references": [
+        "UsefulToolkit.Framework.Runtime.BlackBoard",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
