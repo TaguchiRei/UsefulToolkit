@@ -1,9 +1,10 @@
 {
-    "name": "UsefulToolkit.Framework.Runtime",
-    "rootNamespace": "UsefulToolkit.Framework",
+    "name": "UsefulToolkit.Input.Editor",
+    "rootNamespace": "UsefulToolkit.Input.Editor",
     "references": [
-        "GUID:f51ebe6a0ceec4240a699833d6309b23",
-        "UsefulToolkit.BlackBoard.Runtime"
+        "UsefulToolkit.Input.Runtime",
+        "UsefulToolkit.Framework.Editor",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

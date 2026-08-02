@@ -8,5 +8,6 @@
     "name": "Rei"
   },
   "dependencies": {
+    "com.rei.usefultoolkit.framework": "1.0.0"
   }
 }

@@ -1,9 +1,11 @@
 {
-    "name": "UsefulToolkit.Framework.Runtime",
-    "rootNamespace": "UsefulToolkit.Framework",
+    "name": "UsefulToolkit.Input.Runtime",
+    "rootNamespace": "UsefulToolkit.Input",
     "references": [
-        "GUID:f51ebe6a0ceec4240a699833d6309b23",
-        "UsefulToolkit.BlackBoard.Runtime"
+        "UsefulToolkit.BlackBoard.Runtime",
+        "UsefulToolkit.Architecture.Runtime",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

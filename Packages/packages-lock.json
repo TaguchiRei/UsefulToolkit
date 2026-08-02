@@ -41,7 +41,19 @@
       "version": "file:com.rei.usefultoolkit.gitsupport",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.rei.usefultoolkit.framework": "1.0.0"
+      }
+    },
+    "com.rei.usefultoolkit.input": {
+      "version": "file:com.rei.usefultoolkit.input",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.rei.usefultoolkit.framework": "1.0.0",
+        "com.rei.usefultoolkit.architecture": "1.0.0",
+        "com.unity.inputsystem": "1.18.0"
+      }
     },
     "com.rei.usefultoolkit.networking": {
       "version": "file:com.rei.usefultoolkit.networking",

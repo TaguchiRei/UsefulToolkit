@@ -1,0 +1,15 @@
+{
+  "name": "com.rei.usefultoolkit.input",
+  "displayName": "Useful Toolkit - Input",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "description": "InputSystemをState-Centrism Architecture(BlackBoardLayer / EngineServiceLayer)に統合する入力管理システム。",
+  "author": {
+    "name": "Rei"
+  },
+  "dependencies": {
+    "com.rei.usefultoolkit.framework": "1.0.0",
+    "com.rei.usefultoolkit.architecture": "1.0.0",
+    "com.unity.inputsystem": "1.18.0"
+  }
+}
