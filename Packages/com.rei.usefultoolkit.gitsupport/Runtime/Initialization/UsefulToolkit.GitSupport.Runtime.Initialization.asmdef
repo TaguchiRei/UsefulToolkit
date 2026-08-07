@@ -1,0 +1,24 @@
+{
+    "name": "UsefulToolkit.GitSupport.Runtime.Initialization",
+    "rootNamespace": "UsefulToolkit.GitSupport.Initialization",
+    "references": [
+        "UsefulToolkit.GitSupport.Runtime.Application",
+        "UsefulToolkit.GitSupport.Runtime.BlackBoard",
+        "UsefulToolkit.GitSupport.Runtime.External",
+        "UsefulToolkit.GitSupport.Runtime.EngineService",
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Runtime.Application",
+        "UsefulToolkit.Framework.Runtime.BlackBoard",
+        "UsefulToolkit.Framework.Runtime.External",
+        "UsefulToolkit.Framework.Runtime.EngineService"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

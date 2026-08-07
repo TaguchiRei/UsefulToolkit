@@ -2,6 +2,12 @@
     "name": "UsefulToolkit.GitSupport.Editor",
     "rootNamespace": "UsefulToolkit.GitSupport",
     "references": [
+        "UsefulToolkit.GitSupport.Runtime",
+        "UsefulToolkit.GitSupport.Runtime.Application",
+        "UsefulToolkit.GitSupport.Runtime.BlackBoard",
+        "UsefulToolkit.GitSupport.Runtime.External",
+        "UsefulToolkit.GitSupport.Runtime.EngineService",
+        "UsefulToolkit.GitSupport.Runtime.Initialization",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.Editor"
     ],

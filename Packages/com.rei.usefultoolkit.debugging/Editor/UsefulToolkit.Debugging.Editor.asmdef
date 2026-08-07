@@ -3,6 +3,11 @@
     "rootNamespace": "UsefulToolkit.Debugging",
     "references": [
         "UsefulToolkit.Debugging.Runtime",
+        "UsefulToolkit.Debugging.Runtime.Application",
+        "UsefulToolkit.Debugging.Runtime.BlackBoard",
+        "UsefulToolkit.Debugging.Runtime.External",
+        "UsefulToolkit.Debugging.Runtime.EngineService",
+        "UsefulToolkit.Debugging.Runtime.Initialization",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.Editor"
     ],

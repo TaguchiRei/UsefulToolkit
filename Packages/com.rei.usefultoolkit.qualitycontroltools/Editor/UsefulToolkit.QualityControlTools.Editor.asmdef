@@ -2,7 +2,12 @@
     "name": "UsefulToolkit.QualityControlTools.Editor",
     "rootNamespace": "UsefulToolkit.QualityControlTools",
     "references": [
-        "UsefulToolkit.QualityControlTools.Runtime"
+        "UsefulToolkit.QualityControlTools.Runtime",
+        "UsefulToolkit.QualityControlTools.Runtime.Application",
+        "UsefulToolkit.QualityControlTools.Runtime.BlackBoard",
+        "UsefulToolkit.QualityControlTools.Runtime.External",
+        "UsefulToolkit.QualityControlTools.Runtime.EngineService",
+        "UsefulToolkit.QualityControlTools.Runtime.Initialization"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -1,0 +1,19 @@
+{
+    "name": "UsefulToolkit.Networking.Runtime.EngineService",
+    "rootNamespace": "UsefulToolkit.Networking.EngineService",
+    "references": [
+        "UsefulToolkit.Networking.Runtime.BlackBoard",
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Runtime.BlackBoard",
+        "UsefulToolkit.Framework.Runtime.EngineService"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

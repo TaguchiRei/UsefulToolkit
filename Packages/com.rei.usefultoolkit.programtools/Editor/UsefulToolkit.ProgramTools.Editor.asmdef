@@ -2,7 +2,12 @@
     "name": "UsefulToolkit.ProgramTools.Editor",
     "rootNamespace": "UsefulToolkit.ProgramTools",
     "references": [
-        "UsefulToolkit.ProgramTools.Runtime"
+        "UsefulToolkit.ProgramTools.Runtime",
+        "UsefulToolkit.ProgramTools.Runtime.Application",
+        "UsefulToolkit.ProgramTools.Runtime.BlackBoard",
+        "UsefulToolkit.ProgramTools.Runtime.External",
+        "UsefulToolkit.ProgramTools.Runtime.EngineService",
+        "UsefulToolkit.ProgramTools.Runtime.Initialization"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

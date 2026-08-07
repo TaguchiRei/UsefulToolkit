@@ -2,7 +2,12 @@
     "name": "UsefulToolkit.SoundArtTools.Editor",
     "rootNamespace": "UsefulToolkit.SoundArtTools",
     "references": [
-        "UsefulToolkit.SoundArtTools.Runtime"
+        "UsefulToolkit.SoundArtTools.Runtime",
+        "UsefulToolkit.SoundArtTools.Runtime.Application",
+        "UsefulToolkit.SoundArtTools.Runtime.BlackBoard",
+        "UsefulToolkit.SoundArtTools.Runtime.External",
+        "UsefulToolkit.SoundArtTools.Runtime.EngineService",
+        "UsefulToolkit.SoundArtTools.Runtime.Initialization"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

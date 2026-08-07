@@ -1,0 +1,19 @@
+{
+    "name": "UsefulToolkit.StaticDataTools.Runtime.EngineService",
+    "rootNamespace": "UsefulToolkit.StaticDataTools.EngineService",
+    "references": [
+        "UsefulToolkit.StaticDataTools.Runtime.BlackBoard",
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Runtime.BlackBoard",
+        "UsefulToolkit.Framework.Runtime.EngineService"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

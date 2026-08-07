@@ -1,0 +1,17 @@
+{
+    "name": "UsefulToolkit.GitSupport.Runtime.External",
+    "rootNamespace": "UsefulToolkit.GitSupport.External",
+    "references": [
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Runtime.External"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

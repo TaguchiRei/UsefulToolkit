@@ -2,7 +2,12 @@
     "name": "UsefulToolkit.Networking.Editor",
     "rootNamespace": "UsefulToolkit.Networking",
     "references": [
-        "UsefulToolkit.Networking.Runtime"
+        "UsefulToolkit.Networking.Runtime",
+        "UsefulToolkit.Networking.Runtime.Application",
+        "UsefulToolkit.Networking.Runtime.BlackBoard",
+        "UsefulToolkit.Networking.Runtime.External",
+        "UsefulToolkit.Networking.Runtime.EngineService",
+        "UsefulToolkit.Networking.Runtime.Initialization"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

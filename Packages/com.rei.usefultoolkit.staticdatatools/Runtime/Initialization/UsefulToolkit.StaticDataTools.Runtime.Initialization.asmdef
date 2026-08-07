@@ -1,0 +1,24 @@
+{
+    "name": "UsefulToolkit.StaticDataTools.Runtime.Initialization",
+    "rootNamespace": "UsefulToolkit.StaticDataTools.Initialization",
+    "references": [
+        "UsefulToolkit.StaticDataTools.Runtime.Application",
+        "UsefulToolkit.StaticDataTools.Runtime.BlackBoard",
+        "UsefulToolkit.StaticDataTools.Runtime.External",
+        "UsefulToolkit.StaticDataTools.Runtime.EngineService",
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Runtime.Application",
+        "UsefulToolkit.Framework.Runtime.BlackBoard",
+        "UsefulToolkit.Framework.Runtime.External",
+        "UsefulToolkit.Framework.Runtime.EngineService"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
