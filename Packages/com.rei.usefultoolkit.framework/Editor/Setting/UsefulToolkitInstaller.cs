@@ -15,6 +15,9 @@ namespace UsefulToolkit.Framework
         private const string RepositoryUrl = "https://github.com/TaguchiRei/UsefulToolkit.git";
         private const string ToolkitName = "Useful Toolkit";
 
+        // UniTask (Cysharp) : Frameworkのランタイムが直接依存している外部必須パッケージ
+        private const string UniTaskUrl = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask";
+
         // パッケージの定義構造体
         private struct PackageInfo
         {
@@ -23,14 +26,17 @@ namespace UsefulToolkit.Framework
             public string Description; // 簡単な説明
             public bool IsRequired; // 必須かどうか
             public bool IsSelected; // チェック状態
+            public string[] RequiredDependencies; // このパッケージが動作するために別途インストールが必要な完全なUPM識別子（Git URL等）
 
-            public PackageInfo(string name, string subPath, string desc, bool required = false)
+            public PackageInfo(string name, string subPath, string desc, bool required = false,
+                string[] requiredDependencies = null)
             {
                 DisplayName = name;
                 SubPath = subPath;
                 Description = desc;
                 IsRequired = required;
                 IsSelected = required; // 必須枠はデフォルトON
+                RequiredDependencies = requiredDependencies ?? System.Array.Empty<string>();
             }
 
             // UPMに渡すための完全なGit URLを生成
@@ -40,22 +46,26 @@ namespace UsefulToolkit.Framework
             }
         }
 
-        //  パッケージリストの一覧定義 
+        //  パッケージリストの一覧定義
         private static List<PackageInfo> _packages = new()
         {
-            new PackageInfo("Framework", "com.ray.usefultoolkit.framework", "Toolkitのコア機能・共通基盤（インストール済み）", true),
-            new PackageInfo("Attributes", "com.ray.usefultoolkit.attributes", "インスペクターや開発を強力に補助するカスタム属性群"),
-            new PackageInfo("Debugging Tools", "com.ray.usefultoolkit.debuggingtools", "ログ拡張やランタイムデバッグを快適にするツール"),
-            new PackageInfo("Program Tools", "com.ray.usefultoolkit.programtools", "汎用的な最適化・コードヘルパー・ロジック集"),
-            new PackageInfo("Ai Agent Tools", "com.ray.usefultoolkit.aiagenttools", "AIやステートマシン、エージェント作成の支援機能"),
-            new PackageInfo("Networking", "com.ray.usefultoolkit.networking", "通信処理やオンライン周りのラッパー・拡張"),
-            new PackageInfo("Quality Control Tools", "com.ray.usefultoolkit.qualitycontroltools",
+            new PackageInfo("Framework", "com.rei.usefultoolkit.framework", "Toolkitのコア機能・共通基盤（インストール済み）", true,
+                new[] { UniTaskUrl }),
+            new PackageInfo("Architecture", "com.rei.usefultoolkit.architecture", "コンポジションルート・初期化順序制御などのアーキテクチャ基盤"),
+            new PackageInfo("Debugging Tools", "com.rei.usefultoolkit.debugging", "ログ拡張やランタイムデバッグを快適にするツール"),
+            new PackageInfo("Git Support", "com.rei.usefultoolkit.gitsupport", "Gitignoreサポートやブランチ管理などVCS周りの補助機能"),
+            new PackageInfo("Program Tools", "com.rei.usefultoolkit.programtools", "汎用的な最適化・コードヘルパー・ロジック集"),
+            new PackageInfo("Ai Agent Tools", "com.rei.usefultoolkit.aitool", "AIやステートマシン、エージェント作成の支援機能"),
+            new PackageInfo("Input", "com.rei.usefultoolkit.input", "InputSystemをState-Centrism ArchitectureへつなぐBlackBoard/EngineServiceLayer実装"),
+            new PackageInfo("Networking", "com.rei.usefultoolkit.networking", "通信処理やオンライン周りのラッパー・拡張"),
+            new PackageInfo("Quality Control Tools", "com.rei.usefultoolkit.qualitycontroltools",
                 "テストや静的解析、品質管理をサポートする機能"),
-            new PackageInfo("Sound Art Tools", "com.ray.usefultoolkit.soundarttools", "サウンド管理、再生制御、オーディオ演出システム"),
-            new PackageInfo("Visual Art Tools", "com.ray.usefultoolkit.visualarttools",
+            new PackageInfo("Sound Art Tools", "com.rei.usefultoolkit.soundarttools", "サウンド管理、再生制御、オーディオ演出システム"),
+            new PackageInfo("Visual Art Tools", "com.rei.usefultoolkit.visualarttools",
                 "グラフィックス、エフェクト、見た目に関する演出コンポーネント"),
-            new PackageInfo("Static Data Tools", "com.ray.usefultoolkit.staticdatatools",
+            new PackageInfo("Static Data Tools", "com.rei.usefultoolkit.staticdatatools",
                 "ScriptableObjectやマスターデータの管理・運用ツール"),
+            new PackageInfo("WorkTrack", "com.rei.usefultoolkit.worktrack", "Unity Editorでの作業時間を自動記録・閲覧するツール"),
         };
 
         // キュー管理と状態
@@ -199,24 +209,59 @@ namespace UsefulToolkit.Framework
 
                 if (GUILayout.Button(buttonText, buttonStyle))
                 {
-                    _installQueue.Clear();
-                    foreach (var pkg in _packages)
-                    {
-                        if (pkg.IsSelected && !pkg.IsRequired)
-                        {
-                            _installQueue.Enqueue(pkg.GetFullIdentifier());
-                        }
-                    }
-
-                    if (_installQueue.Count == 0)
+                    bool hasSelectedPackage = _packages.Exists(pkg => pkg.IsSelected && !pkg.IsRequired);
+                    if (!hasSelectedPackage)
                     {
                         EditorUtility.DisplayDialog("Useful Toolkit", "インポートする追加パッケージが選択されていません。", "OK");
                         return;
                     }
 
-                    if (EditorUtility.DisplayDialog("Useful Toolkit", $"{_installQueue.Count} 個のモジュールを順番にインストールしますか？",
+                    // 選択したパッケージが必要とする依存パッケージを重複なく先頭に積んでから本体を積む
+                    var installList = new List<string>();
+                    var queued = new HashSet<string>();
+
+                    void EnqueueDependencies(PackageInfo pkg)
+                    {
+                        foreach (var dependency in pkg.RequiredDependencies)
+                        {
+                            if (queued.Add(dependency))
+                            {
+                                installList.Add(dependency);
+                            }
+                        }
+                    }
+
+                    // 必須枠（Framework等）は本体こそ積まないが、その依存パッケージは常に確保する
+                    foreach (var pkg in _packages)
+                    {
+                        if (pkg.IsSelected && pkg.IsRequired)
+                        {
+                            EnqueueDependencies(pkg);
+                        }
+                    }
+
+                    foreach (var pkg in _packages)
+                    {
+                        if (!pkg.IsSelected || pkg.IsRequired) continue;
+
+                        EnqueueDependencies(pkg);
+
+                        if (queued.Add(pkg.GetFullIdentifier()))
+                        {
+                            installList.Add(pkg.GetFullIdentifier());
+                        }
+                    }
+
+                    if (EditorUtility.DisplayDialog("Useful Toolkit",
+                            $"{installList.Count} 個のモジュールを順番にインストールしますか？（必須の依存パッケージを含みます）",
                             "はい", "いいえ"))
                     {
+                        _installQueue.Clear();
+                        foreach (var id in installList)
+                        {
+                            _installQueue.Enqueue(id);
+                        }
+
                         _totalInstallCount = _installQueue.Count;
                         _currentInstallIndex = 0;
                         ProcessNextQueue();

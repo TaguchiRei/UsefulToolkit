@@ -12,17 +12,12 @@ namespace UsefulToolkit.Framework
     {
         private const string SaveDirectory = "UserSettings/UsefulToolkit";
 
-        private static string SavePath
-        {
-            get
-            {
-                return Path.Combine(
-                    Application.persistentDataPath,
-                    SaveDirectory,
-                    $"{typeof(T).Name}.json"
-                );
-            }
-        }
+        private static string SavePath =>
+            Path.Combine(
+                Application.persistentDataPath,
+                SaveDirectory,
+                $"{typeof(T).Name}.json"
+            );
 
         public void Save()
         {

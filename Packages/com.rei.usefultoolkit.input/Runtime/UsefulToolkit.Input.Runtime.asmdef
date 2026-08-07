@@ -1,0 +1,19 @@
+{
+    "name": "UsefulToolkit.Input.Runtime",
+    "rootNamespace": "UsefulToolkit.Input",
+    "references": [
+        "UsefulToolkit.Framework.Runtime.BlackBoard",
+        "UsefulToolkit.Architecture.Runtime",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

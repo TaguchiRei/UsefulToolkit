@@ -17,6 +17,14 @@ namespace UsefulToolkit.Architecture
             Initialized = true;
         }
 
+        /// <summary>
+        /// SceneCompositionに
+        /// </summary>
+        public virtual void RegisterServices()
+        {
+            
+        }
+
         public int CompareTo(InitializableMonoBehaviour other)
         {
             return InitializationOrder.CompareTo(other.InitializationOrder);

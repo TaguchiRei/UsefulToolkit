@@ -67,45 +67,46 @@ namespace UsefulToolkit.Framework
 
             AssetDatabase.Refresh();
         }
-public static T AutoGenerateAsset<T>(
-    string assetName,
-    GenerateType generateType,
-    string? folderName = null)
-    where T : ScriptableObject
-{
-    string rootPath = generateType == GenerateType.Editor ? GenerateLocalRootPath : GenerateRuntimeRootPath;
 
-    if (generateType != GenerateType.Editor)
-    {
-        rootPath = Path.Combine(rootPath, generateType.ToString());
+        public static T AutoGenerateAsset<T>(
+            string assetName,
+            GenerateType generateType,
+            string? folderName = null)
+            where T : ScriptableObject
+        {
+            string rootPath = generateType == GenerateType.Editor ? GenerateLocalRootPath : GenerateRuntimeRootPath;
+
+            if (generateType != GenerateType.Editor)
+            {
+                rootPath = Path.Combine(rootPath, generateType.ToString());
+            }
+
+            if (!string.IsNullOrWhiteSpace(folderName))
+            {
+                rootPath = Path.Combine(rootPath, folderName);
+            }
+
+            Directory.CreateDirectory(rootPath);
+
+            if (string.IsNullOrEmpty(Path.GetExtension(assetName)))
+            {
+                assetName += ".asset";
+            }
+
+            string assetPath = Path.Combine(rootPath, assetName);
+
+            T instance = ScriptableObject.CreateInstance<T>();
+            AssetDatabase.CreateAsset(instance, assetPath);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            return instance;
+        }
     }
 
-    if (!string.IsNullOrWhiteSpace(folderName))
+    public enum GenerateType
     {
-        rootPath = Path.Combine(rootPath, folderName);
+        Editor,
+        Runtime
     }
-
-    Directory.CreateDirectory(rootPath);
-
-    if (string.IsNullOrEmpty(Path.GetExtension(assetName)))
-    {
-        assetName += ".asset";
-    }
-
-    string assetPath = Path.Combine(rootPath, assetName);
-
-    T instance = ScriptableObject.CreateInstance<T>();
-    AssetDatabase.CreateAsset(instance, assetPath);
-    AssetDatabase.SaveAssets();
-    AssetDatabase.Refresh();
-
-    return instance;
-}
-}
-
-public enum GenerateType
-{
-Editor,
-Runtime
-}
 }
