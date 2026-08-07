@@ -65,6 +65,7 @@ namespace UsefulToolkit.Framework
                 "グラフィックス、エフェクト、見た目に関する演出コンポーネント"),
             new PackageInfo("Static Data Tools", "com.rei.usefultoolkit.staticdatatools",
                 "ScriptableObjectやマスターデータの管理・運用ツール"),
+            new PackageInfo("WorkTrack", "com.rei.usefultoolkit.worktrack", "Unity Editorでの作業時間を自動記録・閲覧するツール"),
         };
 
         // キュー管理と状態

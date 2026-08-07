@@ -103,6 +103,14 @@
         "com.rei.usefultoolkit.framework": "1.0.0"
       }
     },
+    "com.rei.usefultoolkit.worktrack": {
+      "version": "file:com.rei.usefultoolkit.worktrack",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.rei.usefultoolkit.framework": "1.0.0"
+      }
+    },
     "com.unity.ai.navigation": {
       "version": "2.0.10",
       "depth": 0,
