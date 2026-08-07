@@ -1,0 +1,13 @@
+{
+  "name": "com.rei.usefultoolkit.worktrack",
+  "displayName": "Useful Toolkit - WorkTrack",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "description": "Unity Editorでの作業時間を自動記録・閲覧するツール。",
+  "author": {
+    "name": "Rei"
+  },
+  "dependencies": {
+    "com.rei.usefultoolkit.framework": "1.0.0"
+  }
+}

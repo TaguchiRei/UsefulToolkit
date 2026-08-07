@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find / -iname \"*state-centrism*\" 2>/dev/null | head -50)",
+      "Bash(xargs -I{} sh -c 'echo \"== {} ==\"; cat \"{}\"')",
+      "Bash(timeout 60 grep -rl \"b7937238e736e2e46a05c1ade2ecca7e\" ./Library/PackageCache)",
+      "Bash(timeout 90 grep -rl \"b7937238e736e2e46a05c1ade2ecca7e\" ./Library/PackageCache)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(gh api *)",
+      "Bash(gh --version)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "mcp__23b1e2ef-00f8-4718-b6d3-943d9c6d3732__notion-fetch",
+      "mcp__23b1e2ef-00f8-4718-b6d3-943d9c6d3732__notion-update-page",
+      "Bash(find \"/c/Users/trei0/UsefulToolkit/Library/PackageCache\" -maxdepth 1 -iname \"*unitask*\" 2>/dev/null; find / -maxdepth 6 -iname \"*UniTask*\" -path \"*Library*\" 2>/dev/null | head -20)",
+      "mcp__23b1e2ef-00f8-4718-b6d3-943d9c6d3732__notion-search",
+      "mcp__23b1e2ef-00f8-4718-b6d3-943d9c6d3732__notion-create-pages",
+      "Bash(git mv *)",
+      "Bash(git -C /c/Users/trei0/UsefulToolkit status --porcelain -- Packages/com.rei.usefultoolkit.framework/Runtime/Initialization.meta Packages/com.rei.usefultoolkit.framework/Runtime/Initialization)",
+      "Bash(git rm *)",
+      "Bash(git status *)",
+      "Bash(python3 -c \"import json;print\\(json.load\\(open\\('com.rei.usefultoolkit.framework/Runtime/UsefulToolkit.Framework.Runtime.asmdef.meta'.replace\\('.meta','.meta'\\)\\)\\)if False else ''\\)\")"
+    ]
+  }
+}
