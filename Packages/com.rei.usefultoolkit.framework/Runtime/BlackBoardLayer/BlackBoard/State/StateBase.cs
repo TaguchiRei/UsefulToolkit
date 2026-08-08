@@ -25,6 +25,9 @@ namespace UsefulToolkit.Application.StateManagement
     {
         /// <summary> ステートの生存時間 </summary>
         public abstract StateLifeScope LifeScope { get; }
+
+        /// <summary> ステートの状態を取得するためのメソッド </summary>
+        public abstract string GetLog();
     }
 
     /// <summary>
@@ -34,12 +37,19 @@ namespace UsefulToolkit.Application.StateManagement
     /// public interface IPlayerStateGetter : IStateGetter
     /// {
     ///     int PlayerHp { get; }
-    ///
-    ///     
     /// }
     /// </code>
     /// </summary>
     public interface IStateGetter
     {
+        public StateLifeScope LifeScope { get; }
+    }
+    
+    public class TestState : GameStateBase, IStateGetter
+    {
+        public override string GetLog()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -1,0 +1,17 @@
+{
+    "name": "UsefulToolkit.StaticDataTools.Runtime.External",
+    "rootNamespace": "UsefulToolkit.StaticDataTools.External",
+    "references": [
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Runtime.External"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

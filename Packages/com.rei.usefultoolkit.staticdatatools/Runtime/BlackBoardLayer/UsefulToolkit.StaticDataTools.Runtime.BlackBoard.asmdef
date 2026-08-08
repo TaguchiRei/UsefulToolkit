@@ -1,0 +1,17 @@
+{
+    "name": "UsefulToolkit.StaticDataTools.Runtime.BlackBoard",
+    "rootNamespace": "UsefulToolkit.StaticDataTools.BlackBoard",
+    "references": [
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Runtime.BlackBoard"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

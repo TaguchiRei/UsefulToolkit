@@ -1,0 +1,17 @@
+{
+    "name": "UsefulToolkit.QualityControlTools.Runtime.BlackBoard",
+    "rootNamespace": "UsefulToolkit.QualityControlTools.BlackBoard",
+    "references": [
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Runtime.BlackBoard"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

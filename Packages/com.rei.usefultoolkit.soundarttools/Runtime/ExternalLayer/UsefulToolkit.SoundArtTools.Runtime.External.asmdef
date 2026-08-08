@@ -1,0 +1,17 @@
+{
+    "name": "UsefulToolkit.SoundArtTools.Runtime.External",
+    "rootNamespace": "UsefulToolkit.SoundArtTools.External",
+    "references": [
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Runtime.External"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

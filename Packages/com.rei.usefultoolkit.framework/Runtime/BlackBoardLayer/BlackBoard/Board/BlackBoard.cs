@@ -12,13 +12,13 @@ namespace UsefulToolkit.BlackBoard
         private readonly Dictionary<Type, ChildStateBoardBase> _stateChildBoards = new();
         private readonly Dictionary<Type, ChildEventBoardBase> _eventChildBoards = new();
 
-        public bool TryRegisterStateChildBoard<T>(T childBoard) where T : ChildStateBoardBase
+        public bool TryRegisterStateBoard<T>(T childBoard) where T : ChildStateBoardBase
         {
             var type = typeof(T);
             return _stateChildBoards.TryAdd(type, childBoard);
         }
 
-        public bool TryGetStateChildBoard<T>(out T childBoard) where T : ChildStateBoardBase
+        public bool TryGetStateBoard<T>(out T childBoard) where T : ChildStateBoardBase
         {
             if (_stateChildBoards.TryGetValue(typeof(T), out var raw) && raw is T typed)
             {
@@ -30,13 +30,13 @@ namespace UsefulToolkit.BlackBoard
             return false;
         }
 
-        public bool TryRegisterEventChildBoard<T>(T childBoard) where T : ChildEventBoardBase
+        public bool TryRegisterEventBoard<T>(T childBoard) where T : ChildEventBoardBase
         {
             var type = typeof(T);
             return _eventChildBoards.TryAdd(type, childBoard);
         }
 
-        public bool TryGetEventChildBoard<T>(out T childBoard) where T : ChildEventBoardBase
+        public bool TryGetEventBoard<T>(out T childBoard) where T : ChildEventBoardBase
         {
             if (_eventChildBoards.TryGetValue(typeof(T), out var raw) && raw is T typed)
             {

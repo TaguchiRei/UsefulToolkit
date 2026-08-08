@@ -1,0 +1,16 @@
+{
+    "name": "UsefulToolkit.WorkTrack.Editor",
+    "rootNamespace": "UsefulToolkit.WorkTrack",
+    "references": [
+        "UsefulToolkit.Framework.Editor"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

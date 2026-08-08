@@ -2,7 +2,12 @@
     "name": "UsefulToolkit.VisualArtTools.Editor",
     "rootNamespace": "UsefulToolkit.VisualArtTools",
     "references": [
-        "UsefulToolkit.VisualArtTools.Runtime"
+        "UsefulToolkit.VisualArtTools.Runtime",
+        "UsefulToolkit.VisualArtTools.Runtime.Application",
+        "UsefulToolkit.VisualArtTools.Runtime.BlackBoard",
+        "UsefulToolkit.VisualArtTools.Runtime.External",
+        "UsefulToolkit.VisualArtTools.Runtime.EngineService",
+        "UsefulToolkit.VisualArtTools.Runtime.Initialization"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
