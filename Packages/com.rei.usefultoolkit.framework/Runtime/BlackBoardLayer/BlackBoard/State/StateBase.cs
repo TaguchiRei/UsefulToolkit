@@ -37,12 +37,19 @@ namespace UsefulToolkit.Application.StateManagement
     /// public interface IPlayerStateGetter : IStateGetter
     /// {
     ///     int PlayerHp { get; }
-    ///
-    ///     
     /// }
     /// </code>
     /// </summary>
     public interface IStateGetter
     {
+        public StateLifeScope LifeScope { get; }
+    }
+    
+    public class TestState : GameStateBase, IStateGetter
+    {
+        public override string GetLog()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -44,6 +44,7 @@ namespace UsefulToolkit.BlackBoard
             if (_gameStates.TryAdd(typeof(TStateGetter), stateGetter))
             {
                 UsefulLogger.Log($"[{state.GetType().Name}]が登録されました。", GetType());
+                OnRegisterdState<TStateGetter>();
             }
             else
             {
@@ -72,6 +73,7 @@ namespace UsefulToolkit.BlackBoard
             if (_sceneStates.TryAdd(typeof(TStateGetter), (stateGetter, sceneName)))
             {
                 UsefulLogger.Log($"[{state.GetType().Name}]が登録されました。", GetType());
+                OnRegisterdState<TStateGetter>();
             }
             else
             {
@@ -98,6 +100,7 @@ namespace UsefulToolkit.BlackBoard
             if (_unRegistableStates.TryAdd(typeof(TStateGetter), stateGetter))
             {
                 UsefulLogger.Log($"[{state.GetType().Name}]が登録されました。", GetType());
+                OnRegisterdState<TStateGetter>();
                 return new StateDispose(() => _unRegistableStates.Remove(typeof(TStateGetter)));
             }
 
@@ -106,51 +109,97 @@ namespace UsefulToolkit.BlackBoard
 
         #endregion
 
+        #region 取得用メソッド
+
+        public bool TryGetGameState<TStateGetter>(out TStateGetter state) where TStateGetter : IStateGetter
+        {
+            var result = _gameStates.TryGetValue(typeof(TStateGetter), out var stateGetter);
+
+            if (result)
+            {
+                state = (TStateGetter)stateGetter;
+            }
+            else
+            {
+                state = default;
+            }
+
+            return result;
+        }
+
+        public bool TryGetSceneState<TStateGetter>(out TStateGetter state, out string sceneName)
+            where TStateGetter : IStateGetter
+        {
+            var result = _sceneStates.TryGetValue(typeof(TStateGetter), out var stateGetter);
+
+            if (result)
+            {
+                state = (TStateGetter)stateGetter.State;
+                sceneName = stateGetter.SceneName;
+            }
+            else
+            {
+                sceneName = null;
+                state = default;
+            }
+
+            return result;
+        }
+
+        public bool TryGetUnRegistableState<TStateGetter>(out TStateGetter state) where TStateGetter : IStateGetter
+        {
+            var result = _unRegistableStates.TryGetValue(typeof(TStateGetter), out var stateGetter);
+
+            if (result)
+            {
+                state = (TStateGetter)stateGetter;
+            }
+            else
+            {
+                state = default;
+            }
+
+            return result;
+        }
+
+        #endregion
+
         #region Utilityメソッド
 
-        public bool CheckRegisterState<TState>(TState type) where TState : StateBase, IStateGetter
+        public bool CheckRegisterGameState<TStateGetter>() where TStateGetter : IStateGetter
         {
-            switch (type.LifeScope)
-            {
-                case StateLifeScope.OnGameEnd:
-                    return _gameStates.ContainsKey(typeof(TState));
-                case StateLifeScope.OnSceneEnd:
-                    return _sceneStates.ContainsKey(typeof(TState));
-                default:
-                    return _unRegistableStates.ContainsKey(typeof(TState));
-            }
+            return _gameStates.ContainsKey(typeof(TStateGetter));
         }
 
-        public bool CheckRegisterGameState<TState>(TState type) where TState : GameStateBase, IStateGetter
+        public bool CheckRegisterSceneState<TStateGetter>() where TStateGetter : IStateGetter
         {
-            return _gameStates.ContainsKey(typeof(TState));
+            return _sceneStates.ContainsKey(typeof(TStateGetter));
         }
 
-        public bool CheckRegisterSceneState<TState>(TState type) where TState : IStateGetter
+        public bool CheckRegisterUnRegistableState<TStateGetter>() where TStateGetter : IStateGetter
         {
-            return _sceneStates.ContainsKey(typeof(TState));
-        }
-
-        public bool CheckRegisterUnRegistableState<TState>(TState type) where TState : IStateGetter
-        {
-            return _unRegistableStates.ContainsKey(typeof(TState));
+            return _unRegistableStates.ContainsKey(typeof(TStateGetter));
         }
 
         /// <summary>
         /// 特定のステートが登録された際に実行されるActionを登録するメソッド
+        /// GameStateに紐づけて登録する場合、基本的にGameStateは初期化時に登録されるため、実行されない可能性があります。
         /// </summary>
         /// <param name="action">登録するAction</param>
         /// <typeparam name="TStateGetter"></typeparam>
         public IDisposable SubscribeStateRegister<TStateGetter>(Action action) where TStateGetter : IStateGetter
         {
             if (action is null) throw new ArgumentNullException(nameof(action));
-            if (_availability.ContainsKey(typeof(TStateGetter)))
+
+            if (!_availability.TryGetValue(typeof(TStateGetter), out var list))
             {
-                _availability[typeof(TStateGetter)].Add(action);
-                return new StateDispose(() => { _availability[typeof(TStateGetter)].Remove(action); });
+                list = new List<Action>();
+                _availability[typeof(TStateGetter)] = list;
             }
 
-            throw new InvalidOperationException($"[{typeof(TStateGetter)}]は未登録です");
+            list.Add(action);
+
+            return new StateDispose(() => list.Remove(action));
         }
 
         #endregion
@@ -170,6 +219,17 @@ namespace UsefulToolkit.BlackBoard
             foreach (var key in keys)
             {
                 _sceneStates.Remove(key);
+            }
+        }
+
+        private void OnRegisterdState<TStateGetter>()
+        {
+            if (_availability.TryGetValue(typeof(TStateGetter), out var list))
+            {
+                foreach (var action in list.ToArray())
+                {
+                    action?.Invoke();
+                }
             }
         }
     }

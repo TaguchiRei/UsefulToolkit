@@ -99,5 +99,10 @@ namespace UsefulToolkit.Framework
 
             return channel;
         }
+
+        public override string GetLog()
+        {
+            throw new NotImplementedException();
+        }
     }
 }
