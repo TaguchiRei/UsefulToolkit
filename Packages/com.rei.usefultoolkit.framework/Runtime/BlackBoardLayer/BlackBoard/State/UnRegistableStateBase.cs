@@ -5,7 +5,7 @@ namespace UsefulToolkit.Application.StateManagement
     /// <summary>
     /// 生存時間を制御可能なステートのベースクラス
     /// </summary>
-    public class UnRegistableStateBase : StateBase
+    public abstract class UnRegistableStateBase : StateBase
     {
         public sealed override StateLifeScope LifeScope => StateLifeScope.Other;
     }

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UsefulToolkit.Application.StateManagement;
+using UsefulToolkit.Framework.BlackBoard;
 
 namespace UsefulToolkit.BlackBoard
 {
@@ -21,7 +23,7 @@ namespace UsefulToolkit.BlackBoard
         private readonly Dictionary<Type, IStateGetter> _unRegistableStates = new();
 
         /// <summary> 特定のステートが登録されたときに実行されるアクション </summary>
-        private readonly Dictionary<Type, object> _availability = new();
+        private readonly Dictionary<Type, List<Action>> _availability = new();
 
         #region Register系メソッド
 
@@ -41,7 +43,7 @@ namespace UsefulToolkit.BlackBoard
 
             if (_gameStates.TryAdd(typeof(TStateGetter), stateGetter))
             {
-                Debug.Log("");
+                UsefulLogger.Log($"[{state.GetType().Name}]が登録されました。", GetType());
             }
             else
             {
@@ -61,20 +63,19 @@ namespace UsefulToolkit.BlackBoard
             where TStateGetter : IStateGetter
         {
             if (string.IsNullOrEmpty(sceneName)) throw new ArgumentException("シーン名はnullにはできません");
-            if (state is TStateGetter stateGetter)
+
+            if (state is not TStateGetter stateGetter)
             {
-                if (!_sceneStates.ContainsKey(typeof(TStateGetter)))
-                {
-                    _sceneStates.Add(typeof(TStateGetter), (stateGetter, sceneName));
-                }
-                else
-                {
-                    throw new InvalidOperationException($"ステート [{typeof(TStateGetter)}] はすでに登録されています");
-                }
+                throw new ArgumentException($"ステート [{state.GetType().Name}] は [{typeof(TStateGetter)}] を実装していません。");
+            }
+
+            if (_sceneStates.TryAdd(typeof(TStateGetter), (stateGetter, sceneName)))
+            {
+                UsefulLogger.Log($"[{state.GetType().Name}]が登録されました。", GetType());
             }
             else
             {
-                throw new ArgumentException($"ステート [{state.GetType().Name}] は [{typeof(TStateGetter)}] を実装していません。");
+                throw new InvalidOperationException($"ステート [{typeof(TStateGetter)}] はすでに登録されています");
             }
         }
 
@@ -89,24 +90,87 @@ namespace UsefulToolkit.BlackBoard
         public IDisposable RegisterUnRegistableState<TStateGetter>(UnRegistableStateBase state)
             where TStateGetter : IStateGetter
         {
-            if (state is TStateGetter stateGetter)
-            {
-                if (!_unRegistableStates.ContainsKey(typeof(TStateGetter)))
-                {
-                    _unRegistableStates.Add(typeof(TStateGetter), stateGetter);
-                    return new StateDispose(() => _unRegistableStates.Remove(typeof(TStateGetter)));
-                }
-                else
-                {
-                    throw new InvalidOperationException($"ステート [{typeof(TStateGetter)}] はすでに登録されています");
-                }
-            }
-            else
+            if (state is not TStateGetter stateGetter)
             {
                 throw new ArgumentException($"ステート [{state.GetType().Name}] は [{typeof(TStateGetter)}] を実装していません。");
             }
+
+            if (_unRegistableStates.TryAdd(typeof(TStateGetter), stateGetter))
+            {
+                UsefulLogger.Log($"[{state.GetType().Name}]が登録されました。", GetType());
+                return new StateDispose(() => _unRegistableStates.Remove(typeof(TStateGetter)));
+            }
+
+            throw new InvalidOperationException($"ステート [{typeof(TStateGetter)}] はすでに登録されています");
         }
 
         #endregion
+
+        #region Utilityメソッド
+
+        public bool CheckRegisterState<TState>(TState type) where TState : StateBase, IStateGetter
+        {
+            switch (type.LifeScope)
+            {
+                case StateLifeScope.OnGameEnd:
+                    return _gameStates.ContainsKey(typeof(TState));
+                case StateLifeScope.OnSceneEnd:
+                    return _sceneStates.ContainsKey(typeof(TState));
+                default:
+                    return _unRegistableStates.ContainsKey(typeof(TState));
+            }
+        }
+
+        public bool CheckRegisterGameState<TState>(TState type) where TState : GameStateBase, IStateGetter
+        {
+            return _gameStates.ContainsKey(typeof(TState));
+        }
+
+        public bool CheckRegisterSceneState<TState>(TState type) where TState : IStateGetter
+        {
+            return _sceneStates.ContainsKey(typeof(TState));
+        }
+
+        public bool CheckRegisterUnRegistableState<TState>(TState type) where TState : IStateGetter
+        {
+            return _unRegistableStates.ContainsKey(typeof(TState));
+        }
+
+        /// <summary>
+        /// 特定のステートが登録された際に実行されるActionを登録するメソッド
+        /// </summary>
+        /// <param name="action">登録するAction</param>
+        /// <typeparam name="TStateGetter"></typeparam>
+        public IDisposable SubscribeStateRegister<TStateGetter>(Action action) where TStateGetter : IStateGetter
+        {
+            if (action is null) throw new ArgumentNullException(nameof(action));
+            if (_availability.ContainsKey(typeof(TStateGetter)))
+            {
+                _availability[typeof(TStateGetter)].Add(action);
+                return new StateDispose(() => { _availability[typeof(TStateGetter)].Remove(action); });
+            }
+
+            throw new InvalidOperationException($"[{typeof(TStateGetter)}]は未登録です");
+        }
+
+        #endregion
+
+
+        /// <summary>
+        /// シーン変更時にそのシーンのStateの登録を解除するためのメソッド
+        /// </summary>
+        /// <param name="sceneName"></param>
+        internal void OnSceneChanged(string sceneName)
+        {
+            var keys = _sceneStates
+                .Where(x => x.Value.SceneName == sceneName)
+                .Select(x => x.Key)
+                .ToList();
+
+            foreach (var key in keys)
+            {
+                _sceneStates.Remove(key);
+            }
+        }
     }
 }
