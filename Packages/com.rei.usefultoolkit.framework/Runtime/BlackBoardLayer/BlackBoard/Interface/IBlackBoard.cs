@@ -6,11 +6,11 @@ namespace UsefulToolkit.BlackBoard
     /// </summary>
     public interface IBlackBoard
     {
-        bool TryGetStateChildBoard<T>(out T childBoard) where T : ChildStateBoardBase;
-        bool TryRegisterStateChildBoard<T>(T childBoard) where T : ChildStateBoardBase;
+        bool TryGetStateBoard<T>(out T childBoard) where T : ChildStateBoardBase;
+        bool TryRegisterStateBoard<T>(T childBoard) where T : ChildStateBoardBase;
 
-        bool TryGetEventChildBoard<T>(out T childBoard) where T : ChildEventBoardBase;
-        bool TryRegisterEventChildBoard<T>(T childBoard) where T : ChildEventBoardBase;
+        bool TryGetEventBoard<T>(out T childBoard) where T : ChildEventBoardBase;
+        bool TryRegisterEventBoard<T>(T childBoard) where T : ChildEventBoardBase;
 
         /// <summary>
         /// 登録済みの全StateChildBoardへOnSceneChangedをfan-outする。シーン管理システムが

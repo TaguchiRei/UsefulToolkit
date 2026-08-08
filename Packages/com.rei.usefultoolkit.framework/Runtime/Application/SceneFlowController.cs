@@ -25,12 +25,12 @@ namespace UsefulToolkit.Framework
             _flow = flow;
 
             _sceneState = new SceneState<T>(flow);
-            if (!blackBoard.TryGetStateChildBoard<SceneBoard>(out var sceneBoard))
+            if (!blackBoard.TryGetStateBoard<SceneBoard>(out var sceneBoard))
                 throw new InvalidOperationException($"{nameof(SceneBoard)}が{nameof(IBlackBoard)}に見つかりません。");
             sceneBoard.TryRegisterState<ISceneStateGetter<T>>(_sceneState);
 
             _changeBoard = new SceneChangeBoard<T>();
-            blackBoard.TryRegisterEventChildBoard(_changeBoard);
+            blackBoard.TryRegisterEventBoard(_changeBoard);
         }
 
         /// <summary>指定したシーンノード・シーングループへ遷移する。groupIdはSceneNode.SceneGroupsの配列インデックス。</summary>

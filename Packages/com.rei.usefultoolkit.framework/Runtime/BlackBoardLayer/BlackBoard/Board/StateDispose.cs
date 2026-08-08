@@ -2,7 +2,7 @@ using System;
 
 namespace UsefulToolkit.BlackBoard
 {
-    public class StateDispose : IDisposable
+    internal class StateDispose : IDisposable
     {
         private Action _disposeAction;
 

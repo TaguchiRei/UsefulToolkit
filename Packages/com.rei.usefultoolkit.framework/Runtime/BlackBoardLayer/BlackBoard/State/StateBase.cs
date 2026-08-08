@@ -25,6 +25,9 @@ namespace UsefulToolkit.Application.StateManagement
     {
         /// <summary> ステートの生存時間 </summary>
         public abstract StateLifeScope LifeScope { get; }
+
+        /// <summary> ステートの状態を取得するためのメソッド </summary>
+        public abstract string GetLog();
     }
 
     /// <summary>

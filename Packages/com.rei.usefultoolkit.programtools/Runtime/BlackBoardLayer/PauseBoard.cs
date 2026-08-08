@@ -1,8 +1,9 @@
 using UnityEngine;
+using UsefulToolkit.BlackBoard;
 
 namespace UsefulToolkit.ProgramTools
 {
-    public class PauseBoard 
+    public class PauseBoard : ChildStateBoardBase
     {
         
     }

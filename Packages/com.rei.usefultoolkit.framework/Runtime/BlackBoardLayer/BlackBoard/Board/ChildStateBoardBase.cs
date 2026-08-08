@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using UsefulToolkit.Application.StateManagement;
 
 namespace UsefulToolkit.BlackBoard
@@ -10,132 +11,102 @@ namespace UsefulToolkit.BlackBoard
     /// </summary>
     public abstract class ChildStateBoardBase
     {
-        private readonly Dictionary<Type, IStateGetter> _states = new();
+        /// <summary> ゲーム全体を通して保持されるステートの参照インターフェースを保持するコンテナ </summary>
+        private readonly Dictionary<Type, IStateGetter> _gameStates = new();
 
-        // シーンスコープ(SceneStateBase)専用のコンテナ。どのシーンが登録したかをsceneNameで保持し、
-        // OnSceneChangedで該当シーン分だけを一括Unregisterできるようにする
+        /// <summary> シーンに依存するステートの参照インターフェースのコンテナ </summary>
         private readonly Dictionary<Type, (IStateGetter State, string SceneName)> _sceneStates = new();
 
-        // 特定の型が登録されたときに実行されるActionを保存する
+        /// <summary> 登録解除可能なステートの参照インターフェースを保持するコンテナ </summary>
+        private readonly Dictionary<Type, IStateGetter> _unRegistableStates = new();
+
+        /// <summary> 特定のステートが登録されたときに実行されるアクション </summary>
         private readonly Dictionary<Type, object> _availability = new();
 
-        /// <summary>
-        /// StateをGetterインターフェース型TGetterで登録する。呼び出し例:
-        /// <c>playerBoard.TryRegisterState&lt;IPlayerStateGetter&gt;(playerState);</c>
-        /// 同じ型が既に登録されていれば例外を投げる。
-        /// 返り値のIDisposableをDisposeすることで解除できる(スコープの管理は呼び出し側の責任)。
-        /// SceneStateBaseを継承したStateはこちらではなくTryRegisterSceneStateを使うこと。
-        /// </summary>
-        public IDisposable TryRegisterState<TGetter>(TGetter state) where TGetter : IStateGetter
-        {
-            var type = typeof(TGetter);
-            if (_states.ContainsKey(type) || _sceneStates.ContainsKey(type))
-                throw new InvalidOperationException($"State '{type.Name}' はすでに {GetType().Name} に登録されています。");
-
-            _states[type] = state;
-
-            PublishAvailability(type, state);
-
-            return new StateDispose(() => _states.Remove(type));
-        }
+        #region Register系メソッド
 
         /// <summary>
-        /// SceneStateBaseスコープのStateを、所属するシーン名(sceneName)付きで登録する。
-        /// 通常のTryRegisterStateとは別のコンテナで管理され、OnSceneChanged(sceneName)で
-        /// 該当シーン分のみが一括Unregisterされる(他シーンのSceneStateBase Stateには影響しない)。
+        /// ゲーム終了時まで破棄されないStateを登録するメソッド。
         /// </summary>
-        public IDisposable TryRegisterSceneState<TGetter>(TGetter state, string sceneName) where TGetter : IStateGetter
+        /// <param name="state">登録するステート</param>
+        /// <typeparam name="TStateGetter">ステートのGetterインターフェース</typeparam>
+        /// <exception cref="InvalidOperationException">すでにそのステートが登録されているときに出力</exception>
+        /// <exception cref="ArgumentException">指定されたステートがStateGetterを実装していないときに出力</exception>
+        public void RegisterGameState<TStateGetter>(GameStateBase state) where TStateGetter : IStateGetter
         {
-            if (string.IsNullOrEmpty(sceneName))
-                throw new ArgumentException("sceneNameを空にすることはできません。", nameof(sceneName));
-
-            if (state is StateBase stateBase && stateBase.LifeScope != StateLifeScope.OnSceneEnd)
-                throw new InvalidOperationException(
-                    $"TryRegisterSceneStateはLifeScope.OnSceneEndのStateのみ登録できます('{typeof(TGetter).Name}'は{stateBase.LifeScope}です)。");
-
-            var type = typeof(TGetter);
-            if (_states.ContainsKey(type) || _sceneStates.ContainsKey(type))
-                throw new InvalidOperationException($"State '{type.Name}' はすでに {GetType().Name} に登録されています。");
-
-            _sceneStates[type] = (state, sceneName);
-
-            PublishAvailability(type, state);
-
-            return new StateDispose(() => _sceneStates.Remove(type));
-        }
-
-        /// <summary>Getterインターフェース型TGetterで登録済みのStateを取得する。</summary>
-        public bool TryGetState<TGetter>(out TGetter state) where TGetter : IStateGetter
-        {
-            var type = typeof(TGetter);
-
-            if (_states.TryGetValue(type, out var raw) && raw is TGetter typed)
+            if (state is not TStateGetter stateGetter)
             {
-                state = typed;
-                return true;
+                throw new ArgumentException($"ステート [{state.GetType().Name}] は [{typeof(TStateGetter)}] を実装していません。");
             }
 
-            if (_sceneStates.TryGetValue(type, out var sceneEntry) && sceneEntry.State is TGetter sceneTyped)
+            if (_gameStates.TryAdd(typeof(TStateGetter), stateGetter))
             {
-                state = sceneTyped;
-                return true;
+                Debug.Log("");
             }
-
-            state = default;
-            return false;
+            else
+            {
+                throw new InvalidOperationException($"ステート [{typeof(TStateGetter)}] はすでに登録されています");
+            }
         }
 
         /// <summary>
-        /// TGetter型のStateが登録された瞬間(既に登録済みなら即時)にonRegisteredを呼ぶ。
-        /// 対象がUnregister→再登録を繰り返しても、呼び出し側がDisposeするまで毎回発火し続ける
-        /// (1回限りの通知ではない)。設定画面用StateやAdditional SceneのStateのように
-        /// 後から動的に登録されるStateを、毎フレームのポーリングなしで待ち受けられる。
-        /// TryRegisterState/TryRegisterSceneStateのどちらで登録されたStateにも反応する。
+        /// シーンアンロードまで破棄されないステートを登録するメソッド。
         /// </summary>
-        public IDisposable RegisterOnRegistered<TGetter>(Action<TGetter> onRegistered) where TGetter : IStateGetter
+        /// <param name="state">登録するステート</param>
+        /// <param name="sceneName">依存するシーン名</param>
+        /// <typeparam name="TStateGetter">ステートのGetterインターフェース</typeparam>
+        /// <exception cref="InvalidOperationException">すでにそのステートが登録されているときに出力</exception>
+        /// <exception cref="ArgumentException">指定されたステートがStateGetterを実装していないときに出力</exception>
+        public void RegisterSceneState<TStateGetter>(SceneStateBase state, string sceneName)
+            where TStateGetter : IStateGetter
         {
-            var type = typeof(TGetter);
-
-            if (_states.TryGetValue(type, out var existing) && existing is TGetter typed)
-                onRegistered(typed);
-            else if (_sceneStates.TryGetValue(type, out var sceneEntry) && sceneEntry.State is TGetter sceneTyped)
-                onRegistered(sceneTyped);
-
-            if (!_availability.TryGetValue(type, out var raw) || raw is not EventChannel<TGetter> channel)
+            if (string.IsNullOrEmpty(sceneName)) throw new ArgumentException("シーン名はnullにはできません");
+            if (state is TStateGetter stateGetter)
             {
-                channel = new EventChannel<TGetter>();
-                _availability[type] = channel;
+                if (!_sceneStates.ContainsKey(typeof(TStateGetter)))
+                {
+                    _sceneStates.Add(typeof(TStateGetter), (stateGetter, sceneName));
+                }
+                else
+                {
+                    throw new InvalidOperationException($"ステート [{typeof(TStateGetter)}] はすでに登録されています");
+                }
             }
-
-            return channel.Register(onRegistered);
+            else
+            {
+                throw new ArgumentException($"ステート [{state.GetType().Name}] は [{typeof(TStateGetter)}] を実装していません。");
+            }
         }
 
         /// <summary>
-        /// 指定したsceneNameでTryRegisterSceneStateされているStateのみを一括Unregisterする。
-        /// シーン管理システムが該当シーンのUnload時に呼ぶ想定——他シーンが登録した
-        /// SceneStateBase Stateや、TryRegisterStateで登録された通常Stateには影響しない。
+        /// 登録解除可能なステートを登録する。
         /// </summary>
-        public void OnSceneChanged(string sceneName)
+        /// <param name="state">登録するステート</param>
+        /// <typeparam name="TStateGetter">ステートのGetterインターフェース</typeparam>
+        /// <returns>登録解除のためのインターフェース</returns>
+        /// <exception cref="InvalidOperationException">すでにそのステートが登録されているときに出力</exception>
+        /// <exception cref="ArgumentException">指定されたステートがStateGetterを実装していないときに出力</exception>
+        public IDisposable RegisterUnRegistableState<TStateGetter>(UnRegistableStateBase state)
+            where TStateGetter : IStateGetter
         {
-            List<Type> toRemove = null;
-
-            foreach (var pair in _sceneStates)
+            if (state is TStateGetter stateGetter)
             {
-                if (pair.Value.SceneName != sceneName) continue;
-                toRemove ??= new List<Type>();
-                toRemove.Add(pair.Key);
+                if (!_unRegistableStates.ContainsKey(typeof(TStateGetter)))
+                {
+                    _unRegistableStates.Add(typeof(TStateGetter), stateGetter);
+                    return new StateDispose(() => _unRegistableStates.Remove(typeof(TStateGetter)));
+                }
+                else
+                {
+                    throw new InvalidOperationException($"ステート [{typeof(TStateGetter)}] はすでに登録されています");
+                }
             }
-
-            if (toRemove == null) return;
-
-            foreach (var type in toRemove)
-                _sceneStates.Remove(type);
+            else
+            {
+                throw new ArgumentException($"ステート [{state.GetType().Name}] は [{typeof(TStateGetter)}] を実装していません。");
+            }
         }
 
-        private void PublishAvailability<TGetter>(Type type, TGetter state) where TGetter : IStateGetter
-        {
-            if (_availability.TryGetValue(type, out var raw) && raw is EventChannel<TGetter> channel)
-                channel.Publish(state);
-        }
+        #endregion
     }
 }
