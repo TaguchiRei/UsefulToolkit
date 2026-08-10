@@ -49,12 +49,18 @@ namespace UsefulToolkit.Framework.BlackBoard
         }
 
         /// <summary>
-        /// 登録済みの全StateChildBoardへOnSceneChangedをfan-outする。EventChildBoardは
-        /// 値を永続化しないためシーンスコープの解除対象がなく、対象外。
+        /// 登録済みの全ChildBoardへOnSceneChangedをfan-outする。
+        /// Eventは値を永続化しないが、チャンネルの実体はChildEventBoardが握り続けるため、
+        /// StateChildBoardと同様にシーンスコープの解除対象になる。
         /// </summary>
         public void OnSceneChanged(string sceneName)
         {
             foreach (var childBoard in _stateChildBoards.Values)
+            {
+                childBoard.OnSceneChanged(sceneName);
+            }
+
+            foreach (var childBoard in _eventChildBoards.Values)
             {
                 childBoard.OnSceneChanged(sceneName);
             }

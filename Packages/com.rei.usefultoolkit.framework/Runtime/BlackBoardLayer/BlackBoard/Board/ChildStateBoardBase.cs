@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UsefulToolkit.Application.StateManagement;
-using UsefulToolkit.Framework.BlackBoard;
 
 namespace UsefulToolkit.Framework.BlackBoard
 {
@@ -183,10 +182,14 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// <summary>
         /// 特定のステートが登録された際に実行されるActionを登録するメソッド
         /// GameStateに紐づけて登録する場合、基本的にGameStateは初期化時に登録されるため、実行されない可能性があります。
+        /// その場合はinvokeIfRegisteredをtrueにすることで、登録済みならこの場で1回発火させられます。
         /// </summary>
         /// <param name="action">登録するAction</param>
+        /// <param name="invokeIfRegistered">trueの場合、TStateGetterがすでに登録済みならその場で1回発火する</param>
         /// <typeparam name="TStateGetter"></typeparam>
-        public IDisposable SubscribeStateRegister<TStateGetter>(Action action) where TStateGetter : IStateGetter
+        /// <exception cref="ArgumentNullException">actionがnullのときに出力</exception>
+        public IDisposable SubscribeStateRegister<TStateGetter>(Action action, bool invokeIfRegistered = false)
+            where TStateGetter : IStateGetter
         {
             if (action is null) throw new ArgumentNullException(nameof(action));
 
@@ -197,6 +200,12 @@ namespace UsefulToolkit.Framework.BlackBoard
             }
 
             list.Add(action);
+
+            // 待受を始める前に登録が済んでいたケースを拾うための即時発火
+            if (invokeIfRegistered && IsRegistered<TStateGetter>())
+            {
+                action.Invoke();
+            }
 
             return new BoardDispose(() => list.Remove(action));
         }
@@ -219,6 +228,14 @@ namespace UsefulToolkit.Framework.BlackBoard
             {
                 _sceneStates.Remove(key);
             }
+        }
+
+        private bool IsRegistered<TStateGetter>() where TStateGetter : IStateGetter
+        {
+            var type = typeof(TStateGetter);
+            return _gameStates.ContainsKey(type)
+                   || _sceneStates.ContainsKey(type)
+                   || _unRegistableStates.ContainsKey(type);
         }
 
         private void OnRegisterdState<TStateGetter>()

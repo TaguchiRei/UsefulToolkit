@@ -6,9 +6,9 @@ namespace UsefulToolkit.Framework.BlackBoard
     /// <summary>
     /// IFuncChainChannelの実装。登録された全ハンドラを数珠つなぎに呼び出し、
     /// 前のハンドラの戻り値を次のハンドラの引数へ渡して値を加工していくイベント経路。
-    /// Publishはこのチャンネルを所有するクラス(EngineServiceLayerや
+    /// Invokeはこのチャンネルを所有するクラス(EngineServiceLayerや
     /// Applicationのうち、その加工の起点となるクラス)だけが呼ぶこと。
-    /// IFuncChainChannel&lt;TPayload&gt;としてしか公開しなければ、外部からPublishされる事故は型で防げる。
+    /// IFuncChainChannel&lt;TPayload&gt;としてしか公開しなければ、外部からInvokeされる事故は型で防げる。
     /// </summary>
     public sealed class FuncChainChannel<TPayload> : IFuncChainChannel<TPayload>
     {
@@ -36,9 +36,9 @@ namespace UsefulToolkit.Framework.BlackBoard
                 throw new InvalidOperationException($"ハンドラ [{handler.Method.Name}] はすでに登録されています。");
             }
 
-            // Publishのたびに並べ替えずに済むよう、登録時点で優先度順の位置へ挿入する。
+            // Invokeのたびに並べ替えずに済むよう、登録時点で優先度順の位置へ挿入する。
             // 同じ優先度のグループの末尾へ挿入することで同値同士の登録順が保たれる
-            // (List.Sortは安定ソートではないため、Publish時のソートでは順序を保証できない)
+            // (List.Sortは安定ソートではないため、Invoke時のソートでは順序を保証できない)
             var entry = (Priority: priority, Handler: handler);
             var index = _callbacks.FindIndex(x => x.Priority > priority);
 
@@ -61,16 +61,16 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// <param name="payload">加工の起点となる値</param>
         public TPayload Invoke(TPayload payload)
         {
-            // Publish中にハンドラ側がRegister/Unregisterしてもこの走査には影響しないようスナップショットする
+            // Invoke中にハンドラ側がRegister/Unregisterしてもこの走査には影響しないようスナップショットする
             var snapshot = _callbacks.ToArray();
 
-            var payloadToPublish = payload;
+            var processedPayload = payload;
             foreach (var (_, handler) in snapshot)
             {
-                payloadToPublish = handler(payloadToPublish);
+                processedPayload = handler(processedPayload);
             }
 
-            return payloadToPublish;
+            return processedPayload;
         }
     }
 }

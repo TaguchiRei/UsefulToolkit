@@ -13,9 +13,9 @@ namespace UsefulToolkit.Framework.BlackBoard
         bool TryRegisterEventBoard<T>(T childBoard) where T : ChildEventBoardBase;
 
         /// <summary>
-        /// 登録済みの全StateChildBoardへOnSceneChangedをfan-outする。シーン管理システムが
-        /// 指定シーンのUnload時に呼び、そのシーンがTryRegisterSceneStateで登録した
-        /// SceneStateBase Stateだけを、ChildBoardの種類をまたいで一括Unregisterする。
+        /// 登録済みの全ChildBoardへOnSceneChangedをfan-outする。シーン管理システムが
+        /// 指定シーンのUnload時に呼び、そのシーンがRegisterSceneState/RegisterSceneEventで
+        /// 登録したStateとイベントチャンネルだけを、ChildBoardの種類をまたいで一括Unregisterする。
         /// </summary>
         void OnSceneChanged(string sceneName);
     }

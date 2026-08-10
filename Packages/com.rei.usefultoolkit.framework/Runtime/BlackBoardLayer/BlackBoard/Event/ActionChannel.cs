@@ -5,9 +5,9 @@ namespace UsefulToolkit.Framework.BlackBoard
 {
     /// <summary>
     /// IActionChannelの実装。戻り値を持たない「通知して終わり」のイベント経路。
-    /// Publishはこのチャンネルを所有するクラス(EngineServiceLayerや
+    /// Invokeはこのチャンネルを所有するクラス(EngineServiceLayerや
     /// Applicationのうち、そのイベントの発生源となるクラス)だけが呼ぶこと。
-    /// IActionChannel&lt;TPayload&gt;としてしか公開しなければ、外部からPublishされる事故は型で防げる。
+    /// IActionChannel&lt;TPayload&gt;としてしか公開しなければ、外部からInvokeされる事故は型で防げる。
     /// </summary>
     public sealed class ActionChannel<TPayload> : IActionChannel<TPayload>
     {
@@ -40,7 +40,7 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// <param name="payload">ハンドラへ渡す値</param>
         public void Invoke(TPayload payload)
         {
-            // Publish中にハンドラ側がRegister/Unregisterしてもこの走査には影響しないようスナップショットする
+            // Invoke中にハンドラ側がRegister/Unregisterしてもこの走査には影響しないようスナップショットする
             var snapshot = _handlers.ToArray();
             foreach (var handler in snapshot)
             {

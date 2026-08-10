@@ -6,10 +6,10 @@ namespace UsefulToolkit.Framework.BlackBoard
     /// <summary>
     /// IFuncCollectChannelの実装。登録された全ハンドラへ同じ引数を渡して呼び出し、
     /// それぞれの戻り値をまとめて受け取る「全員に問い合わせる」イベント経路。
-    /// Publishはこのチャンネルを所有するクラス(EngineServiceLayerや
+    /// Invokeはこのチャンネルを所有するクラス(EngineServiceLayerや
     /// Applicationのうち、その問い合わせの発生源となるクラス)だけが呼ぶこと。
     /// IFuncCollectChannel&lt;TArgument, TReturnValue&gt;としてしか公開しなければ、
-    /// 外部からPublishされる事故は型で防げる。
+    /// 外部からInvokeされる事故は型で防げる。
     /// </summary>
     public sealed class FuncCollectChannel<TArgument, TReturnValue> : IFuncCollectChannel<TArgument, TReturnValue>
     {
@@ -44,7 +44,7 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// <param name="argument">全ハンドラへ渡す引数</param>
         public TReturnValue[] Invoke(TArgument argument)
         {
-            // Publish中にハンドラ側がRegister/Unregisterしてもこの走査には影響しないようスナップショットする。
+            // Invoke中にハンドラ側がRegister/Unregisterしてもこの走査には影響しないようスナップショットする。
             // 走査中の増減で戻り値配列の長さが変わらないようにする意味もある
             var snapshot = _callbacks.ToArray();
 
