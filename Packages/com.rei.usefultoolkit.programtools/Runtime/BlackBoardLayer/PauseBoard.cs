@@ -1,5 +1,5 @@
 using UnityEngine;
-using UsefulToolkit.BlackBoard;
+using UsefulToolkit.Framework.BlackBoard;
 
 namespace UsefulToolkit.ProgramTools
 {

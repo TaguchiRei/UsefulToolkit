@@ -3,6 +3,9 @@ using UsefulToolkit.Framework.BlackBoard;
 
 namespace UsefulToolkit.Framework
 {
+    /// <summary>
+    /// Stateクラスに付け、どのボードに登録されるかを公開する
+    /// </summary>
     public class RegisterBoardAttribute : Attribute
     {
         public Type BoardType;
@@ -13,6 +16,8 @@ namespace UsefulToolkit.Framework
             {
                 throw new ArgumentException("Type " + type + " is not assignable to " + typeof(ChildStateBoardBase));
             }
+
+            BoardType = type;
         }
     }
 }
