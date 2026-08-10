@@ -61,7 +61,7 @@ namespace UsefulToolkit.Input
 
             source.RegisterAction(Handler);
 
-            return new StateDispose(() => source.UnRegisterAction(Handler));
+            return new BoardDispose(() => source.UnRegisterAction(Handler));
         }
 
         private EventChannel<InputContext<TValue>> GetOrCreateChannel<TValue>(Enum map, Enum action)

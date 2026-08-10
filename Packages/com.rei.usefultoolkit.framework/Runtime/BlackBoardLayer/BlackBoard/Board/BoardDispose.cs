@@ -1,19 +1,19 @@
 using System;
 
-namespace UsefulToolkit.BlackBoard
+namespace UsefulToolkit.Framework.BlackBoard
 {
-    public class StateDispose : IDisposable
+    public class BoardDispose : IDisposable
     {
         private Action _disposeAction;
 
-        public StateDispose(Action disposeAction)
+        public BoardDispose(Action disposeAction)
         {
             _disposeAction = disposeAction;
         }
 
         public void Dispose()
         {
-            _disposeAction();
+            _disposeAction?.Invoke();
             _disposeAction = null;
         }
     }

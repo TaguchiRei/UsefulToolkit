@@ -1,13 +1,10 @@
-using System;
-using UnityEngine;
-
 namespace UsefulToolkit.Application.StateManagement
 {
     /// <summary>
-    /// ゲーム終了時まで残るステートのベースクラス
+    /// ゲーム終了時まで残るステートのベースクラス。
+    /// ChildStateBoardBase.RegisterGameStateの引数型として生存期間を表明する。
     /// </summary>
     public abstract class GameStateBase : StateBase
     {
-        public sealed override StateLifeScope LifeScope => StateLifeScope.OnGameEnd;
     }
 }

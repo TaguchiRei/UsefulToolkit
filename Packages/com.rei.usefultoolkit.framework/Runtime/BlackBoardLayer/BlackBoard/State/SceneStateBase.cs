@@ -1,12 +1,10 @@
-using UnityEngine;
-
 namespace UsefulToolkit.Application.StateManagement
 {
     /// <summary>
-    /// シーンアンロードまで残るステートのベースクラス
+    /// シーンアンロードまで残るステートのベースクラス。
+    /// ChildStateBoardBase.RegisterSceneStateの引数型として生存期間を表明する。
     /// </summary>
     public abstract class SceneStateBase : StateBase
     {
-        public sealed override StateLifeScope LifeScope => StateLifeScope.OnSceneEnd;
     }
 }

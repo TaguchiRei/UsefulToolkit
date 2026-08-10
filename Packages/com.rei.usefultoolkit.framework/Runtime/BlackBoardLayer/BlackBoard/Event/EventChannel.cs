@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.BlackBoard
+namespace UsefulToolkit.Framework.BlackBoard
 {
     /// <summary>
     /// IEventChannelの実装。Publishはこのチャンネルを所有するクラス(EngineServiceLayerや
@@ -15,7 +15,7 @@ namespace UsefulToolkit.BlackBoard
         public IDisposable Register(Action<TPayload> handler)
         {
             _handlers.Add(handler);
-            return new StateDispose(() => _handlers.Remove(handler));
+            return new BoardDispose(() => _handlers.Remove(handler));
         }
 
         public void Publish(TPayload payload)

@@ -23,9 +23,6 @@ namespace UsefulToolkit.Application.StateManagement
     /// </summary>
     public abstract class StateBase
     {
-        /// <summary> ステートの生存時間 </summary>
-        public abstract StateLifeScope LifeScope { get; }
-
         /// <summary> ステートの状態を取得するためのメソッド </summary>
         public abstract string GetLog();
     }
@@ -42,7 +39,6 @@ namespace UsefulToolkit.Application.StateManagement
     /// </summary>
     public interface IStateGetter
     {
-        public StateLifeScope LifeScope { get; }
     }
     
     public class TestState : GameStateBase, IStateGetter

@@ -1,4 +1,6 @@
-namespace UsefulToolkit.BlackBoard
+using System.Collections.Generic;
+
+namespace UsefulToolkit.Framework.BlackBoard
 {
     /// <summary>
     /// モジュール単位でEventChannelを公開する子ボードの基底クラス。BlackBoardへ登録するための
@@ -7,5 +9,6 @@ namespace UsefulToolkit.BlackBoard
     /// </summary>
     public abstract class ChildEventBoardBase
     {
+        
     }
 }

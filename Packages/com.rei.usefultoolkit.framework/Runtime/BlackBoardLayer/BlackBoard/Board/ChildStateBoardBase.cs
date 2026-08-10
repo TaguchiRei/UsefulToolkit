@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 using UsefulToolkit.Application.StateManagement;
 using UsefulToolkit.Framework.BlackBoard;
 
-namespace UsefulToolkit.BlackBoard
+namespace UsefulToolkit.Framework.BlackBoard
 {
     /// <summary>
     /// モジュール単位でStateを登録・取得する子ボードの基底クラス。
@@ -101,7 +100,7 @@ namespace UsefulToolkit.BlackBoard
             {
                 UsefulLogger.Log($"[{state.GetType().Name}]が登録されました。", GetType());
                 OnRegisterdState<TStateGetter>();
-                return new StateDispose(() => _unRegistableStates.Remove(typeof(TStateGetter)));
+                return new BoardDispose(() => _unRegistableStates.Remove(typeof(TStateGetter)));
             }
 
             throw new InvalidOperationException($"ステート [{typeof(TStateGetter)}] はすでに登録されています");
@@ -199,7 +198,7 @@ namespace UsefulToolkit.BlackBoard
 
             list.Add(action);
 
-            return new StateDispose(() => list.Remove(action));
+            return new BoardDispose(() => list.Remove(action));
         }
 
         #endregion
