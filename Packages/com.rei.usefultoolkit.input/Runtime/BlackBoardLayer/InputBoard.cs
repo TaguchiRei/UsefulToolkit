@@ -35,7 +35,7 @@ namespace UsefulToolkit.Input
         /// </summary>
         public void SwitchActionMap(Enum map)
         {
-            _actionMapChannel.Publish(map);
+            _actionMapChannel.Invoke(map);
         }
 
         /// <summary>EngineServiceLayer側: ActionMap切替イベントを購読する。</summary>
@@ -57,7 +57,7 @@ namespace UsefulToolkit.Input
         {
             var channel = GetOrCreateChannel<TValue>(map, action);
 
-            void Handler(InputContext<TValue> context) => channel.Publish(context);
+            void Handler(InputContext<TValue> context) => channel.Invoke(context);
 
             source.RegisterAction(Handler);
 

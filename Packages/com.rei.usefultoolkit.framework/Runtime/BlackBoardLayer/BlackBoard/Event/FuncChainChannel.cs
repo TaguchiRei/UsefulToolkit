@@ -59,7 +59,7 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// 最後のハンドラの戻り値が返り値になる。ハンドラが1つも無い場合はpayloadがそのまま返る。
         /// </summary>
         /// <param name="payload">加工の起点となる値</param>
-        public TPayload Publish(TPayload payload)
+        public TPayload Invoke(TPayload payload)
         {
             // Publish中にハンドラ側がRegister/Unregisterしてもこの走査には影響しないようスナップショットする
             var snapshot = _callbacks.ToArray();

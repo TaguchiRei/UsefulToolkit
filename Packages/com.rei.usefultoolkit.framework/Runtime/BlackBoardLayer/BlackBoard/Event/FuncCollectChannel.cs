@@ -42,7 +42,7 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// TReturnValue側に識別子を含めること。ハンドラが1つも無い場合は空配列を返す。
         /// </summary>
         /// <param name="argument">全ハンドラへ渡す引数</param>
-        public TReturnValue[] Publish(TArgument argument)
+        public TReturnValue[] Invoke(TArgument argument)
         {
             // Publish中にハンドラ側がRegister/Unregisterしてもこの走査には影響しないようスナップショットする。
             // 走査中の増減で戻り値配列の長さが変わらないようにする意味もある

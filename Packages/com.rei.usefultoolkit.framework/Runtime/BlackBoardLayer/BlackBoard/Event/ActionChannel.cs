@@ -38,7 +38,7 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// 登録されている全ハンドラを登録順に呼び出す。
         /// </summary>
         /// <param name="payload">ハンドラへ渡す値</param>
-        public void Publish(TPayload payload)
+        public void Invoke(TPayload payload)
         {
             // Publish中にハンドラ側がRegister/Unregisterしてもこの走査には影響しないようスナップショットする
             var snapshot = _handlers.ToArray();
