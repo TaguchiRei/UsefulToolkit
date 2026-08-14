@@ -13,9 +13,17 @@ namespace UsefulToolkit.Framework.External
         /// <summary> このグループが読み込みを必要とするシーン名の一覧 </summary>
         public IReadOnlyList<string> Scenes { get; }
 
-        public SceneGroup(IReadOnlyList<string> scenes)
+        /// <summary>
+        /// このグループへ遷移するとき、差分計算を行わず管理下のシーンをすべて読み直すかどうか。
+        /// 遷移元と共有しているシーンも一度Unloadされるため、そのシーンの状態と
+        /// シーンスコープで登録されたState/イベントチャンネルが確実に初期化される。
+        /// </summary>
+        public bool ForceReload { get; }
+
+        public SceneGroup(IReadOnlyList<string> scenes, bool forceReload)
         {
             Scenes = scenes ?? throw new ArgumentNullException(nameof(scenes));
+            ForceReload = forceReload;
         }
     }
 }

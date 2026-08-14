@@ -14,7 +14,7 @@ namespace UsefulToolkit.Framework.External
     /// </code>
     /// enumが出てくるのはこのアセットの中だけで、Buildが返す実行時表現から先はシーン名の文字列で扱う。
     /// </summary>
-    public abstract class SceneFlowAsset<T> : ScriptableObject where T : Enum
+    public abstract class SceneFlowAsset<T> : SceneFlowAssetBase where T : Enum
     {
         [SerializeField] private SceneNodeData<T>[] _nodes;
 
@@ -22,7 +22,7 @@ namespace UsefulToolkit.Framework.External
         /// インスペクタで組んだ内容を実行時表現へ変換する。Initialization層で一度だけ呼ぶ想定。
         /// </summary>
         /// <exception cref="InvalidOperationException">NodeIdが重複しているときに出力</exception>
-        public SceneFlow Build()
+        public override SceneFlow Build()
         {
             var nodeDataList = _nodes ?? Array.Empty<SceneNodeData<T>>();
             var nodes = new List<SceneNode>(nodeDataList.Length);
@@ -34,11 +34,12 @@ namespace UsefulToolkit.Framework.External
 
                 foreach (var groupData in groupDataList)
                 {
-                    groups.Add(new SceneGroup(BuildSceneNames(groupData)));
+                    groups.Add(new SceneGroup(BuildSceneNames(groupData), groupData.ForceReload));
                 }
 
                 nodes.Add(new SceneNode(
                     nodeData.NodeId,
+                    nodeData.DisplayName,
                     groups,
                     nodeData.NextNodeIds ?? Array.Empty<int>()));
             }
@@ -87,11 +88,22 @@ namespace UsefulToolkit.Framework.External
         [Tooltip("SceneFlow内で一意なID")]
         public int NodeId;
 
+        [Tooltip("ノードエディタやログでの表示名。実行時の挙動には影響しない")]
+        public string DisplayName;
+
         [Tooltip("このノードで選べるシーンの組み合わせ")]
         public SceneGroupData<T>[] Groups;
 
         [Tooltip("このノードから遷移できるノードのID")]
         public int[] NextNodeIds;
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// ノードエディタ上での配置座標。編集のためだけの情報なのでビルドには持ち込まない。
+        /// Buildはこのフィールドを参照しないため、実行時表現には影響しない。
+        /// </summary>
+        [HideInInspector] public Vector2 EditorPosition;
+#endif
     }
 
     /// <summary> SceneFlowAssetのインスペクタ表示用データ。実行時にはSceneGroupへ変換される </summary>
@@ -104,5 +116,9 @@ namespace UsefulToolkit.Framework.External
 
         [Tooltip("上記3つに加えて読み込むシーン。不要なら空でよい")]
         public T[] Additional;
+
+        [Tooltip("遷移元と共通のシーンも読み直すかどうか。" +
+                 "オフだと共通シーンはUnloadもLoadもされず、状態がそのまま引き継がれる")]
+        public bool ForceReload;
     }
 }

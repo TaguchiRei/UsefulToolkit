@@ -17,7 +17,7 @@ namespace UsefulToolkit.Framework.BlackBoard
     /// </summary>
     public sealed class SceneBoard : ChildStateBoardBase
     {
-        private Func<IReadOnlyList<string>, IProgress<float>, UniTask> _loader;
+        private SceneLoadRequest _loader;
 
         /// <summary>
         /// EngineServiceLayer側: シーン読み込みメソッドを登録する。
@@ -25,7 +25,7 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// <returns>Disposeを実行すると登録解除される</returns>
         /// <exception cref="ArgumentNullException">loaderがnullのときに出力</exception>
         /// <exception cref="InvalidOperationException">すでにロード処理が登録されているときに出力</exception>
-        public IDisposable RegisterSceneLoader(Func<IReadOnlyList<string>, IProgress<float>, UniTask> loader)
+        public IDisposable RegisterSceneLoader(SceneLoadRequest loader)
         {
             if (loader is null) throw new ArgumentNullException(nameof(loader));
 
@@ -41,11 +41,13 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// <summary>
         /// Application側: 指定したシーン集合への遷移をリクエストする。
         /// </summary>
-        /// <param name="scenes">遷移後に読み込まれているべきシーン名の一覧</param>
+        /// <param name="scenes">遷移後に読み込まれているべきシーン名の一覧。この順番で読み込まれる</param>
+        /// <param name="forceReload">trueなら差分計算をせず、管理下のシーンをすべて読み直す</param>
         /// <param name="progress">読み込み進捗の通知先。不要ならnull</param>
         /// <exception cref="ArgumentNullException">scenesがnullのときに出力</exception>
         /// <exception cref="InvalidOperationException">ロード処理が登録されていないときに出力</exception>
-        public UniTask RequestTransitionAsync(IReadOnlyList<string> scenes, IProgress<float> progress)
+        public UniTask RequestTransitionAsync(
+            IReadOnlyList<string> scenes, bool forceReload, IProgress<float> progress)
         {
             if (scenes is null) throw new ArgumentNullException(nameof(scenes));
 
@@ -54,7 +56,7 @@ namespace UsefulToolkit.Framework.BlackBoard
                 throw new InvalidOperationException("SceneLoaderが登録されていません。SceneLoadServiceの初期化が先に必要です。");
             }
 
-            return _loader(scenes, progress);
+            return _loader(scenes, forceReload, progress);
         }
     }
 }

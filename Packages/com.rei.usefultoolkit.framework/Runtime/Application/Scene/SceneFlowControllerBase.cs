@@ -53,6 +53,9 @@ namespace UsefulToolkit.Framework.Application
         /// 指定したノード・シーングループへ遷移する。
         /// 実ロードが終わってからSceneStateを更新するため、遷移中にCurrentNodeIdが
         /// 中途半端な値になることはない。
+        ///
+        /// 遷移元と共通のシーンは既定では読み直されない。読み直したい場合は
+        /// 遷移先のSceneGroupのForceReloadをオンにすること。
         /// </summary>
         /// <param name="nodeId">遷移先のノードID</param>
         /// <param name="groupIndex">そのノードのSceneGroupsのインデックス</param>
@@ -81,7 +84,7 @@ namespace UsefulToolkit.Framework.Application
 
             try
             {
-                await _sceneBoard.RequestTransitionAsync(group.Scenes, this);
+                await _sceneBoard.RequestTransitionAsync(group.Scenes, group.ForceReload, this);
                 _sceneState.SetCurrentNode(node);
             }
             finally

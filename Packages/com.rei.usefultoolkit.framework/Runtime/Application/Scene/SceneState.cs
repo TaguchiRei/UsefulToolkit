@@ -33,6 +33,10 @@ namespace UsefulToolkit.Framework.Application
 
         /// <summary>
         /// 現在のノードを更新する(Single Writer)。旧ノードのExited、新ノードのEnteredの順に発火する。
+        ///
+        /// 同じノードへ遷移した場合も、実際に読み込まれたシーンが変化したかどうかに関係なく
+        /// Exited→Enteredの両方を発火する。「遷移を要求したのに通知が来ない」状態を作らないため、
+        /// 発火の抑制は行わない。
         /// </summary>
         /// <exception cref="ArgumentNullException">nodeがnullのときに出力</exception>
         internal void SetCurrentNode(SceneNode node)

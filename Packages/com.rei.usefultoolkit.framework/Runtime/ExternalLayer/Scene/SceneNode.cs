@@ -14,15 +14,20 @@ namespace UsefulToolkit.Framework.External
         /// <summary> SceneFlow内で一意なID </summary>
         public int NodeId { get; }
 
+        /// <summary> ノードエディタで付けた表示名。ログ用途のみで、遷移の挙動には影響しない </summary>
+        public string DisplayName { get; }
+
         /// <summary> このノードで選べるシーンの組み合わせ </summary>
         public IReadOnlyList<SceneGroup> Groups { get; }
 
         /// <summary> このノードから遷移できるノードのID一覧 </summary>
         public IReadOnlyList<int> NextNodeIds { get; }
 
-        public SceneNode(int nodeId, IReadOnlyList<SceneGroup> groups, IReadOnlyList<int> nextNodeIds)
+        public SceneNode(int nodeId, string displayName, IReadOnlyList<SceneGroup> groups,
+            IReadOnlyList<int> nextNodeIds)
         {
             NodeId = nodeId;
+            DisplayName = displayName ?? string.Empty;
             Groups = groups ?? throw new ArgumentNullException(nameof(groups));
             NextNodeIds = nextNodeIds ?? throw new ArgumentNullException(nameof(nextNodeIds));
         }
