@@ -12,6 +12,18 @@ namespace UsefulToolkit.Framework.BlackBoard
         private readonly Dictionary<Type, ChildStateBoardBase> _stateChildBoards = new();
         private readonly Dictionary<Type, ChildEventBoardBase> _eventChildBoards = new();
 
+        /// <summary>
+        /// シーン管理システム専用のChildBoard。_stateChildBoardsには入れず、
+        /// 二重管理にならないようここからのみ参照する。
+        /// </summary>
+        public SceneBoard SceneBoard { get; }
+
+        /// <exception cref="ArgumentNullException">sceneBoardがnullのときに出力</exception>
+        public BlackBoard(SceneBoard sceneBoard)
+        {
+            SceneBoard = sceneBoard ?? throw new ArgumentNullException(nameof(sceneBoard));
+        }
+
         public bool TryRegisterStateBoard<T>(T childBoard) where T : ChildStateBoardBase
         {
             var type = typeof(T);
@@ -55,6 +67,8 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// </summary>
         public void OnSceneChanged(string sceneName)
         {
+            SceneBoard.OnSceneChanged(sceneName);
+
             foreach (var childBoard in _stateChildBoards.Values)
             {
                 childBoard.OnSceneChanged(sceneName);

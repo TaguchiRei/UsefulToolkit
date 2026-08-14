@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -13,9 +12,9 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// <param name="message">ログに出力するメッセージ</param>
         /// <param name="type">thisを指定</param>
         [Conditional("UNITY_EDITOR")]
-        public static void Log(string message, Type type)
+        public static void Log(string message, object type)
         {
-            Debug.Log($"[{type.Name}]  {message}");
+            Debug.Log($"[{type.GetType()}]  {message}");
         }
 
         /// <summary>
@@ -24,9 +23,9 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// <param name="message">ログに出力するメッセージ</param>
         /// <param name="type">thisを指定</param>
         [Conditional("UNITY_EDITOR")]
-        public static void LogWarning(string message, Type type)
+        public static void LogWarning(string message, object type)
         {
-            Debug.LogWarning($"[{type.Name}]  {message}");
+            Debug.LogWarning($"[{type.GetType()}]  {message}");
         }
 
         /// <summary>
@@ -35,9 +34,9 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// <param name="message">ログに出力するメッセージ</param>
         /// <param name="type">thisを指定</param>
         [Conditional("UNITY_EDITOR")]
-        public static void LogError(string message, Type type)
+        public static void LogError(string message, object type)
         {
-            Debug.LogError($"[{type.Name}]  {message}");
+            Debug.LogError($"[{type.GetType()}]  {message}");
         }
 
         /// <summary>
@@ -46,9 +45,9 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// <param name="message">ログに出力するメッセージ</param>
         /// <param name="type">thisを指定</param>
         [Conditional("UNITY_EDITOR")]
-        public static void TemporaryLog(string message, Type type)
+        public static void TemporaryLog(string message, object type)
         {
-            LogColor($"[{type.Name}] {message}", Color.green);
+            LogColor($"[{type.GetType()}] {message}", Color.green);
         }
 
         /// <summary>

@@ -6,6 +6,12 @@ namespace UsefulToolkit.Framework.BlackBoard
     /// </summary>
     public interface IBlackBoard
     {
+        /// <summary>
+        /// シーン管理システム専用のChildBoard。他のChildBoardと違い後から登録するのではなく
+        /// BlackBoardのコンストラクタで受け取るため、必ず存在することが保証される。
+        /// </summary>
+        SceneBoard SceneBoard { get; }
+
         bool TryGetStateBoard<T>(out T childBoard) where T : ChildStateBoardBase;
         bool TryRegisterStateBoard<T>(T childBoard) where T : ChildStateBoardBase;
 
