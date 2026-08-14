@@ -8,7 +8,10 @@ namespace UsefulToolkit.Framework
 {
     /// <summary>
     /// シーン遷移図の1ノードの見た目。
-    /// SceneNodeDataの1要素と1対1で対応し、対応先はNodeIndexで指す。
+    /// SceneNodeData(通常ノード)/SceneSimpleNodeData(シンプルノード)いずれか1要素と1対1で対応し、
+    /// 対応先はNodeIndexというグローバルな通し番号(通常ノードのあとにシンプルノードが続く)で指す。
+    /// どちらの配列に属すかはSceneFlowGraphSerializerが解決するため、このクラスは意識しない——
+    /// Groupsフィールドの型が違うだけで編集UI(PropertyField)はどちらも同じコードで描画できる。
     /// 構造が変わる操作(ノードの追加/削除、NodeIdの変更)をしたあとはインデックスがずれるため、
     /// SceneFlowGraphViewがグラフごと作り直す。
     /// </summary>
@@ -17,8 +20,11 @@ namespace UsefulToolkit.Framework
         private readonly SceneFlowGraphSerializer _serializer;
         private readonly Action _structureChanged;
 
-        /// <summary> _nodes配列上のインデックス </summary>
+        /// <summary> 通常ノード配列のあとにシンプルノード配列が続く、グローバルな通し番号 </summary>
         public int NodeIndex { get; }
+
+        /// <summary> シンプルノード(Main+Additionalのみ)かどうか </summary>
+        public bool IsSimple { get; }
 
         /// <summary> このノードのNodeId。エッジの張り直しに使う </summary>
         public int NodeId { get; private set; }
@@ -34,6 +40,7 @@ namespace UsefulToolkit.Framework
             _serializer = serializer;
             _structureChanged = structureChanged;
             NodeIndex = nodeIndex;
+            IsSimple = serializer.IsSimpleNode(nodeIndex);
             NodeId = serializer.GetNodeId(nodeIndex);
 
             style.width = 320f;
@@ -97,7 +104,8 @@ namespace UsefulToolkit.Framework
 
         private void UpdateTitle(string displayName)
         {
-            title = string.IsNullOrWhiteSpace(displayName) ? $"Node {NodeId}" : $"{displayName} ({NodeId})";
+            var baseTitle = string.IsNullOrWhiteSpace(displayName) ? $"Node {NodeId}" : $"{displayName} ({NodeId})";
+            title = IsSimple ? $"{baseTitle} [Simple]" : baseTitle;
         }
     }
 }

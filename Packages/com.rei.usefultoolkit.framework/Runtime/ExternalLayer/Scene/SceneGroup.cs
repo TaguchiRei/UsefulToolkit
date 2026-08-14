@@ -3,26 +3,28 @@ using System.Collections.Generic;
 
 namespace UsefulToolkit.Framework.External
 {
-    /// <summary>
-    /// 1つのノードで同時に読み込まれるシーンの組み合わせ。
-    /// SceneFlowAssetのBuildが生成する実行時表現で、生成後は不変。
-    /// enumからシーン名への変換はBuildの時点で済ませてあるため、この型より先にenumは出てこない。
-    /// </summary>
+    /// <summary> 1つのノードで同時に読み込まれるシーンの組み合わせ。生成後は不変 </summary>
     public sealed class SceneGroup
     {
-        /// <summary> このグループが読み込みを必要とするシーン名の一覧 </summary>
+        /// <summary> 読み込むシーン名の一覧。この順番で読み込まれる </summary>
         public IReadOnlyList<string> Scenes { get; }
 
         /// <summary>
-        /// このグループへ遷移するとき、差分計算を行わず管理下のシーンをすべて読み直すかどうか。
-        /// 遷移元と共有しているシーンも一度Unloadされるため、そのシーンの状態と
-        /// シーンスコープで登録されたState/イベントチャンネルが確実に初期化される。
+        /// 読み込み後にアクティブシーンにするシーン名。
+        /// ライティングやSkyboxの設定はこのシーンのものが使われる。
+        /// </summary>
+        public string MainScene { get; }
+
+        /// <summary>
+        /// trueなら遷移元と共通のシーンも読み直す。
+        /// falseなら共通シーンはUnloadもLoadもされず、状態がそのまま引き継がれる。
         /// </summary>
         public bool ForceReload { get; }
 
-        public SceneGroup(IReadOnlyList<string> scenes, bool forceReload)
+        public SceneGroup(IReadOnlyList<string> scenes, string mainScene, bool forceReload)
         {
             Scenes = scenes ?? throw new ArgumentNullException(nameof(scenes));
+            MainScene = mainScene ?? string.Empty;
             ForceReload = forceReload;
         }
     }

@@ -5,6 +5,7 @@ using UnityEditor.Experimental.GraphView;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using UsefulToolkit.Framework.External;
 
 namespace UsefulToolkit.Framework
 {
@@ -20,6 +21,7 @@ namespace UsefulToolkit.Framework
         private readonly Dictionary<int, SceneFlowNodeView> _nodeViewsById = new();
 
         private SceneFlowGraphSerializer _serializer;
+        private SceneFlowBootNodeView _bootNodeView;
         private bool _isRebuilding;
 
         /// <summary> グラフの内容が変わったときに通知する。検証結果の再表示に使う </summary>
@@ -57,10 +59,17 @@ namespace UsefulToolkit.Framework
             {
                 DeleteElements(graphElements.ToList());
                 _nodeViewsById.Clear();
+                _bootNodeView = null;
 
                 if (_serializer == null || !_serializer.IsValid) return;
 
                 _serializer.Refresh();
+
+                if (_serializer.HasBootNode)
+                {
+                    _bootNodeView = new SceneFlowBootNodeView(_serializer);
+                    AddElement(_bootNodeView);
+                }
 
                 var nodeViews = new List<SceneFlowNodeView>(_serializer.NodeCount);
 
@@ -85,6 +94,12 @@ namespace UsefulToolkit.Framework
                     }
                 }
 
+                // Bootノードから起動ノードへの線。対応するノードがなければ引かず、検証メッセージ側で知らせる
+                if (_bootNodeView != null && _nodeViewsById.TryGetValue(_serializer.GetEntryNodeId(), out var entryView))
+                {
+                    AddElement(_bootNodeView.OutputPort.ConnectTo(entryView.InputPort));
+                }
+
                 // ノード内のシーングループ編集UI(PropertyField)をアセットに結びつける
                 this.Bind(_serializer.SerializedObject);
             }
@@ -96,12 +111,21 @@ namespace UsefulToolkit.Framework
             GraphChanged?.Invoke();
         }
 
-        /// <summary> 指定座標にノードを追加する </summary>
+        /// <summary> 指定座標に通常ノードを追加する </summary>
         public void AddNodeAt(Vector2 position)
         {
             if (_serializer == null || !_serializer.IsValid) return;
 
             _serializer.AddNode(position);
+            Rebuild();
+        }
+
+        /// <summary> 指定座標にシンプルノード(Main+Additionalのみのノード)を追加する </summary>
+        public void AddSimpleNodeAt(Vector2 position)
+        {
+            if (_serializer == null || !_serializer.IsValid) return;
+
+            _serializer.AddSimpleNode(position);
             Rebuild();
         }
 
@@ -135,6 +159,7 @@ namespace UsefulToolkit.Framework
             {
                 var position = contentViewContainer.WorldToLocal(evt.mousePosition);
                 evt.menu.AppendAction("ノードを追加", _ => AddNodeAt(position));
+                evt.menu.AppendAction("シンプルノードを追加", _ => AddSimpleNodeAt(position));
                 evt.menu.AppendSeparator();
             }
 
@@ -171,8 +196,16 @@ namespace UsefulToolkit.Framework
             {
                 foreach (var edge in change.edgesToCreate)
                 {
-                    if (edge.output?.node is not SceneFlowNodeView from) continue;
                     if (edge.input?.node is not SceneFlowNodeView to) continue;
+
+                    // Bootノードからの線は遷移ではなく起動ノードの指定
+                    if (edge.output?.node is SceneFlowBootNodeView)
+                    {
+                        _serializer.SetEntryNodeId(to.NodeId);
+                        continue;
+                    }
+
+                    if (edge.output?.node is not SceneFlowNodeView from) continue;
 
                     _serializer.AddLink(from.NodeIndex, to.NodeId);
                 }
@@ -185,7 +218,11 @@ namespace UsefulToolkit.Framework
                     .Select(nodeView => (nodeView.NodeIndex, nodeView.GetPosition().position))
                     .ToList();
 
-                _serializer.SetPositions(positions);
+                var bootPosition = change.movedElements.OfType<SceneFlowBootNodeView>().Any()
+                    ? _bootNodeView?.GetPosition().position
+                    : null;
+
+                _serializer.SetPositions(positions, bootPosition);
             }
 
             if (structureChanged)
@@ -202,8 +239,22 @@ namespace UsefulToolkit.Framework
 
         private void RemoveLinkOf(Edge edge)
         {
-            if (edge.output?.node is not SceneFlowNodeView from) return;
             if (edge.input?.node is not SceneFlowNodeView to) return;
+
+            // Bootノードからの線を外すと起動ノードが未設定に戻る。
+            // 線を張り替えたときは古い線の削除と新しい線の作成が同時に来るので、
+            // 今の設定先が外そうとしている線と一致するときだけ消す。
+            if (edge.output?.node is SceneFlowBootNodeView)
+            {
+                if (_serializer.GetEntryNodeId() == to.NodeId)
+                {
+                    _serializer.SetEntryNodeId(SceneFlow.NoEntryNodeId);
+                }
+
+                return;
+            }
+
+            if (edge.output?.node is not SceneFlowNodeView from) return;
 
             _serializer.RemoveLink(from.NodeIndex, to.NodeId);
         }

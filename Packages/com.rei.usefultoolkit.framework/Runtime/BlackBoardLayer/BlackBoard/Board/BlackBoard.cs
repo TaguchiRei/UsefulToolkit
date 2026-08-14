@@ -15,13 +15,21 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// <summary>
         /// シーン管理システム専用のChildBoard。_stateChildBoardsには入れず、
         /// 二重管理にならないようここからのみ参照する。
+        /// RegisterSceneLoader/RequestTransitionAsyncのような実行系はIBlackBoardに出さないため、
+        /// このフィールドはprivateに留め、SceneLoadService/SceneFlowControllerBaseへは
+        /// Initialization層から直接渡す。
         /// </summary>
-        public SceneBoard SceneBoard { get; }
+        private readonly SceneBoard _sceneBoard;
 
         /// <exception cref="ArgumentNullException">sceneBoardがnullのときに出力</exception>
         public BlackBoard(SceneBoard sceneBoard)
         {
-            SceneBoard = sceneBoard ?? throw new ArgumentNullException(nameof(sceneBoard));
+            _sceneBoard = sceneBoard ?? throw new ArgumentNullException(nameof(sceneBoard));
+        }
+
+        public bool TryGetSceneState(out ISceneStateGetter sceneState)
+        {
+            return _sceneBoard.TryGetGameState(out sceneState);
         }
 
         public bool TryRegisterStateBoard<T>(T childBoard) where T : ChildStateBoardBase
@@ -67,7 +75,7 @@ namespace UsefulToolkit.Framework.BlackBoard
         /// </summary>
         public void OnSceneChanged(string sceneName)
         {
-            SceneBoard.OnSceneChanged(sceneName);
+            _sceneBoard.OnSceneChanged(sceneName);
 
             foreach (var childBoard in _stateChildBoards.Values)
             {

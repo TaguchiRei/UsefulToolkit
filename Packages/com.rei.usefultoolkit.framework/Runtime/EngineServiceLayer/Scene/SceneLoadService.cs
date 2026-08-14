@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cysharp.Threading.Tasks;
 using UnityEngine.SceneManagement;
 using UsefulToolkit.Framework.BlackBoard;
@@ -7,48 +8,73 @@ using UsefulToolkit.Framework.BlackBoard;
 namespace UsefulToolkit.Framework.EngineService
 {
     /// <summary>
-    /// SceneManagerを直接扱う唯一のクラス。SceneBoardへ自身のロードメソッドを登録し、
-    /// Application側からのリクエストに応じて、現在読み込み済みのシーン(このサービス自身が
-    /// 管理下に置いたものに限る)と目標シーン集合を差分比較して、不要な分だけUnload、
-    /// 不足分だけAdditiveでLoadする。
-    /// forceReloadが指定された場合は差分比較を行わず、管理下のシーンをすべて読み直す。
+    /// シーンの読み込み・破棄を実行するサービス。生成するとSceneStateへ自身のロード処理を預け、
+    /// 以降のシーン遷移を担当する。
     ///
-    /// LoadSceneMode.Singleは使わない——System/Bootのような、このサービスが管理していない
-    /// 常駐シーンまで巻き込んで消してしまうため。同じ理由で、起動時に開かれているシーンを
-    /// 一括で管理下に取り込むこともしない。管理下に入るのは、シーングループに書かれて
-    /// 実際にリクエストされたシーンだけ。
+    /// 遷移のたびに、現在の管理下のシーンと目標のシーン集合を比較して差分だけを処理する——
+    /// 遷移元と共通のシーンはUnloadもLoadもされず状態が保たれる(ForceReloadで無効化できる)。
+    /// 管理下に入るのはこのサービスがリクエストを受けて読み込んだシーンだけで、
+    /// 常駐シーンや起動時に開かれているシーンを勝手にUnloadすることはない。
     ///
-    /// Inspectorのフィールドも毎フレームの更新も必要ないため、MonoBehaviourではなく素のクラス。
+    /// 常駐シーンは最初のリクエストで一度だけ読み込み、以降はUnloadも読み直しもしない。
     /// </summary>
     public sealed class SceneLoadService : IDisposable
     {
         private readonly IBlackBoard _blackBoard;
+        private readonly SceneBoard _sceneBoard;
 
         /// <summary> 管理下のシーン名。Unloadを読み込みの逆順で行えるよう、読み込み順で保持する </summary>
         private readonly List<string> _loadedSceneNames = new();
 
-        private IDisposable _registration;
+        private bool _persistentScenesReady;
 
-        /// <exception cref="ArgumentNullException">blackBoardがnullのときに出力</exception>
-        public SceneLoadService(IBlackBoard blackBoard)
+        private ISceneLoaderRegister _sceneState;
+        private IDisposable _stateSubscription;
+        private IDisposable _loaderRegistration;
+
+        /// <param name="blackBoard">シーンUnload時にOnSceneChangedを呼ぶために使う</param>
+        /// <param name="sceneBoard">ロード処理を預ける先のSceneStateを取得するために使う</param>
+        /// <exception cref="ArgumentNullException">blackBoardまたはsceneBoardがnullのときに出力</exception>
+        public SceneLoadService(IBlackBoard blackBoard, SceneBoard sceneBoard)
         {
             _blackBoard = blackBoard ?? throw new ArgumentNullException(nameof(blackBoard));
-            _registration = _blackBoard.SceneBoard.RegisterSceneLoader(LoadScenesAsync);
+            _sceneBoard = sceneBoard ?? throw new ArgumentNullException(nameof(sceneBoard));
+
+            // SceneStateを生成するのはApplication側なので、登録を待ち受けて預ける。
+            // これによりシーン管理クラスとの構築順が問われなくなる
+            _stateSubscription = _sceneBoard.SubscribeStateRegister<ISceneLoaderRegister>(
+                RegisterLoader, invokeIfRegistered: true);
         }
 
         public void Dispose()
         {
-            _registration?.Dispose();
-            _registration = null;
+            _loaderRegistration?.Dispose();
+            _loaderRegistration = null;
+
+            _stateSubscription?.Dispose();
+            _stateSubscription = null;
+
+            _sceneState = null;
+        }
+
+        private void RegisterLoader()
+        {
+            if (_loaderRegistration != null) return;
+            if (!_sceneBoard.TryGetGameState<ISceneLoaderRegister>(out var sceneState)) return;
+
+            _sceneState = sceneState;
+            _loaderRegistration = sceneState.RegisterSceneLoader(LoadScenesAsync);
         }
 
         private async UniTask LoadScenesAsync(
-            IReadOnlyList<string> scenesToLoad, bool forceReload, IProgress<float> progress)
+            IReadOnlyList<string> scenesToLoad, string activeScene, bool forceReload, IProgress<float> progress)
         {
-            var targetNames = BuildTargetNames(scenesToLoad);
+            var persistentSceneNames = _sceneState.PersistentScenes;
+            var persistentToLoad = CollectPersistentScenesToLoad(persistentSceneNames);
+            var targetNames = BuildTargetNames(scenesToLoad, persistentSceneNames);
 
-            // Unloadは読み込んだ逆順に行う。シーングループはLightingを先頭に並べる規約なので、
-            // 逆順にすることでLightingが最後に落ちる。
+            // Unloadは読み込んだ逆順に行う。シーングループはMainを先頭に並べる規約なので、
+            // 逆順にすることでMainが最後に落ちる
             var toUnload = new List<string>(_loadedSceneNames.Count);
             for (var i = _loadedSceneNames.Count - 1; i >= 0; i--)
             {
@@ -56,10 +82,7 @@ namespace UsefulToolkit.Framework.EngineService
                 if (forceReload || !targetNames.Contains(sceneName)) toUnload.Add(sceneName);
             }
 
-            // ロードはtargetNamesの順を保つ。Lighting→Content→Logic→Additionalという
-            // シーングループ側の並びが、そのまま読み込み順になる。
             var toLoad = new List<string>(targetNames.Count);
-            var toAdopt = new List<string>();
 
             foreach (var sceneName in targetNames)
             {
@@ -68,30 +91,42 @@ namespace UsefulToolkit.Framework.EngineService
                 // 管理下にあってUnload対象でもない = 読み込まれたまま残るので何もしない
                 if (isManaged && !toUnload.Contains(sceneName)) continue;
 
-                // 管理外なのにすでに開かれているシーン(Bootなど)。Additiveで読むと同名シーンが
-                // 二重に開かれてしまうため、実ロードはせず記録だけして管理下に置く。
-                // forceReloadでもここは読み直さない——自分が読み込んでいないシーンを
-                // 落としてよいとは限らないため。次回以降は管理下なので通常どおり読み直される。
+                // 管理外なのにすでに開かれているシーン(Bootなど)。Additiveで読むと二重に開かれて
+                // しまうため、実ロードはせず管理下に置くだけにする
                 if (!isManaged && SceneManager.GetSceneByName(sceneName).isLoaded)
                 {
-                    toAdopt.Add(sceneName);
+                    _loadedSceneNames.Add(sceneName);
                     continue;
                 }
 
                 toLoad.Add(sceneName);
             }
 
-            _loadedSceneNames.AddRange(toAdopt);
-
-            var totalSteps = toUnload.Count + toLoad.Count;
+            var totalSteps = persistentToLoad.Count + toUnload.Count + toLoad.Count;
 
             if (totalSteps == 0)
             {
+                // 読み込むものが無い = 常駐シーンも揃っている
+                _persistentScenesReady = true;
+
+                NormalizeLoadedOrder(targetNames);
+                ApplyActiveScene(activeScene);
                 progress?.Report(1f);
                 return;
             }
 
             var completedSteps = 0;
+
+            // 常駐シーンには常駐システムが載っているので、何より先に読み込む
+            foreach (var sceneName in persistentToLoad)
+            {
+                await LoadSceneAsync(sceneName);
+
+                completedSteps++;
+                progress?.Report((float)completedSteps / totalSteps);
+            }
+
+            _persistentScenesReady = true;
 
             foreach (var sceneName in toUnload)
             {
@@ -100,8 +135,7 @@ namespace UsefulToolkit.Framework.EngineService
 
                 _loadedSceneNames.Remove(sceneName);
 
-                // このシーンのスコープで登録されたState/イベントチャンネルを一括解除する。
-                // シーン管理システムがOnSceneChangedを呼ぶ唯一の場所。
+                // このシーンのスコープで登録されたState/イベントチャンネルを一括解除する
                 _blackBoard.OnSceneChanged(sceneName);
 
                 completedSteps++;
@@ -110,34 +144,92 @@ namespace UsefulToolkit.Framework.EngineService
 
             foreach (var sceneName in toLoad)
             {
-                var operation = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
-
-                if (operation is null)
-                {
-                    throw new InvalidOperationException(
-                        $"シーン [{sceneName}] を読み込めません。Build Settingsに登録されているか確認してください。");
-                }
-
-                await operation.ToUniTask();
+                await LoadSceneAsync(sceneName);
 
                 _loadedSceneNames.Add(sceneName);
                 completedSteps++;
                 progress?.Report((float)completedSteps / totalSteps);
             }
+
+            NormalizeLoadedOrder(targetNames);
+            ApplyActiveScene(activeScene);
+        }
+
+        private static async UniTask LoadSceneAsync(string sceneName)
+        {
+            var operation = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
+
+            if (operation is null)
+            {
+                throw new InvalidOperationException(
+                    $"シーン [{sceneName}] を読み込めません。Build Settingsに登録されているか確認してください。");
+            }
+
+            await operation.ToUniTask();
         }
 
         /// <summary>
-        /// 目標シーン名の一覧を、並び順を保ったまま重複だけ取り除いて複製する。
-        /// SceneGroupは生成時に重複を除いているが、SceneBoard経由で任意のリストが
-        /// 渡ってくる可能性があるためここでも確認する。
+        /// 管理下のシーンの並びを目標シーンの順に揃え直す。
+        /// 途中で採用したシーンが末尾に寄ってしまうと、次回のUnloadの逆順が崩れるため。
         /// </summary>
-        private static List<string> BuildTargetNames(IReadOnlyList<string> scenesToLoad)
+        private void NormalizeLoadedOrder(List<string> targetNames)
+        {
+            _loadedSceneNames.Clear();
+            _loadedSceneNames.AddRange(targetNames);
+        }
+
+        /// <summary> 指定シーンが読み込まれていればアクティブシーンにする </summary>
+        private void ApplyActiveScene(string activeSceneName)
+        {
+            if (string.IsNullOrEmpty(activeSceneName)) return;
+
+            var scene = SceneManager.GetSceneByName(activeSceneName);
+
+            if (!scene.isLoaded)
+            {
+                UsefulLogger.LogWarning($"アクティブシーンにする [{activeSceneName}] が読み込まれていません。", this);
+                return;
+            }
+
+            SceneManager.SetActiveScene(scene);
+        }
+
+        /// <summary>
+        /// 常駐シーンのうち、これから読み込む必要があるものを集める。
+        /// 2回目以降のリクエストと、すでに開かれているシーンは対象外。
+        /// </summary>
+        private List<string> CollectPersistentScenesToLoad(IReadOnlyList<string> persistentSceneNames)
+        {
+            var names = new List<string>();
+
+            if (_persistentScenesReady) return names;
+
+            foreach (var sceneName in persistentSceneNames)
+            {
+                if (names.Contains(sceneName)) continue;
+                if (SceneManager.GetSceneByName(sceneName).isLoaded) continue;
+
+                names.Add(sceneName);
+            }
+
+            return names;
+        }
+
+        /// <summary>
+        /// 目標シーン名の一覧から、重複と常駐シーンを取り除いて複製する。
+        /// シーングループに常駐シーンが書かれていても管理下には入れない。
+        /// </summary>
+        private static List<string> BuildTargetNames(
+            IReadOnlyList<string> scenesToLoad, IReadOnlyList<string> persistentSceneNames)
         {
             var names = new List<string>(scenesToLoad.Count);
 
             foreach (var sceneName in scenesToLoad)
             {
-                if (!names.Contains(sceneName)) names.Add(sceneName);
+                if (names.Contains(sceneName)) continue;
+                if (persistentSceneNames.Contains(sceneName)) continue;
+
+                names.Add(sceneName);
             }
 
             return names;

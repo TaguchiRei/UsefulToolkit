@@ -75,6 +75,7 @@ namespace UsefulToolkit.Framework
             toolbar.Add(_assetField);
 
             toolbar.Add(new ToolbarButton(AddNodeAtViewCenter) { text = "ノードを追加" });
+            toolbar.Add(new ToolbarButton(AddSimpleNodeAtViewCenter) { text = "シンプルノードを追加" });
             toolbar.Add(new ToolbarButton(ReloadFromAsset) { text = "再読み込み" });
             rootVisualElement.Add(toolbar);
 
@@ -121,6 +122,13 @@ namespace UsefulToolkit.Framework
             if (_graphView == null) return;
 
             _graphView.AddNodeAt(_graphView.GetViewCenter());
+        }
+
+        private void AddSimpleNodeAtViewCenter()
+        {
+            if (_graphView == null) return;
+
+            _graphView.AddSimpleNodeAt(_graphView.GetViewCenter());
         }
 
         /// <summary>

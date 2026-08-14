@@ -6,8 +6,26 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Level/Scenes/SampleScene.unity
-    guid: 99c9720ab356a0642a771bea13969a05
+    path: Assets/Level/Scenes/Runtime/Persistent/Persistent.unity
+    guid: 07b8a27fa90188944ba8b5bf4d59a9d2
+  - enabled: 1
+    path: Assets/Level/Scenes/Runtime/OutGame/TitleScene.unity
+    guid: 498b6be19e43f164b886d2c35b76682d
+  - enabled: 1
+    path: Assets/Level/Scenes/Runtime/InGame/System/InGameScene.unity
+    guid: 761b381f6074d004db1c7d17a3b872bd
+  - enabled: 1
+    path: Assets/Level/Scenes/Runtime/InGame/Background/Stage1.unity
+    guid: 3a481b46251c5bc499445eb2c1e43fe7
+  - enabled: 1
+    path: Assets/Level/Scenes/Runtime/InGame/Background/Stage2.unity
+    guid: 8c658338f42a186488bccea4acba6a38
+  - enabled: 1
+    path: Assets/Level/Scenes/Runtime/InGame/Background/Tutorial.unity
+    guid: 7fbd24b15433bee4ab0ebaa1e85feb55
+  - enabled: 1
+    path: Assets/Level/Scenes/Runtime/InGame/System/Lighathing.unity
+    guid: 52639133fc1e3aa479a593500c77bd19
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

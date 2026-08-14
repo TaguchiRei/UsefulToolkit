@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a791e9d0cea644a419da85e96809e077, type: 3}
+  m_Name: SandboxSceneFlow
+  m_EditorClassIdentifier: Sandbox.Runtime.External::Sandbox.External.SandboxSceneFlowAsset
+  _bootNode:
+    PersistentScenes: 00000000
+    EntryNodeId: 1
+    EntryGroupIndex: 0
+    EditorPosition: {x: 13, y: 0}
+  _nodes:
+  - NodeId: 2
+    DisplayName: Tutorial
+    Groups:
+    - Main: 6
+      Content: 2
+      Logic: 3
+      Additional: 
+      ForceReload: 0
+    NextNodeIds: 
+    EditorPosition: {x: 793, y: -254}
+  - NodeId: 3
+    DisplayName: Node 3
+    Groups:
+    - Main: 6
+      Content: 2
+      Logic: 4
+      Additional: 
+      ForceReload: 0
+    NextNodeIds: 
+    EditorPosition: {x: 793, y: 58}
+  _simpleNodes:
+  - NodeId: 1
+    DisplayName: TitleScene
+    Groups:
+    - Main: 1
+      Additional: 
+      ForceReload: 0
+    NextNodeIds: 0200000003000000
+    EditorPosition: {x: 401, y: 0}

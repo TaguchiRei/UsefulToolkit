@@ -5,9 +5,7 @@ namespace UsefulToolkit.Framework.External
 {
     /// <summary>
     /// シーン遷移図上の1地点。同じ地点でもシーンの組み合わせを差し替えられるよう、
-    /// 複数のSceneGroupを持てる。
-    /// 遷移先はSceneNodeの参照ではなくNodeIdで保持する——ノード同士の相互参照は
-    /// Unityのシリアライザで表現できないため、ID経由で引く形に統一している。
+    /// 複数のSceneGroupを持てる。遷移先は参照ではなくNodeIdで保持する。
     /// </summary>
     public sealed class SceneNode
     {
