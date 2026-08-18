@@ -41,7 +41,7 @@ namespace UsefulToolkit.Framework.BlackBoard
 
             if (_gameStates.TryAdd(typeof(TStateGetter), stateGetter))
             {
-                UsefulLogger.Log($"[{state.GetType().Name}]が登録されました。", GetType());
+                UsefulLogger.Log($"[{state.GetType().Name}] を [{typeof(TStateGetter).Name}] として登録しました。", this);
                 OnRegisterdState<TStateGetter>();
             }
             else
@@ -70,7 +70,7 @@ namespace UsefulToolkit.Framework.BlackBoard
 
             if (_sceneStates.TryAdd(typeof(TStateGetter), (stateGetter, sceneName)))
             {
-                UsefulLogger.Log($"[{state.GetType().Name}]が登録されました。", GetType());
+                UsefulLogger.Log($"[{state.GetType().Name}] を [{typeof(TStateGetter).Name}] として登録しました。", this);
                 OnRegisterdState<TStateGetter>();
             }
             else
@@ -97,7 +97,7 @@ namespace UsefulToolkit.Framework.BlackBoard
 
             if (_unRegistableStates.TryAdd(typeof(TStateGetter), stateGetter))
             {
-                UsefulLogger.Log($"[{state.GetType().Name}]が登録されました。", GetType());
+                UsefulLogger.Log($"[{state.GetType().Name}] を [{typeof(TStateGetter).Name}] として登録しました。", this);
                 OnRegisterdState<TStateGetter>();
                 return new BoardDispose(() => _unRegistableStates.Remove(typeof(TStateGetter)));
             }

@@ -88,3 +88,7 @@ Assets/LocalAssets/
 # 仮のテスト用アセット置き場（フォルダ整理で Assets/Test から移動）
 Assets/Code/Test/
 Assets/Code/Test.meta
+# Claude Code ローカル設定
+.claude/
+# uLoop(unity-cli-loop) ローカル設定
+.uloop/

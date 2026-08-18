@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Sandbox.EngineService;
+using Sandbox.External;
 using Sandbox.Initialization;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -195,10 +196,7 @@ namespace Sandbox
             return markerObject;
         }
 
-        /// <summary>
-        /// 常駐シーンにテスト用のBootstrap/GUIを用意する。
-        /// SceneFlowアセットの割り当ては、ノードエディタで組んだ後に手で行う。
-        /// </summary>
+        /// <summary> 常駐シーンにテスト用のBootstrap/GUIを用意し、SceneFlowアセットを割り当てる </summary>
         private static void EnsureBootstrapObject(UnityEngine.SceneManagement.Scene scene)
         {
             var bootstrapObject = scene.GetRootGameObjects()
@@ -210,15 +208,43 @@ namespace Sandbox
                 bootstrapObject = new GameObject(BootstrapObjectName);
             }
 
-            if (!bootstrapObject.TryGetComponent<SceneFlowTestBootstrap>(out _))
+            if (!bootstrapObject.TryGetComponent<SceneFlowTestBootstrap>(out var bootstrap))
             {
-                bootstrapObject.AddComponent<SceneFlowTestBootstrap>();
+                bootstrap = bootstrapObject.AddComponent<SceneFlowTestBootstrap>();
             }
 
             if (!bootstrapObject.TryGetComponent<SceneFlowTestGui>(out _))
             {
                 bootstrapObject.AddComponent<SceneFlowTestGui>();
             }
+
+            AssignFlowAsset(bootstrap);
+        }
+
+        /// <summary>
+        /// プロジェクト内のSceneFlowアセットをBootstrapへ割り当てる。
+        /// 見つからない場合と複数ある場合は割り当てず、警告を出して手動指定に任せる。
+        /// </summary>
+        private static void AssignFlowAsset(SceneFlowTestBootstrap bootstrap)
+        {
+            var guids = AssetDatabase.FindAssets($"t:{nameof(SandboxSceneFlowAsset)}");
+
+            if (guids.Length != 1)
+            {
+                Debug.LogWarning(
+                    $"[SceneFlowTestSetup] SceneFlowアセットが {guids.Length} 件見つかりました。" +
+                    $"1件のときだけ自動で割り当てます。{BootstrapObjectName} へ手動で指定してください。");
+                return;
+            }
+
+            var assetPath = AssetDatabase.GUIDToAssetPath(guids[0]);
+            var flowAsset = AssetDatabase.LoadAssetAtPath<SandboxSceneFlowAsset>(assetPath);
+
+            var serializedBootstrap = new SerializedObject(bootstrap);
+            serializedBootstrap.FindProperty("_flowAsset").objectReferenceValue = flowAsset;
+            serializedBootstrap.ApplyModifiedPropertiesWithoutUndo();
+
+            Debug.Log($"[SceneFlowTestSetup] SceneFlowアセットを割り当てました: {assetPath}");
         }
 
         private static bool IsPersistentScene(string scenePath)

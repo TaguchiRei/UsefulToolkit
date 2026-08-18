@@ -45,7 +45,7 @@ namespace UsefulToolkit.Framework.BlackBoard
 
             if (_gameEvents.TryAdd(typeof(TEvent), eventChannel))
             {
-                UsefulLogger.Log($"[{channel.GetType().Name}]が登録されました。", GetType());
+                UsefulLogger.Log($"[{channel.GetType().Name}] を [{typeof(TEvent).Name}] として登録しました。", this);
                 OnRegisterdEvent<TEvent>();
             }
             else
@@ -75,7 +75,7 @@ namespace UsefulToolkit.Framework.BlackBoard
 
             if (_sceneEvents.TryAdd(typeof(TEvent), (eventChannel, sceneName)))
             {
-                UsefulLogger.Log($"[{channel.GetType().Name}]が登録されました。", GetType());
+                UsefulLogger.Log($"[{channel.GetType().Name}] を [{typeof(TEvent).Name}] として登録しました。", this);
                 OnRegisterdEvent<TEvent>();
             }
             else
@@ -104,7 +104,7 @@ namespace UsefulToolkit.Framework.BlackBoard
 
             if (_unRegistableEvents.TryAdd(typeof(TEvent), eventChannel))
             {
-                UsefulLogger.Log($"[{channel.GetType().Name}]が登録されました。", GetType());
+                UsefulLogger.Log($"[{channel.GetType().Name}] を [{typeof(TEvent).Name}] として登録しました。", this);
                 OnRegisterdEvent<TEvent>();
                 return new BoardDispose(() => _unRegistableEvents.Remove(typeof(TEvent)));
             }

@@ -3,6 +3,7 @@
     "rootNamespace": "Sandbox",
     "references": [
         "UsefulToolkit.Framework.Editor",
+        "UsefulToolkit.Framework.Runtime.External",
         "Sandbox.Runtime.Initialization",
         "Sandbox.Runtime.EngineService",
         "Sandbox.Runtime.External"
