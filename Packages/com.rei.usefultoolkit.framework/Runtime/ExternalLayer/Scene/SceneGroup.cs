@@ -1,24 +1,31 @@
 using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Framework.External
 {
-    [Serializable]
-    public sealed class SceneGroup<T> : SceneGroupBase<T> where T : Enum
+    /// <summary> 1つのノードで同時に読み込まれるシーンの組み合わせ。生成後は不変 </summary>
+    public sealed class SceneGroup
     {
-        public readonly int SceneId;
-        public T LightingScene { get; }
-        public T ContentScene { get; }
-        public T LogicScene { get; }
+        /// <summary> 読み込むシーン名の一覧。この順番で読み込まれる </summary>
+        public IReadOnlyList<string> Scenes { get; }
 
-        public override IReadOnlyList<T> Scenes => new[] { LightingScene, ContentScene, LogicScene };
+        /// <summary>
+        /// 読み込み後にアクティブシーンにするシーン名。
+        /// ライティングやSkyboxの設定はこのシーンのものが使われる。
+        /// </summary>
+        public string MainScene { get; }
 
-        public SceneGroup(int sceneId, T lightingScene, T contentScene, T logicScene)
+        /// <summary>
+        /// trueなら遷移元と共通のシーンも読み直す。
+        /// falseなら共通シーンはUnloadもLoadもされず、状態がそのまま引き継がれる。
+        /// </summary>
+        public bool ForceReload { get; }
+
+        public SceneGroup(IReadOnlyList<string> scenes, string mainScene, bool forceReload)
         {
-            SceneId = sceneId;
-            LightingScene = lightingScene;
-            ContentScene = contentScene;
-            LogicScene = logicScene;
+            Scenes = scenes ?? throw new ArgumentNullException(nameof(scenes));
+            MainScene = mainScene ?? string.Empty;
+            ForceReload = forceReload;
         }
     }
 }

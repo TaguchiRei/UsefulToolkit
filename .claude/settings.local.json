@@ -19,7 +19,8 @@
       "Bash(git -C /c/Users/trei0/UsefulToolkit status --porcelain -- Packages/com.rei.usefultoolkit.framework/Runtime/Initialization.meta Packages/com.rei.usefultoolkit.framework/Runtime/Initialization)",
       "Bash(git rm *)",
       "Bash(git status *)",
-      "Bash(python3 -c \"import json;print\\(json.load\\(open\\('com.rei.usefultoolkit.framework/Runtime/UsefulToolkit.Framework.Runtime.asmdef.meta'.replace\\('.meta','.meta'\\)\\)\\)if False else ''\\)\")"
+      "Bash(python3 -c \"import json;print\\(json.load\\(open\\('com.rei.usefultoolkit.framework/Runtime/UsefulToolkit.Framework.Runtime.asmdef.meta'.replace\\('.meta','.meta'\\)\\)\\)if False else ''\\)\")",
+      "Bash(awk '{print $NF}')"
     ]
   }
 }

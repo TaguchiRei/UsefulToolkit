@@ -1,23 +1,48 @@
 using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Framework.External
 {
-    [Serializable]
-    public class SceneNode<T> where T : Enum
+    /// <summary>
+    /// シーン遷移図上の1地点。同じ地点でもシーンの組み合わせを差し替えられるよう、
+    /// 複数のSceneGroupを持てる。遷移先は参照ではなくNodeIdで保持する。
+    /// </summary>
+    public sealed class SceneNode
     {
-        public readonly int NodeId;
-        public IReadOnlyList<SceneGroupBase<T>> SceneGroups => _sceneGroups;
-        public IReadOnlyList<SceneNode<T>> NextScenes => _nextScenes;
+        /// <summary> SceneFlow内で一意なID </summary>
+        public int NodeId { get; }
 
-        private SceneGroupBase<T>[] _sceneGroups;
-        private SceneNode<T>[] _nextScenes;
+        /// <summary> ノードエディタで付けた表示名。ログ用途のみで、遷移の挙動には影響しない </summary>
+        public string DisplayName { get; }
 
-        public SceneNode(int nodeId, SceneGroupBase<T>[] sceneGroups, SceneNode<T>[] nextScenes)
+        /// <summary> このノードで選べるシーンの組み合わせ </summary>
+        public IReadOnlyList<SceneGroup> Groups { get; }
+
+        /// <summary> このノードから遷移できるノードのID一覧 </summary>
+        public IReadOnlyList<int> NextNodeIds { get; }
+
+        public SceneNode(int nodeId, string displayName, IReadOnlyList<SceneGroup> groups,
+            IReadOnlyList<int> nextNodeIds)
         {
             NodeId = nodeId;
-            _sceneGroups = sceneGroups;
-            _nextScenes = nextScenes;
+            DisplayName = displayName ?? string.Empty;
+            Groups = groups ?? throw new ArgumentNullException(nameof(groups));
+            NextNodeIds = nextNodeIds ?? throw new ArgumentNullException(nameof(nextNodeIds));
+        }
+
+        /// <summary>
+        /// インデックスを指定してSceneGroupを取得する。範囲外なら例外ではなくfalseを返す。
+        /// </summary>
+        public bool TryGetGroup(int groupIndex, out SceneGroup group)
+        {
+            if (groupIndex < 0 || groupIndex >= Groups.Count)
+            {
+                group = null;
+                return false;
+            }
+
+            group = Groups[groupIndex];
+            return true;
         }
     }
 }

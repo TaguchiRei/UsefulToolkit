@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using UsefulToolkit.BlackBoard;
+using UsefulToolkit.Framework.BlackBoard;
 
 namespace UsefulToolkit.Input
 {
@@ -16,10 +16,10 @@ namespace UsefulToolkit.Input
     public sealed class InputBoard : ChildEventBoardBase
     {
         private readonly Dictionary<(Enum map, Enum action), object> _channels = new();
-        private readonly EventChannel<Enum> _actionMapChannel = new();
+        private readonly ActionChannel<Enum> _actionMapChannel = new();
 
         /// <summary>Application側: 指定したAction用のチャンネルを取得しRegisterする。</summary>
-        public IEventChannel<InputContext<TValue>> GetChannel<TValue>(Enum map, Enum action)
+        public IActionChannel<InputContext<TValue>> GetChannel<TValue>(Enum map, Enum action)
             where TValue : unmanaged
         {
             return GetOrCreateChannel<TValue>(map, action);
@@ -35,11 +35,11 @@ namespace UsefulToolkit.Input
         /// </summary>
         public void SwitchActionMap(Enum map)
         {
-            _actionMapChannel.Publish(map);
+            _actionMapChannel.Invoke(map);
         }
 
         /// <summary>EngineServiceLayer側: ActionMap切替イベントを購読する。</summary>
-        public IEventChannel<Enum> GetActionMapChannel()
+        public IActionChannel<Enum> GetActionMapChannel()
         {
             return _actionMapChannel;
         }
@@ -57,21 +57,21 @@ namespace UsefulToolkit.Input
         {
             var channel = GetOrCreateChannel<TValue>(map, action);
 
-            void Handler(InputContext<TValue> context) => channel.Publish(context);
+            void Handler(InputContext<TValue> context) => channel.Invoke(context);
 
             source.RegisterAction(Handler);
 
-            return new StateDispose(() => source.UnRegisterAction(Handler));
+            return new BoardDispose(() => source.UnRegisterAction(Handler));
         }
 
-        private EventChannel<InputContext<TValue>> GetOrCreateChannel<TValue>(Enum map, Enum action)
+        private ActionChannel<InputContext<TValue>> GetOrCreateChannel<TValue>(Enum map, Enum action)
             where TValue : unmanaged
         {
             var key = (map, action);
-            if (_channels.TryGetValue(key, out var raw) && raw is EventChannel<InputContext<TValue>> channel)
+            if (_channels.TryGetValue(key, out var raw) && raw is ActionChannel<InputContext<TValue>> channel)
                 return channel;
 
-            var created = new EventChannel<InputContext<TValue>>();
+            var created = new ActionChannel<InputContext<TValue>>();
             _channels[key] = created;
             return created;
         }

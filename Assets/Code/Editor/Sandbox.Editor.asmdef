@@ -1,0 +1,22 @@
+{
+    "name": "Sandbox.Editor",
+    "rootNamespace": "Sandbox",
+    "references": [
+        "UsefulToolkit.Framework.Editor",
+        "UsefulToolkit.Framework.Runtime.External",
+        "Sandbox.Runtime.Initialization",
+        "Sandbox.Runtime.EngineService",
+        "Sandbox.Runtime.External"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

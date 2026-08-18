@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -17,6 +18,9 @@ namespace UsefulToolkit.Framework
         public static event Action OnGenerated;
 
         private static GenerateTiming _timing;
+
+        /// <summary> 自動生成が有効かどうか </summary>
+        internal static bool AutoGenerateEnabled => _timing != GenerateTiming.None;
 
         static SceneEnumGenerator()
         {
@@ -50,49 +54,84 @@ namespace UsefulToolkit.Framework
         {
             var settings = UsefulToolkitSettingsScriptable.instance.CodeGenerationSectionSettings;
 
-            string targetPath = "Assets/Scenes"; // デフォルトの検索パス
             string ns = settings.Namespace;
-            
-            // ターゲットフォルダが存在するか確認
-            if (!AssetDatabase.IsValidFolder(targetPath))
-            {
-                Debug.LogWarning($"[UsefulTools] Target scenes directory not found: {targetPath}");
-                return;
-            }
 
-            // 指定ディレクトリ内の全シーンファイルを取得
-            var sceneGuids = AssetDatabase.FindAssets("t:Scene", new[] { targetPath });
-            var scenePaths = sceneGuids.Select(AssetDatabase.GUIDToAssetPath).Distinct().ToArray();
+            // Assets以下のシーンをすべて拾う。シーンを1つのフォルダにまとめる運用は現実的ではないため、
+            // 検索範囲は限定しない。どちらのenumに入るかはBuildSettingsへの登録有無だけで決める。
+            var scenePaths = AssetDatabase.FindAssets("t:Scene", new[] { "Assets" })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Distinct()
+                .ToArray();
 
-            // BuildSettings に登録されているかどうかの判定用
-            var buildScenes = EditorBuildSettings.scenes.ToDictionary(s => s.path, s => s.enabled);
+            var scenePathSet = new HashSet<string>(scenePaths);
 
-            var includedScenesList = new System.Collections.Generic.List<string>();
-            var excludedScenesList = new System.Collections.Generic.List<string>();
+            // BuildScenesの並びはビルドインデックス順にする。enumの値はSceneFlowAssetにintで
+            // 保存されるため、並びが変わると既存アセットの指すシーンが変わってしまう。
+            // ビルドインデックス順であれば、末尾にシーンを追加しても既存の値がずれない。
+            var includedPaths = EditorBuildSettings.scenes
+                .Where(scene => scene.enabled && scenePathSet.Contains(scene.path))
+                .Select(scene => scene.path)
+                .Distinct()
+                .ToArray();
 
-            foreach (var path in scenePaths)
-            {
-                string sceneName = Path.GetFileNameWithoutExtension(path);
-                string normalizedName = Regex.Replace(sceneName, @"[^a-zA-Z0-9_]", "_");
+            var includedPathSet = new HashSet<string>(includedPaths);
 
-                if (buildScenes.TryGetValue(path, out bool enabled) && enabled)
-                {
-                    includedScenesList.Add(normalizedName);
-                }
-                else
-                {
-                    excludedScenesList.Add(normalizedName);
-                }
-            }
+            // 残りはすべてNonBuildScenes。こちらは順序に意味がないのでパス順で安定させる。
+            var excludedPaths = scenePaths
+                .Where(path => !includedPathSet.Contains(path))
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
+
+            var includedNames = includedPaths.Select(ToEnumMemberName).ToArray();
+            var excludedNames = excludedPaths.Select(ToEnumMemberName).ToArray();
+
+            WarnDuplicatedNames("BuildScenes", includedNames);
+            WarnDuplicatedNames("NonBuildScenes", excludedNames);
 
             // Enum生成実行
-            FileGenerator.AutoGenerateFile("BuildScenes.cs", GenerateEnumContent("BuildScenes", includedScenesList.ToArray(), ns), GenerateType.Runtime);
-            FileGenerator.AutoGenerateFile("NonBuildScenes.cs", GenerateEnumContent("NonBuildScenes", excludedScenesList.ToArray(), ns), GenerateType.Editor);
+            FileGenerator.AutoGenerateFile("BuildScenes.cs", GenerateEnumContent("BuildScenes", includedNames, ns), GenerateType.Runtime);
+            FileGenerator.AutoGenerateFile("NonBuildScenes.cs", GenerateEnumContent("NonBuildScenes", excludedNames, ns), GenerateType.Editor);
 
-            Debug.Log($"[UsefulTools] SceneEnums generated with namespace {ns}");
+            Debug.Log($"[UsefulTools] SceneEnums generated with namespace {ns} " +
+                      $"(BuildScenes: {includedNames.Length} / NonBuildScenes: {excludedNames.Length})");
 
             // イベント発行
             OnGenerated?.Invoke();
+        }
+
+        /// <summary>
+        /// シーンパスからenumメンバー名を作る。識別子として使えない文字は'_'へ置き換える。
+        /// </summary>
+        private static string ToEnumMemberName(string scenePath)
+        {
+            string sceneName = Path.GetFileNameWithoutExtension(scenePath);
+            string normalizedName = Regex.Replace(sceneName, @"[^a-zA-Z0-9_]", "_");
+
+            // 数字始まりはC#の識別子として不正なので接頭辞を付ける
+            if (normalizedName.Length > 0 && char.IsDigit(normalizedName[0]))
+            {
+                normalizedName = "_" + normalizedName;
+            }
+
+            return normalizedName;
+        }
+
+        /// <summary>
+        /// enumはシーン名だけで作るため、別フォルダの同名シーンは1つにまとめられてしまう。
+        /// 黙って消えると原因が分からなくなるので警告を出す。
+        /// </summary>
+        private static void WarnDuplicatedNames(string enumName, IReadOnlyList<string> names)
+        {
+            var duplicatedNames = names
+                .GroupBy(name => name)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key)
+                .ToArray();
+
+            if (duplicatedNames.Length == 0) return;
+
+            Debug.LogWarning($"[UsefulTools] {enumName}: 同名のシーンが複数あるため、次の名前は1つにまとめられました: " +
+                             $"{string.Join(", ", duplicatedNames)}");
         }
 
         private static string GenerateEnumContent(string enumName, string[] values, string namespaceName)
@@ -117,6 +156,39 @@ namespace UsefulToolkit.Framework
             builder.AppendLine("}");
 
             return builder.ToString();
+        }
+    }
+
+    /// <summary>
+    /// シーンファイルの追加・削除・移動を検知してenumを再生成する。
+    /// BuildSettingsの変更だけを監視していると、Assets以下のどこかにシーンが増減しても
+    /// NonBuildScenesが古いままになるため、アセット側の変更も拾う。
+    /// </summary>
+    internal sealed class SceneAssetPostprocessor : AssetPostprocessor
+    {
+        private static void OnPostprocessAllAssets(
+            string[] importedAssets,
+            string[] deletedAssets,
+            string[] movedAssets,
+            string[] movedFromAssetPaths)
+        {
+            if (!SceneEnumGenerator.AutoGenerateEnabled) return;
+
+            if (!ContainsScene(importedAssets) &&
+                !ContainsScene(deletedAssets) &&
+                !ContainsScene(movedAssets) &&
+                !ContainsScene(movedFromAssetPaths))
+            {
+                return;
+            }
+
+            // インポート処理中にAssetDatabase.Refreshを呼ばないよう、生成は次のフレームへ回す
+            EditorApplication.delayCall += SceneEnumGenerator.Generate;
+        }
+
+        private static bool ContainsScene(string[] assetPaths)
+        {
+            return assetPaths.Any(path => path.EndsWith(".unity", StringComparison.OrdinalIgnoreCase));
         }
     }
 }
