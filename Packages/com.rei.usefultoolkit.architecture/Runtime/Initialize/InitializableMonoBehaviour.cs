@@ -1,31 +1,23 @@
-using System;
 using UnityEngine;
-using UsefulToolkit.Attributes;
 
 namespace UsefulToolkit.Architecture
 {
-    [DefaultExecutionOrder(100)]
-    public abstract class InitializableMonoBehaviour : MonoBehaviour, IComparable<InitializableMonoBehaviour>
+    public abstract class InitializableMonoBehaviour : MonoBehaviour
     {
-        public int InitializationOrder = 0;
-        [ShowOnly] public bool Initialized { get; protected set; } = false;
+        public bool Initialized { get; internal set; } = false;
 
-        private protected void Awake()
+        void Awake()
         {
-            enabled = false;
+            if (!Initialized)
+            {
+                enabled = false;
+            }
         }
 
         public virtual void Initialize()
         {
-            if (Initialized) return;
-
             Initialized = true;
             enabled = true;
-        }
-
-        public int CompareTo(InitializableMonoBehaviour other)
-        {
-            return InitializationOrder.CompareTo(other.InitializationOrder);
         }
     }
 }
