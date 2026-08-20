@@ -1,6 +1,4 @@
-using UnityEngine;
-
-namespace UsefulToolkit.Framework.Initialization
+namespace UsefulToolkit.Architecture
 {
     public interface IInjectable<in T>
     {
