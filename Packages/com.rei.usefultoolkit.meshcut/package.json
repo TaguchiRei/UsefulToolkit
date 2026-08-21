@@ -1,0 +1,24 @@
+{
+  "name": "com.rei.usefultoolkit.meshcut",
+  "displayName": "Useful Toolkit - Mesh Cut",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "description": "Burst + Job System で複数メッシュを一枚の刃で一括切断するライブラリ。切断・断面生成・コライダー用サンプリングまでをBurstコンパイル済みのJobチェーンで実行する。\n\n別途 UniTask (https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask) の導入が必要。",
+  "author": {
+    "name": "Rei"
+  },
+  "dependencies": {
+    "com.rei.usefultoolkit.framework": "1.1.0",
+    "com.unity.burst": "1.8.27",
+    "com.unity.collections": "2.6.2",
+    "com.unity.mathematics": "1.3.3",
+    "com.unity.modules.physics": "1.0.0"
+  },
+  "keywords": [
+    "mesh",
+    "cut",
+    "slice",
+    "burst",
+    "jobs"
+  ]
+}

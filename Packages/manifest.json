@@ -5,6 +5,7 @@
     "com.rei.usefultoolkit.debugging": "file:./com.rei.usefultoolkit.debugging",
     "com.rei.usefultoolkit.framework": "file:./com.rei.usefultoolkit.framework",
     "com.rei.usefultoolkit.input": "file:./com.rei.usefultoolkit.input",
+    "com.rei.usefultoolkit.meshcut": "file:./com.rei.usefultoolkit.meshcut",
     "com.rei.usefultoolkit.networking": "file:./com.rei.usefultoolkit.networking",
     "com.rei.usefultoolkit.programtools": "file:./com.rei.usefultoolkit.programtools",
     "com.rei.usefultoolkit.qualitycontroltools": "file:./com.rei.usefultoolkit.qualitycontroltools",
