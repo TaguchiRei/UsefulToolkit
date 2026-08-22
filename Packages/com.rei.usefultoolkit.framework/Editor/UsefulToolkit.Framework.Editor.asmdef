@@ -3,7 +3,8 @@
     "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.Framework.Runtime",
-        "UsefulToolkit.Framework.External.Runtime"
+        "UsefulToolkit.Framework.External.Runtime",
+        "UsefulToolkit.Framework.BlackBoard.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

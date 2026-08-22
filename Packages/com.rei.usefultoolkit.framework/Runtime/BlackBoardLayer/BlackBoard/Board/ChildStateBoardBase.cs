@@ -41,18 +41,21 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
             }
 
 #if UNITY_EDITOR
-            var att = state.GetType().GetCustomAttribute<RegisterBoardAttribute>();
-            if (att != null)
+            if (HeavyValidationSettings.Enabled)
             {
-                if (att.BoardType != GetType())
+                var att = state.GetType().GetCustomAttribute<RegisterBoardAttribute>();
+                if (att != null)
                 {
-                    throw new InvalidOperationException(
-                        $"ステート[{state.GetType().Name}]　は[{GetType().Name}]に登録できません。正しい登録先は[{att.BoardType.Name}]です。");
+                    if (att.BoardType != GetType())
+                    {
+                        throw new InvalidOperationException(
+                            $"ステート[{state.GetType().Name}]　は[{GetType().Name}]に登録できません。正しい登録先は[{att.BoardType.Name}]です。");
+                    }
                 }
-            }
-            else
-            {
-                return;
+                else
+                {
+                    UsefulLogger.LogWarning($"ステート [{state.GetType().Name}] にはRegisterBoardAttributeが付与されていません", this);
+                }
             }
 #endif
             if (_gameStates.TryAdd(typeof(TStateGetter), stateGetter))
