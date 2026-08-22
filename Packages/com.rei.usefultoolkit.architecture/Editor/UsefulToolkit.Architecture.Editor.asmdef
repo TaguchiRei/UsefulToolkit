@@ -2,9 +2,13 @@
     "name": "UsefulToolkit.Architecture.Editor",
     "rootNamespace": "UsefulToolkit.Editor",
     "references": [
-        "UsefulToolkit.Architecture.Runtime"
+        "UsefulToolkit.Architecture.Runtime",
+        "UsefulToolkit.Framework.Editor",
+        "UsefulToolkit.Framework.BlackBoard.Runtime"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

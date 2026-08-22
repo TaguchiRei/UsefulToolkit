@@ -9,6 +9,8 @@
         "UsefulToolkit.Framework.EngineService.Runtime",
         "UsefulToolkit.Framework.Initialization.Runtime",
         "UsefulToolkit.Architecture.Runtime",
+        "UsefulToolkit.ProgramTools.BlackBoard.Runtime",
+        "UsefulToolkit.Input.Runtime",
         "Sandbox.Application.Runtime",
         "Sandbox.BlackBoard.Runtime",
         "Sandbox.External.Runtime",
