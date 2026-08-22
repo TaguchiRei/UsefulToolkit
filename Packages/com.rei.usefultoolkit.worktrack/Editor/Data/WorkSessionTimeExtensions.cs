@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Globalization;
 
-namespace UsefulToolkit.WorkTrack
+namespace UsefulToolkit.Editor.WorkTrack
 {
     /// <summary>
     /// WorkSessionの開始/終了時刻をローカル時刻のDateTimeとして取得する共通ヘルパー。

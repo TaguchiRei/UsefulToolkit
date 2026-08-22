@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectStructure
 {
     /// <summary>
     /// 整理実行の結果

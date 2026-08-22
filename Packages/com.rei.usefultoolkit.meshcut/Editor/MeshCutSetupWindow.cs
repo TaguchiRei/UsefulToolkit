@@ -1,8 +1,9 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using UsefulToolkit.MeshCut;
 
-namespace UsefulToolkit.MeshCut
+namespace UsefulToolkit.Editor.MeshCut
 {
     /// <summary>
     /// MeshCut を使うためのシーンセットアップと、選択オブジェクトの切断可能化を行うウィンドウ。

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -6,7 +6,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace UsefulToolkit.WorkTrack
+namespace UsefulToolkit.Editor.WorkTrack
 {
     /// <summary>
     /// 記録済みの作業セッション履歴の閲覧・編集・削除・集計・エクスポートを行うウィンドウ。

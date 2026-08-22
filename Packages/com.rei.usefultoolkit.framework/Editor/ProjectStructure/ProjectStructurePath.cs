@@ -1,10 +1,10 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.IO;
 using UnityEngine;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectStructure
 {
     /// <summary>
     /// 整理処理で扱うアセットパス（Assets/から始まる、区切りが / のパス）のための小道具

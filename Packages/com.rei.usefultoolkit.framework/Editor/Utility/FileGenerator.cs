@@ -1,10 +1,11 @@
-#nullable enable
+﻿#nullable enable
 
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using UsefulToolkit.Editor.ProjectSettings;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.Utility
 {
     public static class FileGenerator
     {

@@ -1,6 +1,6 @@
-using System;
+﻿using System;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// EventBoard側の購読インターフェース。

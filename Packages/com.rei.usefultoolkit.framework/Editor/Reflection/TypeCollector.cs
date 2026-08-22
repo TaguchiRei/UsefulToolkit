@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.Reflection
 {
     public static class TypeCollector
     {

@@ -2,7 +2,7 @@
     "name": "UsefulToolkit.Input.Runtime",
     "rootNamespace": "UsefulToolkit.Input",
     "references": [
-        "UsefulToolkit.Framework.Runtime.BlackBoard",
+        "UsefulToolkit.Framework.BlackBoard.Runtime",
         "UsefulToolkit.Architecture.Runtime",
         "Unity.InputSystem",
         "UnityEngine.UI"

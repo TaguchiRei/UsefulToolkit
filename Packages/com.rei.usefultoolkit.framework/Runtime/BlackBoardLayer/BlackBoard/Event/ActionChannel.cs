@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// IActionChannelの実装。戻り値を持たない「通知して終わり」のイベント経路。

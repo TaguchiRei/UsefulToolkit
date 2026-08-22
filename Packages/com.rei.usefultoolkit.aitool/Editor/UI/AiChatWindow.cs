@@ -1,12 +1,13 @@
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using System;
 using UnityEditor;
-using UnityEngine;
 using UnityEngine.UIElements;
-using UsefulToolkit.Framework;
+using UnityEngine;
+using UsefulToolkit.Editor.Setting;
+using UsefulToolkit.Editor.Utility;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     public sealed class AiChatWindow : EditorWindow
     {

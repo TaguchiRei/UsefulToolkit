@@ -1,8 +1,8 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using UsefulToolkit.Framework.Application;
-using UsefulToolkit.Framework.BlackBoard;
-using UsefulToolkit.Framework.External;
+using UsefulToolkit.Application.Scene;
+using UsefulToolkit.BlackBoard.Scene;
+using UsefulToolkit.External.Scene;
 
 namespace Sandbox.Application
 {

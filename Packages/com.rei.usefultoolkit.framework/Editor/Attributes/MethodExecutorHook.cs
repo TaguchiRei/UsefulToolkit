@@ -1,20 +1,21 @@
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Reflection;
+using System;
 using UnityEditor;
 using UnityEngine;
+using UsefulToolkit.Attributes;
 
-namespace UsefulToolkit.Attributes
+namespace UsefulToolkit.Editor.Attributes
 {
     [InitializeOnLoad]
     internal static class MethodExecutorHook
     {
         static MethodExecutorHook()
         {
-            Editor.finishedDefaultHeaderGUI += OnPostHeaderGUI;
+            UnityEditor.Editor.finishedDefaultHeaderGUI += OnPostHeaderGUI;
         }
 
-        private static void OnPostHeaderGUI(Editor editor)
+        private static void OnPostHeaderGUI(UnityEditor.Editor editor)
         {
             if (editor == null)
             {

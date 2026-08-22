@@ -1,10 +1,10 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectStructure
 {
     /// <summary>
     /// Assets以下をテンプレート通りの構造へ整理するウィンドウ。

@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.Application.StateManagement
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// <code>

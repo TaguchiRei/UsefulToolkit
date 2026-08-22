@@ -1,8 +1,8 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
-using UsefulToolkit.Framework;
+using UsefulToolkit.Editor.Setting;
 
-namespace UsefulToolkit.Debugging
+namespace UsefulToolkit.Editor.Debugging
 {
     public class DebugSettingPage : SettingPageBase
     {

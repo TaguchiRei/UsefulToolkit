@@ -1,4 +1,4 @@
-namespace UsefulToolkit.Framework
+﻿namespace UsefulToolkit.Editor.ProjectSettings
 {
     internal sealed class MaintenanceSection : IProjectSettingsSection
     {

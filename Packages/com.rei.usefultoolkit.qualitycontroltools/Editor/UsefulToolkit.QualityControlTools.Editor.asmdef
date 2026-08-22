@@ -1,13 +1,13 @@
-{
+﻿{
     "name": "UsefulToolkit.QualityControlTools.Editor",
-    "rootNamespace": "UsefulToolkit.QualityControlTools",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.QualityControlTools.Runtime",
-        "UsefulToolkit.QualityControlTools.Runtime.Application",
-        "UsefulToolkit.QualityControlTools.Runtime.BlackBoard",
-        "UsefulToolkit.QualityControlTools.Runtime.External",
-        "UsefulToolkit.QualityControlTools.Runtime.EngineService",
-        "UsefulToolkit.QualityControlTools.Runtime.Initialization"
+        "UsefulToolkit.QualityControlTools.Application.Runtime",
+        "UsefulToolkit.QualityControlTools.BlackBoard.Runtime",
+        "UsefulToolkit.QualityControlTools.External.Runtime",
+        "UsefulToolkit.QualityControlTools.EngineService.Runtime",
+        "UsefulToolkit.QualityControlTools.Initialization.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

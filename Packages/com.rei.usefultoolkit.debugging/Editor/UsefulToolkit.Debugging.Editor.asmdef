@@ -1,13 +1,13 @@
-{
+﻿{
     "name": "UsefulToolkit.Debugging.Editor",
-    "rootNamespace": "UsefulToolkit.Debugging",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.Debugging.Runtime",
-        "UsefulToolkit.Debugging.Runtime.Application",
-        "UsefulToolkit.Debugging.Runtime.BlackBoard",
-        "UsefulToolkit.Debugging.Runtime.External",
-        "UsefulToolkit.Debugging.Runtime.EngineService",
-        "UsefulToolkit.Debugging.Runtime.Initialization",
+        "UsefulToolkit.Debugging.Application.Runtime",
+        "UsefulToolkit.Debugging.BlackBoard.Runtime",
+        "UsefulToolkit.Debugging.External.Runtime",
+        "UsefulToolkit.Debugging.EngineService.Runtime",
+        "UsefulToolkit.Debugging.Initialization.Runtime",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.Editor"
     ],

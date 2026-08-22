@@ -1,6 +1,6 @@
-using System.Text;
+﻿using System.Text;
 
-namespace UsefulToolkit.Input.Editor
+namespace UsefulToolkit.Editor.Input
 {
     /// <summary>
     /// 文字列配列から単純なenumのソースコード文字列を組み立てる。

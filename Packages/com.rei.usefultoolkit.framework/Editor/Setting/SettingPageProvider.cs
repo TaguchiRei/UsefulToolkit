@@ -1,7 +1,8 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using UsefulToolkit.Editor.Reflection;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.Setting
 {
     public class SettingPageProvider
     {

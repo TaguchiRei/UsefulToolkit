@@ -1,10 +1,11 @@
+﻿using System.Collections.Generic;
 using System;
-using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using UsefulToolkit.Framework.BlackBoard;
-using UsefulToolkit.Framework.External;
+using UsefulToolkit.BlackBoard.BlackBoard;
+using UsefulToolkit.BlackBoard.Scene;
+using UsefulToolkit.External.Scene;
 
-namespace UsefulToolkit.Framework.Application
+namespace UsefulToolkit.Application.Scene
 {
     /// <summary>
     /// シーン遷移の基底クラス。利用側はこれを継承して自分のシーン管理クラスを作り、

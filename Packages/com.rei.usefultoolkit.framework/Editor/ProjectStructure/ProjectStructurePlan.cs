@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using UnityEditor;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectStructure
 {
     /// <summary>
     /// 実行計画に含まれる操作の種別

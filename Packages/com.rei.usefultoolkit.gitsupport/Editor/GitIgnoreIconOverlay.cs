@@ -1,8 +1,8 @@
+﻿using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 using UnityEditor;
 using UnityEngine;
-using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
-namespace UsefulToolkit.GitSupport
+namespace UsefulToolkit.Editor.GitSupport
 {
     [InitializeOnLoad]
     public static class GitIgnoreIconOverlay

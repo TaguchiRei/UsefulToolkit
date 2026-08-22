@@ -1,16 +1,17 @@
+﻿using System.Collections.Generic;
 using System;
-using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using FrameworkBlackBoard = UsefulToolkit.BlackBoard.BlackBoard.BlackBoard;
 using Sandbox.Application;
 using UnityEngine;
-using UsefulToolkit.Application.StateManagement;
-using UsefulToolkit.Framework.BlackBoard;
-using UsefulToolkit.Framework.EngineService;
-using UsefulToolkit.Framework.External;
+using UsefulToolkit.Application.Scene;
+using UsefulToolkit.BlackBoard.BlackBoard;
+using UsefulToolkit.BlackBoard.Scene;
+using UsefulToolkit.EngineService.Scene;
+using UsefulToolkit.External.Scene;
 
 // 型名BlackBoardは、将来Sandbox.BlackBoard名前空間にクラスが増えると
 // 単純名では名前空間側と衝突するため、別名で確定させておく
-using FrameworkBlackBoard = UsefulToolkit.Framework.BlackBoard.BlackBoard;
 
 namespace Sandbox.Initialization
 {

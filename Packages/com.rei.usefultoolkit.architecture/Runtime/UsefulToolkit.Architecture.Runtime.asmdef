@@ -3,10 +3,10 @@
     "rootNamespace": "UsefulToolkit.Architecture",
     "references": [
         "UsefulToolkit.Framework.Runtime",
-        "UsefulToolkit.Framework.Runtime.Application",
-        "UsefulToolkit.Framework.Runtime.BlackBoard",
-        "UsefulToolkit.Framework.Runtime.External",
-        "UsefulToolkit.Framework.Runtime.EngineService"
+        "UsefulToolkit.Framework.Application.Runtime",
+        "UsefulToolkit.Framework.BlackBoard.Runtime",
+        "UsefulToolkit.Framework.External.Runtime",
+        "UsefulToolkit.Framework.EngineService.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

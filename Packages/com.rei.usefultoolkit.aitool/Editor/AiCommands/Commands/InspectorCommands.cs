@@ -1,11 +1,11 @@
-using System;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Text;
+using System;
 using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     [Serializable]
     public class GetComponentDataCommand : IGetCommand

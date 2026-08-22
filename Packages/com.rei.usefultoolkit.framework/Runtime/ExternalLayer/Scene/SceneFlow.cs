@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.Framework.External
+namespace UsefulToolkit.External.Scene
 {
     /// <summary>
     /// シーン遷移図の実行時表現。SceneFlowAssetのBuildが生成し、生成後は不変。

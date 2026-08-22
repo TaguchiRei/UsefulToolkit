@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.Reflection
 {
     public static class InstanceCollector
     {

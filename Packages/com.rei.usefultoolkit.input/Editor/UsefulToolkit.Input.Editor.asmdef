@@ -1,6 +1,6 @@
-{
+﻿{
     "name": "UsefulToolkit.Input.Editor",
-    "rootNamespace": "UsefulToolkit.Input.Editor",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.Input.Runtime",
         "UsefulToolkit.Framework.Editor",

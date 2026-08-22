@@ -1,4 +1,4 @@
-namespace UsefulToolkit.Application.StateManagement
+﻿namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// 生存時間を制御可能なステートのベースクラス。

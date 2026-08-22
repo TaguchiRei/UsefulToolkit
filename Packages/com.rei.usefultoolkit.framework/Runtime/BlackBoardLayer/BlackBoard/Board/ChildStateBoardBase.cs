@@ -1,9 +1,9 @@
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using UsefulToolkit.Application.StateManagement;
+using System;
+using UsefulToolkit.BlackBoard.Logger;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// モジュール単位でStateを登録・取得する子ボードの基底クラス。

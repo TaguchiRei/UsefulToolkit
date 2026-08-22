@@ -1,13 +1,13 @@
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using System;
 using UnityEditor.Experimental.GraphView;
 using UnityEditor.UIElements;
-using UnityEngine;
 using UnityEngine.UIElements;
-using UsefulToolkit.Framework.External;
+using UnityEngine;
+using UsefulToolkit.External.Scene;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.SceneFlowGraph
 {
     /// <summary>
     /// シーン遷移図のキャンバス。ノードの配置とエッジ(=NextNodeIds)の編集を受け取り、

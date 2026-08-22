@@ -1,4 +1,4 @@
-namespace UsefulToolkit.Framework.BlackBoard
+﻿namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// EventBoardへ登録するイベントインターフェースの基盤。

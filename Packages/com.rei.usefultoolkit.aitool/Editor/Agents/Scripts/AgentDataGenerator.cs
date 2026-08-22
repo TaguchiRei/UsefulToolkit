@@ -1,10 +1,10 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
-using UsefulToolkit.Framework;
+using UsefulToolkit.Editor.Utility;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     public static class AgentDataGenerator
     {

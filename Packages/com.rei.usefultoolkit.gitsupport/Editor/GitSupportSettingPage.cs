@@ -1,9 +1,9 @@
+﻿using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using UsefulToolkit.Framework;
-using System.Collections.Generic;
+using UsefulToolkit.Editor.Setting;
 
-namespace UsefulToolkit.GitSupport
+namespace UsefulToolkit.Editor.GitSupport
 {
     public class GitSupportSettingPage : SettingPageBase
     {

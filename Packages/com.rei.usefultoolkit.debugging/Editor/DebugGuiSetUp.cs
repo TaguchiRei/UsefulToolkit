@@ -1,7 +1,8 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
+using UsefulToolkit.Debugging;
 
-namespace UsefulToolkit.Debugging
+namespace UsefulToolkit.Editor.Debugging
 {
     using Debug = UnityEngine.Debug;
 

@@ -1,12 +1,12 @@
-#nullable enable
+﻿#nullable enable
 
-using System;
 using System.IO;
+using System;
 using UnityEditor;
 using UnityEngine;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectStructure
 {
     /// <summary>
     /// 構造テンプレートJSONの読み書き。

@@ -1,8 +1,8 @@
+﻿using System.Collections.Generic;
 using System;
-using System.Collections.Generic;
-using UsefulToolkit.Application.StateManagement;
+using UsefulToolkit.BlackBoard.BlackBoard;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.Scene
 {
     /// <summary>
     /// シーンStateの読み取り面。今どのシーングループにいるか、どこへ遷移できるか、

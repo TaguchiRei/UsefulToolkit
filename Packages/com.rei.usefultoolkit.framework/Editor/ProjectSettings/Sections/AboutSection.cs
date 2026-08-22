@@ -1,6 +1,6 @@
-using UnityEditor;
+﻿using UnityEditor;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectSettings
 {
     internal sealed class AboutSection : IProjectSettingsSection
     {

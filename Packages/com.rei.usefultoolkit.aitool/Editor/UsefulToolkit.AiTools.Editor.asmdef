@@ -1,6 +1,6 @@
-{
+﻿{
     "name": "UsefulToolkit.Ai.Editor",
-    "rootNamespace": "UsefulToolkit.Ai",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.Editor"

@@ -1,11 +1,11 @@
-using UnityEditor;
-using UnityEditor.Callbacks;
+﻿using UnityEditor.Callbacks;
 using UnityEditor.UIElements;
-using UnityEngine;
+using UnityEditor;
 using UnityEngine.UIElements;
-using UsefulToolkit.Framework.External;
+using UnityEngine;
+using UsefulToolkit.External.Scene;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.SceneFlowGraph
 {
     /// <summary>
     /// シーン遷移図をノードグラフとして編集するウィンドウ。

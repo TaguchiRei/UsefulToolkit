@@ -1,11 +1,11 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectSettings
 {
     internal sealed class PackageSection : IProjectSettingsSection
     {

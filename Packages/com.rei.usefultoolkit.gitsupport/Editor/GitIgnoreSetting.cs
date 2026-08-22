@@ -1,10 +1,10 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace UsefulToolkit.GitSupport
+namespace UsefulToolkit.Editor.GitSupport
 {
     /// <summary>
     /// .gitignore に登録するフォルダ階層を表現するノード
@@ -37,7 +37,7 @@ namespace UsefulToolkit.GitSupport
 
         public void Initialize()
         {
-            _gitIgnorePath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, ".gitignore");
+            _gitIgnorePath = Path.Combine(Directory.GetParent(UnityEngine.Application.dataPath).FullName, ".gitignore");
             Refresh();
         }
 
@@ -70,9 +70,9 @@ namespace UsefulToolkit.GitSupport
         private void ScanCurrentStructure()
         {
             CurrentStructure.Clear();
-            if (!Directory.Exists(Application.dataPath)) return;
+            if (!Directory.Exists(UnityEngine.Application.dataPath)) return;
 
-            string[] dirs = Directory.GetDirectories(Application.dataPath, "*", SearchOption.TopDirectoryOnly);
+            string[] dirs = Directory.GetDirectories(UnityEngine.Application.dataPath, "*", SearchOption.TopDirectoryOnly);
             foreach (var dir in dirs)
             {
                 string folderName = Path.GetFileName(dir);
@@ -86,7 +86,7 @@ namespace UsefulToolkit.GitSupport
             string ignorePath = relativePath.EndsWith("/") ? relativePath : relativePath + "/";
             node.isIgnored = _gitIgnoreEntries.Contains(ignorePath);
 
-            string systemPath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, relativePath);
+            string systemPath = Path.Combine(Directory.GetParent(UnityEngine.Application.dataPath).FullName, relativePath);
             if (Directory.Exists(systemPath))
             {
                 foreach (var subDir in Directory.GetDirectories(systemPath))

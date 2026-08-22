@@ -1,8 +1,9 @@
-using System.Diagnostics;
-using UnityEngine;
+﻿using System.Diagnostics;
 using Debug = UnityEngine.Debug;
+using UnityEngine;
+using UsefulToolkit.BlackBoard.BlackBoard;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.Logger
 {
     public static class UsefulLogger
     {

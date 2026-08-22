@@ -1,13 +1,13 @@
-{
+﻿{
     "name": "UsefulToolkit.SoundArtTools.Editor",
-    "rootNamespace": "UsefulToolkit.SoundArtTools",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.SoundArtTools.Runtime",
-        "UsefulToolkit.SoundArtTools.Runtime.Application",
-        "UsefulToolkit.SoundArtTools.Runtime.BlackBoard",
-        "UsefulToolkit.SoundArtTools.Runtime.External",
-        "UsefulToolkit.SoundArtTools.Runtime.EngineService",
-        "UsefulToolkit.SoundArtTools.Runtime.Initialization"
+        "UsefulToolkit.SoundArtTools.Application.Runtime",
+        "UsefulToolkit.SoundArtTools.BlackBoard.Runtime",
+        "UsefulToolkit.SoundArtTools.External.Runtime",
+        "UsefulToolkit.SoundArtTools.EngineService.Runtime",
+        "UsefulToolkit.SoundArtTools.Initialization.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

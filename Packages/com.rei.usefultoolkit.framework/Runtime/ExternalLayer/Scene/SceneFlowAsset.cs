@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-namespace UsefulToolkit.Framework.External
+namespace UsefulToolkit.External.Scene
 {
     /// <summary>
     /// シーン遷移図をインスペクタで組むためのScriptableObject。

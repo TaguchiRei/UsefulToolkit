@@ -1,7 +1,8 @@
-using System.Text;
+﻿using System.Text;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine;
+using UsefulToolkit.Application.Scene;
 
 namespace Sandbox.Initialization
 {

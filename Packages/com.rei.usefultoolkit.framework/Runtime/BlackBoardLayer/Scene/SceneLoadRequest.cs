@@ -1,8 +1,9 @@
+﻿using System.Collections.Generic;
 using System;
-using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using UsefulToolkit.BlackBoard.BlackBoard;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.Scene
 {
     /// <summary>
     /// シーン読み込み処理の型。EngineServiceLayerが実装を登録し、Applicationが呼び出す。

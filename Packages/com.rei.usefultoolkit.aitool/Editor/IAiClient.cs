@@ -1,6 +1,6 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     /// <summary>
     /// AIクライアントの共通インタフェース。

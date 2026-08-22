@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Text;
 using UnityEditor;
@@ -7,7 +7,7 @@ using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     /// <summary>
     /// hatayama/unity-cli-loop（旧uLoopMCP）の導入を自動化するツール。

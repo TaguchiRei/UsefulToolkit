@@ -1,8 +1,9 @@
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using System.Text;
+using UsefulToolkit.Editor.ProjectSettings;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.Utility
 {
     public static class EnumGenerator
     {

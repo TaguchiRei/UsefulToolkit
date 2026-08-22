@@ -1,6 +1,6 @@
-{
+﻿{
     "name": "UsefulToolkit.MeshCut.Editor",
-    "rootNamespace": "UsefulToolkit.MeshCut",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.MeshCut.Runtime"
     ],

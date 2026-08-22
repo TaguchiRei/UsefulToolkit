@@ -1,4 +1,6 @@
-namespace UsefulToolkit.Framework.BlackBoard
+﻿using UsefulToolkit.BlackBoard.BlackBoard;
+
+namespace UsefulToolkit.BlackBoard.Scene
 {
     /// <summary>
     /// シーン管理に関するStateを登録するための子ボード。

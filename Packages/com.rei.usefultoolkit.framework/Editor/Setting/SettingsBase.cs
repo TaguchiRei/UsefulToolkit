@@ -1,7 +1,7 @@
-using System.IO;
+﻿using System.IO;
 using UnityEngine;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.Setting
 {
     /// <summary>
     /// UsefulToolkitSettingsのうち、個人単位で設定する物をこれで保存する

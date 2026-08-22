@@ -1,10 +1,10 @@
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
+using System;
 using UnityEngine;
-using UsefulToolkit.Framework;
+using UsefulToolkit.Editor.Utility;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     /// <summary>
     /// チャットメッセージの最小単位。

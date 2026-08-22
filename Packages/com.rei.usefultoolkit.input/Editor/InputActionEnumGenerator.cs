@@ -1,11 +1,12 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
-using UnityEngine;
 using UnityEngine.InputSystem;
-using UsefulToolkit.Framework;
+using UnityEngine;
+using UsefulToolkit.Editor.ProjectSettings;
+using UsefulToolkit.Editor.Utility;
 
-namespace UsefulToolkit.Input.Editor
+namespace UsefulToolkit.Editor.Input
 {
     /// <summary>
     /// Project-wide ActionsのInputActionAssetから、ActionMapとActionのenumを自動生成する。

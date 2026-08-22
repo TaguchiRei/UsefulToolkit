@@ -1,9 +1,9 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System;
 using UnityEditor;
 using UnityEngine.UIElements;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.Utility
 {
     /// <summary>
     /// エディタ拡張でのドラッグ＆ドロップ操作を補助するユーティリティクラス

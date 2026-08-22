@@ -1,7 +1,7 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UsefulToolkit.Attributes;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     [CreateAssetMenu(fileName = "AgentData", menuName = "UsefulToolkit/Ai/AgentData")]
     public class AgentData : ScriptableObject

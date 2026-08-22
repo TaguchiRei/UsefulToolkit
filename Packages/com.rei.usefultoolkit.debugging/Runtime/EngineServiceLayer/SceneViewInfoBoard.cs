@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
-namespace UsefulToolkit.Debugging
+namespace UsefulToolkit.EngineService.Debugging
 {
     using Debug = UnityEngine.Debug;
 

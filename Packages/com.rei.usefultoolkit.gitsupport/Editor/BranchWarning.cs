@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEngine;
 
-namespace UsefulToolkit.GitSupport
+namespace UsefulToolkit.Editor.GitSupport
 {
     //TODO : 今後Githubの機能とも連携させて誰でもGit警告設定を変えられなくするなどしてより堅牢な仕組みにする
     [InitializeOnLoad]

@@ -1,13 +1,13 @@
-{
+﻿{
     "name": "UsefulToolkit.ProgramTools.Editor",
-    "rootNamespace": "UsefulToolkit.ProgramTools",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.ProgramTools.Runtime",
-        "UsefulToolkit.ProgramTools.Runtime.Application",
-        "UsefulToolkit.ProgramTools.Runtime.BlackBoard",
-        "UsefulToolkit.ProgramTools.Runtime.External",
-        "UsefulToolkit.ProgramTools.Runtime.EngineService",
-        "UsefulToolkit.ProgramTools.Runtime.Initialization"
+        "UsefulToolkit.ProgramTools.Application.Runtime",
+        "UsefulToolkit.ProgramTools.BlackBoard.Runtime",
+        "UsefulToolkit.ProgramTools.External.Runtime",
+        "UsefulToolkit.ProgramTools.EngineService.Runtime",
+        "UsefulToolkit.ProgramTools.Initialization.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

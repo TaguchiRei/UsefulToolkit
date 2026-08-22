@@ -1,0 +1,24 @@
+﻿{
+    "name": "UsefulToolkit.Networking.Initialization.Runtime",
+    "rootNamespace": "UsefulToolkit.Initialization",
+    "references": [
+        "UsefulToolkit.Networking.Application.Runtime",
+        "UsefulToolkit.Networking.BlackBoard.Runtime",
+        "UsefulToolkit.Networking.External.Runtime",
+        "UsefulToolkit.Networking.EngineService.Runtime",
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Application.Runtime",
+        "UsefulToolkit.Framework.BlackBoard.Runtime",
+        "UsefulToolkit.Framework.External.Runtime",
+        "UsefulToolkit.Framework.EngineService.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

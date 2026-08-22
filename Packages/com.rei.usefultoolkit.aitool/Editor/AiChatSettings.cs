@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using UnityEngine;
 using UsefulToolkit.Attributes;
-using UsefulToolkit.Framework;
+using UsefulToolkit.Editor.Setting;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     [Serializable]
     public sealed class AiChatSettings : SettingsBase<AiChatSettings>

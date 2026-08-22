@@ -1,4 +1,4 @@
-namespace UsefulToolkit.Application.StateManagement
+﻿namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// ゲーム終了時まで残るステートのベースクラス。

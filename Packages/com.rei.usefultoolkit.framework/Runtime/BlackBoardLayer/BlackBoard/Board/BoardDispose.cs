@@ -1,6 +1,6 @@
-using System;
+﻿using System;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     public class BoardDispose : IDisposable
     {

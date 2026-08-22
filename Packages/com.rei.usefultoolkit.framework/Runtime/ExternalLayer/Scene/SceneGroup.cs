@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.Framework.External
+namespace UsefulToolkit.External.Scene
 {
     /// <summary> 1つのノードで同時に読み込まれるシーンの組み合わせ。生成後は不変 </summary>
     public sealed class SceneGroup

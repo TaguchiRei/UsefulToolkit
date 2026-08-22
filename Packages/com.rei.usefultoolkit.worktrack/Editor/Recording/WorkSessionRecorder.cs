@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace UsefulToolkit.WorkTrack
+namespace UsefulToolkit.Editor.WorkTrack
 {
     /// <summary>
     /// Unity Editorの起動・終了に合わせて作業セッションを自動記録する。

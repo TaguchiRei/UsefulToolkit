@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// IFuncCollectChannelの実装。登録された全ハンドラへ同じ引数を渡して呼び出し、

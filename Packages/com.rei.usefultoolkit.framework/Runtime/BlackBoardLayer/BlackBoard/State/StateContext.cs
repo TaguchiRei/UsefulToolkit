@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using UnityEngine;
 
-namespace UsefulToolkit.Application.StateManagement
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// Stateの変更時イベントのコンテキスト

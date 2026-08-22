@@ -1,6 +1,7 @@
-using System;
+﻿using System;
+using UsefulToolkit.BlackBoard.BlackBoard;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.Scene
 {
     /// <summary> シーングループを指し示す識別子(NodeId + GroupIndex) </summary>
     public readonly struct SceneGroupId : IEquatable<SceneGroupId>

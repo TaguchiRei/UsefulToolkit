@@ -1,6 +1,7 @@
-using System;
+﻿using System;
+using UsefulToolkit.BlackBoard.BlackBoard;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.Scene
 {
     /// <summary>
     /// シーンStateのうち、EngineServiceLayerへ向けた面。

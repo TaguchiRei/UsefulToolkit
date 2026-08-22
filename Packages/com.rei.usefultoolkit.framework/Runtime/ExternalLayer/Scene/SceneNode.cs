@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.Framework.External
+namespace UsefulToolkit.External.Scene
 {
     /// <summary>
     /// シーン遷移図上の1地点。同じ地点でもシーンの組み合わせを差し替えられるよう、

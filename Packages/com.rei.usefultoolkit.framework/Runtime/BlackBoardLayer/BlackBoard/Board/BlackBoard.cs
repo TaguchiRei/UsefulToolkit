@@ -1,7 +1,8 @@
+﻿using System.Collections.Generic;
 using System;
-using System.Collections.Generic;
+using UsefulToolkit.BlackBoard.Scene;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// ChildBoardを型ごとに登録・取得する最上位のBlackBoard本体。

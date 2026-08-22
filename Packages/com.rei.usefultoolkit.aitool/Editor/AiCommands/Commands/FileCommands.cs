@@ -1,12 +1,12 @@
-using System;
-using System.IO;
+﻿using System.IO;
 using System.Text;
+using System;
 using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
-using UsefulToolkit.Framework;
+using UsefulToolkit.Editor.Utility;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     public static class PathValidator
     {

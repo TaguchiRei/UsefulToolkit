@@ -1,9 +1,9 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using UsefulToolkit.Framework.External;
+using UsefulToolkit.External.Scene;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.SceneFlowGraph
 {
     /// <summary>
     /// SceneFlowAssetのシリアライズデータとノードグラフの橋渡しを一手に引き受けるクラス。

@@ -1,4 +1,4 @@
-namespace UsefulToolkit.Framework
+﻿namespace UsefulToolkit.Editor.Reflection
 {
     public interface IInitializable
     {

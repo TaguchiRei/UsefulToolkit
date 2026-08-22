@@ -1,9 +1,9 @@
-{
+﻿{
     "name": "UsefulToolkit.Framework.Editor",
-    "rootNamespace": "UsefulToolkit.Framework",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.Framework.Runtime",
-        "UsefulToolkit.Framework.Runtime.External"
+        "UsefulToolkit.Framework.External.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

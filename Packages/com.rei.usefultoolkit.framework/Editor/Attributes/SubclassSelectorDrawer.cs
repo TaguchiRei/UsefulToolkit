@@ -1,10 +1,11 @@
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using System;
 using UnityEditor;
 using UnityEngine;
+using UsefulToolkit.Attributes;
 
-namespace UsefulToolkit.Attributes
+namespace UsefulToolkit.Editor.Attributes
 {
     [CustomPropertyDrawer(typeof(SubclassSelectorAttribute))]
     public class SubclassSelectorDrawer : PropertyDrawer

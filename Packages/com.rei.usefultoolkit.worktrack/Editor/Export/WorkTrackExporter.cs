@@ -1,10 +1,10 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
 using UnityEngine;
 
-namespace UsefulToolkit.WorkTrack
+namespace UsefulToolkit.Editor.WorkTrack
 {
     /// <summary>
     /// セッション一覧をCSV/JSON形式のテキストに変換する。

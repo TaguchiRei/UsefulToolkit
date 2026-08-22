@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using UnityEditor.Experimental.GraphView;
 using UnityEditor.UIElements;
-using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.SceneFlowGraph
 {
     /// <summary>
     /// シーン遷移図の1ノードの見た目。

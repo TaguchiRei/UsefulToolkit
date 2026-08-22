@@ -1,7 +1,7 @@
-using UnityEngine;
-using UsefulToolkit.Framework.BlackBoard;
+﻿using UnityEngine;
+using UsefulToolkit.BlackBoard.BlackBoard;
 
-namespace UsefulToolkit.ProgramTools
+namespace UsefulToolkit.BlackBoard.ProgramTools
 {
     public class PauseBoard : ChildStateBoardBase
     {

@@ -1,4 +1,6 @@
-namespace UsefulToolkit.Framework.BlackBoard
+﻿using UsefulToolkit.BlackBoard.Scene;
+
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// ChildBoardを型ごとに登録・取得する最上位のBlackBoard本体のインターフェース。

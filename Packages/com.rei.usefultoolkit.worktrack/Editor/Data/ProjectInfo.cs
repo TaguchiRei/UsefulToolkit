@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.WorkTrack
+namespace UsefulToolkit.Editor.WorkTrack
 {
     /// <summary>
     /// WorkTrackが記録対象として認識しているUnityプロジェクトの情報。

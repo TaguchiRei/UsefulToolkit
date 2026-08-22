@@ -1,13 +1,13 @@
-{
+﻿{
     "name": "UsefulToolkit.VisualArtTools.Editor",
-    "rootNamespace": "UsefulToolkit.VisualArtTools",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.VisualArtTools.Runtime",
-        "UsefulToolkit.VisualArtTools.Runtime.Application",
-        "UsefulToolkit.VisualArtTools.Runtime.BlackBoard",
-        "UsefulToolkit.VisualArtTools.Runtime.External",
-        "UsefulToolkit.VisualArtTools.Runtime.EngineService",
-        "UsefulToolkit.VisualArtTools.Runtime.Initialization"
+        "UsefulToolkit.VisualArtTools.Application.Runtime",
+        "UsefulToolkit.VisualArtTools.BlackBoard.Runtime",
+        "UsefulToolkit.VisualArtTools.External.Runtime",
+        "UsefulToolkit.VisualArtTools.EngineService.Runtime",
+        "UsefulToolkit.VisualArtTools.Initialization.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

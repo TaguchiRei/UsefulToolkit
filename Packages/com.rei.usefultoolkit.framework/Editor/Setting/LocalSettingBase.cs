@@ -1,8 +1,9 @@
-using System.IO;
+﻿using System.IO;
 using UnityEditor;
 using UnityEngine;
+using UsefulToolkit.Editor.Utility;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.Setting
 {
     public class LocalSettingBase<T> : ScriptableObject where T : ScriptableObject
     {

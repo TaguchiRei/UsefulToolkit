@@ -1,0 +1,19 @@
+﻿{
+    "name": "UsefulToolkit.QualityControlTools.EngineService.Runtime",
+    "rootNamespace": "UsefulToolkit.EngineService",
+    "references": [
+        "UsefulToolkit.QualityControlTools.BlackBoard.Runtime",
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.BlackBoard.Runtime",
+        "UsefulToolkit.Framework.EngineService.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

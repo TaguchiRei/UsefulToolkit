@@ -1,4 +1,4 @@
-namespace UsefulToolkit.Ai
+﻿namespace UsefulToolkit.Editor.Ai
 {
     /// <summary>
     /// 他のエージェントに対するコマンドインターフェース。

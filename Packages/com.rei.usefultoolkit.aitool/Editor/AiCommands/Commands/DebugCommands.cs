@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Reflection;
 using System.Text;
 using Newtonsoft.Json;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     [Serializable]
     public class GetConsoleLogsCommand : IGetCommand

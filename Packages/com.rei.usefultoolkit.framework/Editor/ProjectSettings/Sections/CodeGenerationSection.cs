@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectSettings
 {
     internal sealed class CodeGenerationSection : IProjectSettingsSection
     {

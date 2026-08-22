@@ -1,9 +1,9 @@
+﻿using System.Collections.Generic;
 using System;
-using System.Collections.Generic;
 using UnityEngine;
-using UsefulToolkit.Framework;
+using UsefulToolkit.Editor.Setting;
 
-namespace UsefulToolkit.GitSupport
+namespace UsefulToolkit.Editor.GitSupport
 {
     [CreateAssetMenu(fileName = "GitSupportSettings", menuName = "UsefulToolkit/GitSupport Settings")]
     public sealed class GitSupportSettings : LocalSettingBase<GitSupportSettings>

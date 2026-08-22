@@ -1,6 +1,6 @@
-{
+﻿{
     "name": "UsefulToolkit.WorkTrack.Editor",
-    "rootNamespace": "UsefulToolkit.WorkTrack",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.Framework.Editor"
     ],

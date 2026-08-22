@@ -1,9 +1,9 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectStructure
 {
     /// <summary>
     /// 整理ルールの照合方法。この列挙体の並び順がそのまま評価の優先順位になる。

@@ -1,6 +1,7 @@
-using UnityEngine;
+﻿using UnityEngine;
+using UsefulToolkit.Editor.Reflection;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.Setting
 {
     /// <summary>
     /// UsefulToolkitSettingsの各ページのベースクラス

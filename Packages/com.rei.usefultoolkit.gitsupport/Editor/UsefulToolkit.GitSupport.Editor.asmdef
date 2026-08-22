@@ -1,13 +1,13 @@
-{
+﻿{
     "name": "UsefulToolkit.GitSupport.Editor",
-    "rootNamespace": "UsefulToolkit.GitSupport",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.GitSupport.Runtime",
-        "UsefulToolkit.GitSupport.Runtime.Application",
-        "UsefulToolkit.GitSupport.Runtime.BlackBoard",
-        "UsefulToolkit.GitSupport.Runtime.External",
-        "UsefulToolkit.GitSupport.Runtime.EngineService",
-        "UsefulToolkit.GitSupport.Runtime.Initialization",
+        "UsefulToolkit.GitSupport.Application.Runtime",
+        "UsefulToolkit.GitSupport.BlackBoard.Runtime",
+        "UsefulToolkit.GitSupport.External.Runtime",
+        "UsefulToolkit.GitSupport.EngineService.Runtime",
+        "UsefulToolkit.GitSupport.Initialization.Runtime",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.Editor"
     ],

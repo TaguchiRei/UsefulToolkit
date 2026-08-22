@@ -1,6 +1,6 @@
+﻿using System.Collections.Generic;
 using System;
-using System.Collections.Generic;
-using UsefulToolkit.Framework.BlackBoard;
+using UsefulToolkit.BlackBoard.BlackBoard;
 
 namespace UsefulToolkit.Input
 {

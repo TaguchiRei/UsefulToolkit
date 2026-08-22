@@ -1,6 +1,6 @@
-using UnityEngine;
+﻿using UnityEngine;
 
-namespace UsefulToolkit.Framework.External
+namespace UsefulToolkit.External.Scene
 {
     /// <summary>
     /// SceneFlowAssetの非ジェネリックな基底クラス。

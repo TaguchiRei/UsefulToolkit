@@ -1,8 +1,8 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine.UIElements;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectSettings
 {
     public sealed class UsefulToolkitProjectSettings : SettingsProvider
     {

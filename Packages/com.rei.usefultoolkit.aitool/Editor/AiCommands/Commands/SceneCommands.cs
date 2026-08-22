@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Text;
 using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     [Serializable]
     public class GetSceneStructureCommand : IGetCommand

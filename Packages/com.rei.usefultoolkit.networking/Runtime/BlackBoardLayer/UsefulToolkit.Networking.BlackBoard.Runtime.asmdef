@@ -1,0 +1,17 @@
+﻿{
+    "name": "UsefulToolkit.Networking.BlackBoard.Runtime",
+    "rootNamespace": "UsefulToolkit.BlackBoard",
+    "references": [
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.BlackBoard.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

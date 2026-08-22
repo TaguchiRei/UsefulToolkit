@@ -1,8 +1,9 @@
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using System;
+using UsefulToolkit.BlackBoard.Logger;
 
-namespace UsefulToolkit.Framework.BlackBoard
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// モジュール単位でイベントチャンネルを登録・取得する子ボードの基底クラス。

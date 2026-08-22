@@ -1,4 +1,4 @@
-namespace UsefulToolkit.Ai
+﻿namespace UsefulToolkit.Editor.Ai
 {
     public interface ISetCommand
     {

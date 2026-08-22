@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace UsefulToolkit.WorkTrack
+namespace UsefulToolkit.Editor.WorkTrack
 {
     /// <summary>
     /// WorkTrackの保存データをテキストエディタ等で直接読めないようにするための簡易的な暗号化。

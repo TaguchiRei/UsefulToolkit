@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 using System.IO;
 using UnityEditor;
 
-namespace UsefulToolkit.WorkTrack
+namespace UsefulToolkit.Editor.WorkTrack
 {
     /// <summary>
     /// WorkTrackのデータ保存先パスを管理する。保存先はEditorPrefsに保持するため、

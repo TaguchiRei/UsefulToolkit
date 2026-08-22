@@ -1,9 +1,9 @@
-using UnityEditor.Experimental.GraphView;
+﻿using UnityEditor.Experimental.GraphView;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.SceneFlowGraph
 {
     /// <summary>
     /// 遷移図の起点になるBootノードの見た目。グラフに必ず1つだけ存在し、削除できない。

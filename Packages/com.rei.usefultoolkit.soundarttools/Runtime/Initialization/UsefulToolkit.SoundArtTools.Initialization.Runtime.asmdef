@@ -1,0 +1,24 @@
+﻿{
+    "name": "UsefulToolkit.SoundArtTools.Initialization.Runtime",
+    "rootNamespace": "UsefulToolkit.Initialization",
+    "references": [
+        "UsefulToolkit.SoundArtTools.Application.Runtime",
+        "UsefulToolkit.SoundArtTools.BlackBoard.Runtime",
+        "UsefulToolkit.SoundArtTools.External.Runtime",
+        "UsefulToolkit.SoundArtTools.EngineService.Runtime",
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Application.Runtime",
+        "UsefulToolkit.Framework.BlackBoard.Runtime",
+        "UsefulToolkit.Framework.External.Runtime",
+        "UsefulToolkit.Framework.EngineService.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,10 +1,10 @@
-using System;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
+using System;
 using UnityEngine;
-using UsefulToolkit.Framework;
+using UsefulToolkit.Editor.Utility;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     [Serializable]
     public sealed class AIBlackList

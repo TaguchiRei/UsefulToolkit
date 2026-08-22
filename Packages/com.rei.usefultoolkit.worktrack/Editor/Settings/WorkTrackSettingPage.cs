@@ -1,8 +1,8 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
-using UsefulToolkit.Framework;
+using UsefulToolkit.Editor.Setting;
 
-namespace UsefulToolkit.WorkTrack
+namespace UsefulToolkit.Editor.WorkTrack
 {
     /// <summary>
     /// UsefulToolkitSettingsウィンドウに追加されるWorkTrackの設定タブ。

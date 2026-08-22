@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectStructure
 {
     /// <summary>
     /// 現在のAssetsの状態を、そのまま「あるべき構造」としてテンプレート化する。

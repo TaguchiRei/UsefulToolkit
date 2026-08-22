@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace UsefulToolkit.GitSupport
+namespace UsefulToolkit.Editor.GitSupport
 {
     /// <summary>
     /// Gitの.gitignore設定を利用して、指定したファイルやディレクトリが
@@ -19,7 +19,7 @@ namespace UsefulToolkit.GitSupport
         private static bool cacheInitialized;
 
         private static readonly string ProjectRoot =
-            Application.dataPath.Substring(0, Application.dataPath.Length - "/Assets".Length);
+            UnityEngine.Application.dataPath.Substring(0, UnityEngine.Application.dataPath.Length - "/Assets".Length);
 
         /// <summary>
         /// 指定したパスがGitのignore対象か判定します（キャッシュ参照のみ、プロセス起動なし）。

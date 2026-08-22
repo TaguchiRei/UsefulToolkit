@@ -1,6 +1,7 @@
-using UnityEngine;
+﻿using UnityEngine;
+using UsefulToolkit.BlackBoard.BlackBoard;
 
-namespace UsefulToolkit.ProgramTools
+namespace UsefulToolkit.BlackBoard.ProgramTools
 {
     public interface IPausable
     {

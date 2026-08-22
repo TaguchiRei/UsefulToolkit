@@ -1,7 +1,6 @@
-using System;
-using UsefulToolkit.Framework.BlackBoard;
+﻿using System;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// Stateクラスに付け、どのボードに登録されるかを公開する

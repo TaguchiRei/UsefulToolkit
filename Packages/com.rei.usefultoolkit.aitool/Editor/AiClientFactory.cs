@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Linq;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     public static class AiClientFactory
     {

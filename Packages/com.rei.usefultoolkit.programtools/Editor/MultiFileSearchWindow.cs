@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,7 +7,7 @@ using UnityEditor;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
-namespace UsefulToolkit.ProgramTools.Search
+namespace UsefulToolkit.Editor.ProgramTools
 {
     public class MultiFileSearchWindow : EditorWindow
     {
@@ -70,7 +70,7 @@ namespace UsefulToolkit.ProgramTools.Search
             _rootFolder = EditorGUILayout.TextField("Root Folder", _rootFolder);
             if (GUILayout.Button("Browse", GUILayout.Width(60)))
             {
-                string defaultPath = string.IsNullOrEmpty(_rootFolder) ? Application.dataPath : _rootFolder;
+                string defaultPath = string.IsNullOrEmpty(_rootFolder) ? UnityEngine.Application.dataPath : _rootFolder;
                 _rootFolder = EditorUtility.OpenFolderPanel("Select Root Folder", defaultPath, "");
             }
 
@@ -376,7 +376,7 @@ namespace UsefulToolkit.ProgramTools.Search
 
         private void OpenInIDE(SearchResult result)
         {
-            string dataPath = Application.dataPath;
+            string dataPath = UnityEngine.Application.dataPath;
             string projectRoot = dataPath.Substring(0, dataPath.Length - "Assets".Length);
 
             int lineNum = result.LineNum > 0 ? result.LineNum : 1;

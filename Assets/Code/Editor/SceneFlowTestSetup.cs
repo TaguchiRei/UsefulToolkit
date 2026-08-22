@@ -1,15 +1,15 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Sandbox.EngineService;
 using Sandbox.External;
 using Sandbox.Initialization;
-using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEditor;
 using UnityEngine;
-using UsefulToolkit.Framework;
+using UsefulToolkit.Editor.SceneSupport;
 
-namespace Sandbox
+namespace Sandbox.Editor
 {
     /// <summary>
     /// シーン遷移テストの下準備を一括で行うエディタ拡張。

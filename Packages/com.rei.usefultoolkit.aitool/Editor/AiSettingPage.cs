@@ -1,11 +1,12 @@
+﻿using System.Linq;
 using System;
-using System.Linq;
 using UnityEditor;
-using UnityEngine;
 using UnityEngine.SceneManagement;
-using UsefulToolkit.Framework;
+using UnityEngine;
+using UsefulToolkit.Editor.Setting;
+using UsefulToolkit.Editor.Utility;
 
-namespace UsefulToolkit.Ai
+namespace UsefulToolkit.Editor.Ai
 {
     public sealed class AiSettingPage : SettingPageBase
     {

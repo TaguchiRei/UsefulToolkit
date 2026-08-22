@@ -1,8 +1,8 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine.InputSystem;
-using UsefulToolkit.Framework;
+using UsefulToolkit.Editor.ProjectSettings;
 
-namespace UsefulToolkit.Input.Editor
+namespace UsefulToolkit.Editor.Input
 {
     /// <summary>
     /// .inputactionsファイルの変更を検知し、enumの自動生成をトリガーする。

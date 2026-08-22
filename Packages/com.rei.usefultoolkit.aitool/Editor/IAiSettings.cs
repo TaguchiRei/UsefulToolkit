@@ -1,4 +1,4 @@
-namespace UsefulToolkit.Ai
+﻿namespace UsefulToolkit.Editor.Ai
 {
     /// <summary>
     /// AI設定の共通インタフェース。

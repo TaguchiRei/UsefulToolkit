@@ -1,7 +1,8 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
+using UsefulToolkit.EngineService.Debugging;
 
-namespace UsefulToolkit.Debugging
+namespace UsefulToolkit.Editor.Debugging
 {
     [InitializeOnLoad]
     public static class SceneViewInfoBoardDrawer

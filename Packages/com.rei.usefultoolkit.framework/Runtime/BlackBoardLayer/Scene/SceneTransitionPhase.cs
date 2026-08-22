@@ -1,4 +1,6 @@
-namespace UsefulToolkit.Framework.BlackBoard
+﻿using UsefulToolkit.BlackBoard.BlackBoard;
+
+namespace UsefulToolkit.BlackBoard.Scene
 {
     /// <summary> シーン遷移の進行状況 </summary>
     public enum SceneTransitionPhase

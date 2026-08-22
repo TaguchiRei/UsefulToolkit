@@ -1,0 +1,21 @@
+﻿{
+    "name": "UsefulToolkit.ProgramTools.Application.Runtime",
+    "rootNamespace": "UsefulToolkit.Application",
+    "references": [
+        "UsefulToolkit.ProgramTools.BlackBoard.Runtime",
+        "UsefulToolkit.ProgramTools.External.Runtime",
+        "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Application.Runtime",
+        "UsefulToolkit.Framework.BlackBoard.Runtime",
+        "UsefulToolkit.Framework.External.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

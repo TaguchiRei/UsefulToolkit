@@ -1,9 +1,9 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.Setting
 {
     public class UsefulToolkitSettings : EditorWindow
     {

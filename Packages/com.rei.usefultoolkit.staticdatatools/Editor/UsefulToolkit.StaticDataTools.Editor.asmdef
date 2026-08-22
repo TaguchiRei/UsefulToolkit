@@ -1,13 +1,13 @@
-{
+﻿{
     "name": "UsefulToolkit.StaticDataTools.Editor",
-    "rootNamespace": "UsefulToolkit.StaticDataTools",
+    "rootNamespace": "UsefulToolkit.Editor",
     "references": [
         "UsefulToolkit.StaticDataTools.Runtime",
-        "UsefulToolkit.StaticDataTools.Runtime.Application",
-        "UsefulToolkit.StaticDataTools.Runtime.BlackBoard",
-        "UsefulToolkit.StaticDataTools.Runtime.External",
-        "UsefulToolkit.StaticDataTools.Runtime.EngineService",
-        "UsefulToolkit.StaticDataTools.Runtime.Initialization"
+        "UsefulToolkit.StaticDataTools.Application.Runtime",
+        "UsefulToolkit.StaticDataTools.BlackBoard.Runtime",
+        "UsefulToolkit.StaticDataTools.External.Runtime",
+        "UsefulToolkit.StaticDataTools.EngineService.Runtime",
+        "UsefulToolkit.StaticDataTools.Initialization.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

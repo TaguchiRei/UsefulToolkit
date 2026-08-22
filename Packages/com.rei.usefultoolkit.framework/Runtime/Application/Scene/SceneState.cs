@@ -1,10 +1,10 @@
+﻿using System.Collections.Generic;
 using System;
-using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using UsefulToolkit.Application.StateManagement;
-using UsefulToolkit.Framework.BlackBoard;
+using UsefulToolkit.BlackBoard.BlackBoard;
+using UsefulToolkit.BlackBoard.Scene;
 
-namespace UsefulToolkit.Framework.Application
+namespace UsefulToolkit.Application.Scene
 {
     /// <summary>
     /// シーン管理システムのState。現在のシーングループと遷移の進行状況を保持し、

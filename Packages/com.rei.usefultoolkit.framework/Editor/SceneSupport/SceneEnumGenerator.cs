@@ -1,13 +1,15 @@
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using UnityEditor;
+using System;
 using UnityEditor.SceneManagement;
+using UnityEditor;
 using UnityEngine;
+using UsefulToolkit.Editor.ProjectSettings;
+using UsefulToolkit.Editor.Utility;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.SceneSupport
 {
     [InitializeOnLoad]
     public class SceneEnumGenerator

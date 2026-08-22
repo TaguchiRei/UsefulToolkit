@@ -1,11 +1,13 @@
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using System;
 using Cysharp.Threading.Tasks;
 using UnityEngine.SceneManagement;
-using UsefulToolkit.Framework.BlackBoard;
+using UsefulToolkit.BlackBoard.BlackBoard;
+using UsefulToolkit.BlackBoard.Logger;
+using UsefulToolkit.BlackBoard.Scene;
 
-namespace UsefulToolkit.Framework.EngineService
+namespace UsefulToolkit.EngineService.Scene
 {
     /// <summary>
     /// シーンの読み込み・破棄を実行するサービス。生成するとSceneStateへ自身のロード処理を預け、

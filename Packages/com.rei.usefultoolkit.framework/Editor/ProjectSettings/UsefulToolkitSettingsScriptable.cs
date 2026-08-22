@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using UnityEditor;
 
-namespace UsefulToolkit.Framework
+namespace UsefulToolkit.Editor.ProjectSettings
 {
     [FilePath("ProjectSettings/UsefulToolkitSettings.asset", FilePathAttribute.Location.ProjectFolder)]
     public class UsefulToolkitSettingsScriptable : ScriptableSingleton<UsefulToolkitSettingsScriptable>
