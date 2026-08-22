@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System;
+using System.Reflection;
 using UsefulToolkit.BlackBoard.Logger;
 
 namespace UsefulToolkit.BlackBoard.BlackBoard
@@ -39,6 +40,24 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
                 throw new ArgumentException($"ステート [{state.GetType().Name}] は [{typeof(TStateGetter)}] を実装していません。");
             }
 
+#if UNITY_EDITOR
+            if (HeavyValidationSettings.Enabled)
+            {
+                var att = state.GetType().GetCustomAttribute<RegisterBoardAttribute>();
+                if (att != null)
+                {
+                    if (att.BoardType != GetType())
+                    {
+                        throw new InvalidOperationException(
+                            $"ステート[{state.GetType().Name}]　は[{GetType().Name}]に登録できません。正しい登録先は[{att.BoardType.Name}]です。");
+                    }
+                }
+                else
+                {
+                    UsefulLogger.LogWarning($"ステート [{state.GetType().Name}] にはRegisterBoardAttributeが付与されていません", this);
+                }
+            }
+#endif
             if (_gameStates.TryAdd(typeof(TStateGetter), stateGetter))
             {
                 UsefulLogger.Log($"[{state.GetType().Name}] を [{typeof(TStateGetter).Name}] として登録しました。", this);
