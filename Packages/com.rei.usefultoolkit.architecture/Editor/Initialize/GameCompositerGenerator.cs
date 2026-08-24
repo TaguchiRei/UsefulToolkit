@@ -213,9 +213,17 @@ namespace UsefulToolkit.Editor.Architecture
             IReadOnlyList<Type> eventBoardTypes,
             IReadOnlyList<GameCompositerSourceBuilder.InitializerField> initializerFields)
         {
+            // Injectされる依存型は生成コードにTryGetContent<T>として現れるが、Initializerと違って
+            // シーン上には存在せず(Application層の実体などが入る)、別アセンブリにあることが多い。
+            // ここを拾い漏らすと生成先asmdefの参照不足に気付けない。
+            var dependencyTypes = initializerFields
+                .SelectMany(field => GameCompositerSourceBuilder.GetInjectableInterfaces(field.InitializerType))
+                .SelectMany(injectable => injectable.GetGenericArguments());
+
             var assemblies = stateBoardTypes
                 .Concat(eventBoardTypes)
                 .Concat(initializerFields.Select(field => field.InitializerType))
+                .Concat(dependencyTypes)
                 .Select(type => type.Assembly)
                 .Append(typeof(GameCompositer).Assembly)
                 .Append(typeof(IBlackBoard).Assembly)

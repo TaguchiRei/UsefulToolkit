@@ -33,10 +33,10 @@ namespace UsefulToolkit.Architecture
 
             _phase = InitializePhase.Collection;
 
-            // BlackBoardも他の依存と同じくInject経路で配る。専用の受け渡しメソッドを生やすより、
-            // IInjectable<IBlackBoard>を実装するだけで受け取れる方が扱いが一貫する。
-            _container[typeof(IBlackBoard)] = _blackBoard;
-
+            // BlackBoardはコンテナへ入れない。コンテナが預かるのは、あるInitializerが生成し
+            // 他のInitializerが初期化に必要とするクラス/インターフェースであって、
+            // Stateへの参照を公開するBlackBoardとは役割が違う。
+            // BlackBoardはInitializeの引数として全Initializerへ直接渡す。
             RegisterChildBoards(_blackBoard);
 
             // この後Unityが各InitializerのAwakeを呼び、その中でTryRegisterContentが実行される。
@@ -48,7 +48,7 @@ namespace UsefulToolkit.Architecture
             InjectAll();
 
             _phase = InitializePhase.Initialize;
-            InitializeAll();
+            InitializeAll(_blackBoard);
         }
 
         /// <summary>
@@ -59,19 +59,25 @@ namespace UsefulToolkit.Architecture
 
         /// <summary>
         /// IInjectableを実装したInitializerへ、収集済みの依存を流し込む。
+        /// 配るのは各Initializerが「自分の初期化対象へ渡すために必要とする」
+        /// クラス/インターフェースであって、Initializerそのものではない。
         /// </summary>
         protected abstract void InjectAll();
 
         /// <summary>
         /// このシーンの全InitializerのInitializeを呼ぶ。
         /// </summary>
-        protected abstract void InitializeAll();
+        /// <param name="blackBoard">各Initializerへ渡すBlackBoard</param>
+        protected abstract void InitializeAll(IBlackBoard blackBoard);
 
         /// <summary>
-        /// 常駐シーンに配置される共通コンポーネントを登録する。Awakeで登録を行う
+        /// 他のInitializerが初期化に必要とするクラス/インターフェースを登録する。
+        /// 各InitializerのAwakeから、自分が生成した実体を登録すること。
+        /// 公開したい面だけを渡せるよう、Tには実装クラスではなくインターフェースを
+        /// 明示的に指定するのが基本。(例: TryRegisterContent&lt;IPauseManager&gt;(pauseManager))
         /// </summary>
         /// <param name="instance">登録する実体</param>
-        /// <typeparam name="T">登録する型</typeparam>
+        /// <typeparam name="T">登録する型。この型がInject時の解決キーになる</typeparam>
         /// <returns>登録が成功したらtrue</returns>
         public static bool TryRegisterContent<T>(T instance)
         {

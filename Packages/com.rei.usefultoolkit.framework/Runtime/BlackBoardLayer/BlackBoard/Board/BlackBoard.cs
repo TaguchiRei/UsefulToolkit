@@ -28,11 +28,6 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
             _sceneBoard = sceneBoard ?? throw new ArgumentNullException(nameof(sceneBoard));
         }
 
-        public bool TryGetSceneState(out ISceneStateGetter sceneState)
-        {
-            return _sceneBoard.TryGetGameState(out sceneState);
-        }
-
         public bool TryRegisterStateBoard<T>(T childBoard) where T : ChildStateBoardBase
         {
             var type = typeof(T);

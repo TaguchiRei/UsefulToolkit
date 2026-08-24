@@ -204,7 +204,8 @@ namespace UsefulToolkit.Editor.Architecture
 
         private static void AppendInitializeAll(StringBuilder builder, IReadOnlyList<InitializerField> fields)
         {
-            builder.AppendLine("        protected override void InitializeAll()");
+            builder.AppendLine(
+                "        protected override void InitializeAll(UsefulToolkit.BlackBoard.BlackBoard.IBlackBoard blackBoard)");
             builder.AppendLine("        {");
 
             if (fields.Count == 0)
@@ -218,12 +219,13 @@ namespace UsefulToolkit.Editor.Architecture
                 {
                     builder.AppendLine($"            foreach (var target in {field.FieldName})");
                     builder.AppendLine("            {");
-                    builder.AppendLine("                if (target != null) target.Initialize();");
+                    builder.AppendLine("                if (target != null) target.Initialize(blackBoard);");
                     builder.AppendLine("            }");
                 }
                 else
                 {
-                    builder.AppendLine($"            if ({field.FieldName} != null) {field.FieldName}.Initialize();");
+                    builder.AppendLine(
+                        $"            if ({field.FieldName} != null) {field.FieldName}.Initialize(blackBoard);");
                 }
             }
 
