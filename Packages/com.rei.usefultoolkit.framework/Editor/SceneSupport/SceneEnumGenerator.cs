@@ -30,7 +30,7 @@ namespace UsefulToolkit.Editor.SceneSupport
             EditorSceneManager.newSceneCreated += OnNewSceneCreated;
 
             var settings = UsefulToolkitSettingsScriptable.instance.CodeGenerationSectionSettings;
-            
+
             _timing = settings.Timing;
         }
 
@@ -91,8 +91,10 @@ namespace UsefulToolkit.Editor.SceneSupport
             WarnDuplicatedNames("NonBuildScenes", excludedNames);
 
             // Enum生成実行
-            FileGenerator.AutoGenerateFile("BuildScenes.cs", GenerateEnumContent("BuildScenes", includedNames, ns), GenerateType.Runtime);
-            FileGenerator.AutoGenerateFile("NonBuildScenes.cs", GenerateEnumContent("NonBuildScenes", excludedNames, ns), GenerateType.Editor);
+            FileGenerator.AutoGenerateFile("BuildScenes.cs", GenerateEnumContent("BuildScenes", includedNames, ns),
+                GenerateType.Runtime);
+            FileGenerator.AutoGenerateFile("NonBuildScenes.cs",
+                GenerateEnumContent("NonBuildScenes", excludedNames, ns), GenerateType.Editor);
 
             Debug.Log($"[UsefulTools] SceneEnums generated with namespace {ns} " +
                       $"(BuildScenes: {includedNames.Length} / NonBuildScenes: {excludedNames.Length})");
@@ -151,7 +153,7 @@ namespace UsefulToolkit.Editor.SceneSupport
             for (int i = 0; i < distinctValues.Length; i++)
             {
                 string comma = (i < distinctValues.Length - 1) ? "," : "";
-                builder.AppendLine($"        {distinctValues[i]}{comma}");
+                builder.AppendLine($"        {distinctValues[i]} = {i}{comma}");
             }
 
             builder.AppendLine("    }");
