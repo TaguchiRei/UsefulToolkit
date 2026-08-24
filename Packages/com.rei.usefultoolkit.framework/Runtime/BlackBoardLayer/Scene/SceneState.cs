@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using UsefulToolkit.BlackBoard.BlackBoard;
 using UsefulToolkit.BlackBoard.Scene;
@@ -93,6 +94,70 @@ namespace UsefulToolkit.BlackBoard
         #endregion
 
         #region 実体を保持するクラスが利用できるメソッド
+
+        /// <summary>
+        /// 複数のシーンを一気にロードする
+        /// </summary>
+        /// <param name="mainScene"></param>
+        /// <param name="subScenes"></param>
+        public void LoadMultiScene(int mainScene, int[] subScenes)
+        {
+            LoadMainScene(mainScene);
+            LoadSubScenes(subScenes);
+        }
+
+        /// <summary>
+        /// 複数のサブシーンを一気にロードする
+        /// </summary>
+        /// <param name="subScenes"></param>
+        public void LoadSubScenes(int[] subScenes)
+        {
+            foreach (var subScene in subScenes)
+            {
+                LoadSubScene(subScene);
+            }
+        }
+
+        /// <summary>
+        /// 複数のサブシーンを一気にアンロードする
+        /// </summary>
+        /// <param name="subScenes"></param>
+        public void UnLoadMultiSubScenes(int[] subScenes)
+        {
+            foreach (var subScene in subScenes)
+            {
+                UnLoadSubScene(subScene);
+            }
+        }
+
+        /// <summary>
+        /// 複数のサブシーンを一気にアンロードする
+        /// </summary>
+        /// <param name="subScenes"></param>
+        public void UnLoadMultiSubScenes(ReadOnlySpan<int> subScenes)
+        {
+            foreach (var subScene in subScenes)
+            {
+                UnLoadSubScene(subScene);
+            }
+        }
+
+        /// <summary>
+        /// すべてのサブシーンを一気にアンロードする
+        /// </summary>
+        public void ClearSubScenes()
+        {
+            int[] loadedSubSceneIds = ArrayPool<int>.Shared.Rent(_loadedSubSceneIds.Count);
+
+            for (int i = 0; i < _loadedSubSceneIds.Count; i++)
+            {
+                loadedSubSceneIds[i] = _loadedSubSceneIds[i];
+            }
+
+            UnLoadMultiSubScenes(loadedSubSceneIds.AsSpan(0, _loadedSubSceneIds.Count));
+
+            ArrayPool<int>.Shared.Return(loadedSubSceneIds);
+        }
 
         /// <summary>
         /// メインシーンをロードする
