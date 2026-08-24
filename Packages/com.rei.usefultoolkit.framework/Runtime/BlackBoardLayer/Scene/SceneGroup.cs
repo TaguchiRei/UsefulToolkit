@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace UsefulToolkit.BlackBoard
+namespace UsefulToolkit.BlackBoard.Scene
 {
     [Serializable]
     public sealed class SceneGroup : IEquatable<SceneGroup>

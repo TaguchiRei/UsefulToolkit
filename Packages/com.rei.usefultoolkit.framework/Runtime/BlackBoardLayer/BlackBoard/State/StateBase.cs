@@ -40,12 +40,4 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
     public interface IStateGetter
     {
     }
-    
-    public class TestState : GameStateBase, IStateGetter
-    {
-        public override string GetLog()
-        {
-            throw new NotImplementedException();
-        }
-    }
 }

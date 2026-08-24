@@ -1,7 +1,6 @@
 ﻿using System;
-using UnityEngine;
 
-namespace UsefulToolkit.BlackBoard
+namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// 使用後にActionを無効化するかどうかを保持したActionの構造体
@@ -31,9 +30,13 @@ namespace UsefulToolkit.BlackBoard
             _action = action;
         }
 
+        /// <summary>
+        /// 同一性はActionのみで判定する。
+        /// DisposeOnUsedの違いで別物として扱うと、同じActionが二重登録されて二重実行になるため。
+        /// </summary>
         public bool Equals(ActionEntry other)
         {
-            return DisposeOnUsed == other.DisposeOnUsed && Equals(_action, other._action);
+            return Equals(_action, other._action);
         }
 
         public override bool Equals(object obj)
@@ -43,7 +46,7 @@ namespace UsefulToolkit.BlackBoard
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(DisposeOnUsed, _action);
+            return _action?.GetHashCode() ?? 0;
         }
     }
 }

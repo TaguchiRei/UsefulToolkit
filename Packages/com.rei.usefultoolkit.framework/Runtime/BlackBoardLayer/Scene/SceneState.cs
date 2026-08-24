@@ -1,22 +1,24 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using UnityEngine;
 using UsefulToolkit.BlackBoard.BlackBoard;
-using UsefulToolkit.BlackBoard.Scene;
 using UnityEngine.Pool;
 using UsefulToolkit.BlackBoard.Logger;
 
-namespace UsefulToolkit.BlackBoard
+namespace UsefulToolkit.BlackBoard.Scene
 {
     [RegisterBoard(typeof(SceneBoard))]
-    public class SceneState : GameStateBase, ISceneState
+    public class SceneState : GameStateBase, ISceneState, IProgress<float>
     {
-        /// <summary> メインシーンが未設定であることを表すシーンID </summary>
+        /// <summary> アクティブシーンが未設定であることを表すシーンID </summary>
         public const int NoSceneId = -1;
 
-        public int LoadedMainSceneId { get; private set; } = NoSceneId;
-        public IReadOnlyList<int> LoadedSubSceneIds => _loadedSubSceneIds;
-        private readonly List<int> _loadedSubSceneIds = new();
+        public float LoadProgress { get; set; } = 1;
+        public bool IsLoading { get; set; } = false;
+        public int ActiveScene { get; private set; } = NoSceneId;
+        public IReadOnlyList<int> AdditiveScenes => _additiveScenes;
+        private readonly List<int> _additiveScenes = new();
 
         private readonly Dictionary<int, List<ActionEntry>> _loadedActions = new();
         private readonly Dictionary<int, List<ActionEntry>> _unLoadedActions = new();
@@ -26,7 +28,7 @@ namespace UsefulToolkit.BlackBoard
 
         public bool IsLoaded(int sceneId)
         {
-            if (_loadedSubSceneIds.Contains(sceneId) || LoadedMainSceneId == sceneId)
+            if (_additiveScenes.Contains(sceneId) || ActiveScene == sceneId)
             {
                 return true;
             }
@@ -41,7 +43,7 @@ namespace UsefulToolkit.BlackBoard
         /// <param name="loadedAction">登録するアクション</param>
         /// <param name="invokeOnAlreadyLoaded">trueなら、既にロード済みの場合はその場で実行する</param>
         /// <exception cref="ArgumentNullException">loadedActionにActionが設定されていないときに出力</exception>
-        /// <exception cref="InvalidOperationException">同じアクションが既に登録されているときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションエントリーが既に登録されているときに出力</exception>
         public IDisposable RegisterEventOnLoad(int sceneId, ActionEntry loadedAction,
             bool invokeOnAlreadyLoaded = false)
         {
@@ -67,7 +69,7 @@ namespace UsefulToolkit.BlackBoard
         /// <param name="sceneId">対象のシーンID</param>
         /// <param name="unloadedAction">登録するアクション</param>
         /// <exception cref="ArgumentNullException">unloadedActionにActionが設定されていないときに出力</exception>
-        /// <exception cref="InvalidOperationException">同じアクションが既に登録されているときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションエントリーが既に登録されているときに出力</exception>
         public IDisposable RegisterEventOnUnload(int sceneId, ActionEntry unloadedAction)
         {
             var list = GetOrCreateActionList(_unLoadedActions, sceneId);
@@ -82,7 +84,7 @@ namespace UsefulToolkit.BlackBoard
         /// </summary>
         /// <param name="loadedAction">登録するアクション</param>
         /// <exception cref="ArgumentNullException">loadedActionにActionが設定されていないときに出力</exception>
-        /// <exception cref="InvalidOperationException">同じアクションが既に登録されているときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションエントリーが既に登録されているときに出力</exception>
         public IDisposable RegisterEventAnySceneLoaded(ActionEntry loadedAction)
         {
             ThrowIfCannotRegister(_anySceneLoadedActions, loadedAction, nameof(loadedAction));
@@ -98,87 +100,87 @@ namespace UsefulToolkit.BlackBoard
         /// <summary>
         /// 複数のシーンを一気にロードする
         /// </summary>
-        /// <param name="mainScene"></param>
-        /// <param name="subScenes"></param>
-        public void LoadMultiScene(int mainScene, int[] subScenes)
+        /// <param name="activeScene"></param>
+        /// <param name="additiveScenes"></param>
+        public void LoadMultiScene(int activeScene, int[] additiveScenes)
         {
-            LoadMainScene(mainScene);
-            LoadSubScenes(subScenes);
+            LoadActiveScene(activeScene);
+            LoadAdditiveScenes(additiveScenes);
         }
 
         /// <summary>
-        /// 複数のサブシーンを一気にロードする
+        /// 複数のアディティブシーンを一気にロードする
         /// </summary>
-        /// <param name="subScenes"></param>
-        public void LoadSubScenes(int[] subScenes)
+        /// <param name="additiveScenes"></param>
+        public void LoadAdditiveScenes(int[] additiveScenes)
         {
-            foreach (var subScene in subScenes)
+            foreach (var subScene in additiveScenes)
             {
-                LoadSubScene(subScene);
+                LoadAdditiveScene(subScene);
             }
         }
 
         /// <summary>
-        /// 複数のサブシーンを一気にアンロードする
+        /// 複数のアディティブシーンを一気にアンロードする
         /// </summary>
-        /// <param name="subScenes"></param>
-        public void UnLoadMultiSubScenes(int[] subScenes)
+        /// <param name="additiveScenes"></param>
+        public void UnLoadAdditiveScenes(int[] additiveScenes)
         {
-            foreach (var subScene in subScenes)
+            foreach (var subScene in additiveScenes)
             {
-                UnLoadSubScene(subScene);
+                UnLoadAdditiveScene(subScene);
             }
         }
 
         /// <summary>
-        /// 複数のサブシーンを一気にアンロードする
+        /// 複数のアディティブシーンを一気にアンロードする
         /// </summary>
-        /// <param name="subScenes"></param>
-        public void UnLoadMultiSubScenes(ReadOnlySpan<int> subScenes)
+        /// <param name="additiveScenes"></param>
+        public void UnLoadAdditiveScenes(ReadOnlySpan<int> additiveScenes)
         {
-            foreach (var subScene in subScenes)
+            foreach (var subScene in additiveScenes)
             {
-                UnLoadSubScene(subScene);
+                UnLoadAdditiveScene(subScene);
             }
         }
 
         /// <summary>
-        /// すべてのサブシーンを一気にアンロードする
+        /// すべてのアディティブシーンを一気にアンロードする
         /// </summary>
-        public void ClearSubScenes()
+        public void ClearAdditiveScenes()
         {
-            int[] loadedSubSceneIds = ArrayPool<int>.Shared.Rent(_loadedSubSceneIds.Count);
+            int[] loadedSubSceneIds = ArrayPool<int>.Shared.Rent(_additiveScenes.Count);
 
-            for (int i = 0; i < _loadedSubSceneIds.Count; i++)
+            for (int i = 0; i < _additiveScenes.Count; i++)
             {
-                loadedSubSceneIds[i] = _loadedSubSceneIds[i];
+                loadedSubSceneIds[i] = _additiveScenes[i];
             }
 
-            UnLoadMultiSubScenes(loadedSubSceneIds.AsSpan(0, _loadedSubSceneIds.Count));
+            UnLoadAdditiveScenes(loadedSubSceneIds.AsSpan(0, _additiveScenes.Count));
 
             ArrayPool<int>.Shared.Return(loadedSubSceneIds);
         }
 
         /// <summary>
-        /// メインシーンをロードする
+        /// アクティブシーンをロードする
         /// </summary>
         /// <param name="sceneId"></param>
-        public void LoadMainScene(int sceneId)
+        public void LoadActiveScene(int sceneId)
         {
-            if (LoadedMainSceneId == sceneId)
+            if (ActiveScene == sceneId)
             {
-                UsefulLogger.LogWarning($"シーンID{sceneId}はメインシーンとしてロード済みです", this);
+                UsefulLogger.LogWarning($"シーンID{sceneId}はアクティブシーンとしてロード済みです", this);
                 return;
             }
-            else if (_loadedSubSceneIds.Contains(sceneId))
+            else if (_additiveScenes.Contains(sceneId))
             {
-                UsefulLogger.LogWarning($"シーンID{sceneId}はサブシーンとしてロード済みの為、メインシーンとしてロードできません", this);
+                UsefulLogger.LogWarning($"シーンID{sceneId}はアディティブシーンとしてロード済みの為、アクティブシーンとしてロードできません", this);
                 return;
             }
 
             // アクションから見た時に実際のロード状況と食い違わないよう、Stateを更新してから通知する
-            var previousMainSceneId = LoadedMainSceneId;
-            LoadedMainSceneId = sceneId;
+            var previousMainSceneId = ActiveScene;
+            ActiveScene = sceneId;
 
             if (previousMainSceneId != NoSceneId)
             {
@@ -189,70 +191,70 @@ namespace UsefulToolkit.BlackBoard
         }
 
         /// <summary>
-        /// サブシーンをロードする
+        /// アディティブシーンをロードする
         /// </summary>
         /// <param name="sceneId"></param>
-        public void LoadSubScene(int sceneId)
+        public void LoadAdditiveScene(int sceneId)
         {
-            if (_loadedSubSceneIds.Contains(sceneId))
+            if (_additiveScenes.Contains(sceneId))
             {
-                UsefulLogger.LogWarning($"シーンID{sceneId}はサブシーンとしてロード済みです。", this);
+                UsefulLogger.LogWarning($"シーンID{sceneId}はアディティブシーンとしてロード済みです。", this);
                 return;
             }
-            else if (LoadedMainSceneId == sceneId)
+            else if (ActiveScene == sceneId)
             {
-                UsefulLogger.LogWarning($"シーンID{sceneId}はメインシーンとしてロード済みの為、サブシーンとして読み込めません。", this);
+                UsefulLogger.LogWarning($"シーンID{sceneId}はアクティブシーンとしてロード済みの為、アディティブシーンとして読み込めません。", this);
                 return;
             }
 
-            _loadedSubSceneIds.Add(sceneId);
+            _additiveScenes.Add(sceneId);
 
             CheckLoadedActions(sceneId);
         }
 
         /// <summary>
-        /// ロード済みのサブシーンをメインシーンへ昇格させ、それまでのメインシーンをサブシーンへ降格させる。
+        /// ロード済みのアディティブシーンをアクティブシーンへ昇格させ、それまでのアクティブシーンをアディティブシーンへ降格させる。
         /// 実際のシーンのロード/アンロードは発生しないため、Load/Unloadのアクションは発火しない。
         /// </summary>
-        /// <param name="newMainSceneId">メインシーンへ昇格させるシーンID</param>
-        public void ChangeMainScene(int newMainSceneId)
+        /// <param name="newMainSceneId">アクティブシーンへ昇格させるシーンID</param>
+        public void ChangeActiveScene(int newMainSceneId)
         {
-            if (LoadedMainSceneId == newMainSceneId)
+            if (ActiveScene == newMainSceneId)
             {
-                UsefulLogger.LogWarning($"シーンID{newMainSceneId}は既にメインシーンです。", this);
+                UsefulLogger.LogWarning($"シーンID{newMainSceneId}は既にアクティブシーンです。", this);
                 return;
             }
 
-            if (!_loadedSubSceneIds.Remove(newMainSceneId))
+            if (!_additiveScenes.Remove(newMainSceneId))
             {
-                UsefulLogger.LogWarning($"シーンID{newMainSceneId}はサブシーンとしてロードされていない為、メインシーンへ変更できません。", this);
+                UsefulLogger.LogWarning($"シーンID{newMainSceneId}はアディティブシーンとしてロードされていない為、アクティブシーンへ変更できません。", this);
                 return;
             }
 
-            // 旧メインシーンはアンロードされる訳ではないのでサブシーンとして残す
-            if (LoadedMainSceneId != NoSceneId)
+            // 旧アクティブシーンはアンロードされる訳ではないのでアディティブシーンとして残す
+            if (ActiveScene != NoSceneId)
             {
-                _loadedSubSceneIds.Add(LoadedMainSceneId);
+                _additiveScenes.Add(ActiveScene);
             }
 
-            LoadedMainSceneId = newMainSceneId;
+            ActiveScene = newMainSceneId;
         }
 
         /// <summary>
-        /// サブシーンをアンロードする
+        /// アディティブシーンをアンロードする
         /// </summary>
         /// <param name="sceneId">アンロードするシーンID</param>
-        public void UnLoadSubScene(int sceneId)
+        public void UnLoadAdditiveScene(int sceneId)
         {
-            if (!_loadedSubSceneIds.Remove(sceneId))
+            if (!_additiveScenes.Remove(sceneId))
             {
-                if (LoadedMainSceneId == sceneId)
+                if (ActiveScene == sceneId)
                 {
-                    UsefulLogger.LogWarning($"シーンID{sceneId}はメインシーンの為、サブシーンとしてアンロードできません。", this);
+                    UsefulLogger.LogWarning($"シーンID{sceneId}はアクティブシーンの為、アディティブシーンとしてアンロードできません。", this);
                 }
                 else
                 {
-                    UsefulLogger.LogWarning($"シーンID{sceneId}はサブシーンとしてロードされていません。", this);
+                    UsefulLogger.LogWarning($"シーンID{sceneId}はアディティブシーンとしてロードされていません。", this);
                 }
 
                 return;
@@ -266,8 +268,8 @@ namespace UsefulToolkit.BlackBoard
 
         public override string GetLog()
         {
-            var allList = new List<int>(_loadedSubSceneIds);
-            allList.Insert(0, LoadedMainSceneId);
+            var allList = new List<int>(_additiveScenes);
+            allList.Insert(0, ActiveScene);
             return string.Join("\n", allList);
         }
 
@@ -287,11 +289,11 @@ namespace UsefulToolkit.BlackBoard
 
         /// <summary>
         /// 登録できないActionEntryを弾く。
-        /// 同じアクションを2回登録すると、解除時にどちらの登録なのか区別できず、
+        /// 同じアクションエントリーを2回登録すると、解除時にどちらの登録なのか区別できず、
         /// 片方をDisposeした時にもう片方が消える事故になるため登録時点で弾く。
         /// </summary>
         /// <exception cref="ArgumentNullException">ActionEntryにActionが設定されていないときに出力</exception>
-        /// <exception cref="InvalidOperationException">同じアクションが既に登録されているときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションエントリーが既に登録されているときに出力</exception>
         private static void ThrowIfCannotRegister(List<ActionEntry> registeredActions, ActionEntry entry,
             string paramName)
         {
@@ -327,16 +329,16 @@ namespace UsefulToolkit.BlackBoard
             }
         }
 
-        private void InvokeActionEntries(List<ActionEntry> loadAction)
+        private void InvokeActionEntries(List<ActionEntry> actions)
         {
             List<ActionEntry> temporaryList = CollectionPool<List<ActionEntry>, ActionEntry>.Get();
-            CopyListContents(loadAction, ref temporaryList);
+            CopyListContents(actions, temporaryList);
             for (int i = 0; i < temporaryList.Count; i++)
             {
                 temporaryList[i].Invoke();
                 if (temporaryList[i].DisposeOnUsed)
                 {
-                    loadAction.Remove(temporaryList[i]);
+                    actions.Remove(temporaryList[i]);
                 }
             }
 
@@ -348,36 +350,64 @@ namespace UsefulToolkit.BlackBoard
         /// </summary>
         /// <param name="baseList">コピー元のリスト</param>
         /// <param name="copy">複製を入れるリスト</param>
-        private void CopyListContents(List<ActionEntry> baseList, ref List<ActionEntry> copy)
+        private void CopyListContents(List<ActionEntry> baseList, List<ActionEntry> copy)
         {
             copy.Clear();
             copy.AddRange(baseList);
         }
 
         /// <summary>
-        /// リストの内容を複製する
+        /// valueは0~1
         /// </summary>
-        /// <param name="baseList"></param>
-        /// <param name="copy"></param>
-        private void CopyListContents(List<Action<int[], int[]>> baseList, ref List<Action<int[], int[]>> copy)
+        /// <param name="value"></param>
+        public void Report(float value)
         {
-            copy.Clear();
-            copy.AddRange(baseList);
+            LoadProgress = Mathf.Clamp(0, 1, value);
+            if (LoadProgress >= 1)
+            {
+                IsLoading = false;
+            }
         }
     }
 
     public interface ISceneState : IStateGetter
     {
-        public int LoadedMainSceneId { get; }
-        public IReadOnlyList<int> LoadedSubSceneIds { get; }
+        public float LoadProgress { get; }
+        public bool IsLoading { get; }
+
+        /// <summary> ロード済みの現在のアクティブシーン </summary>
+        public int ActiveScene { get; }
+
+        public IReadOnlyList<int> AdditiveScenes { get; }
 
         public bool IsLoaded(int sceneId);
 
+        /// <summary>
+        /// 特定のシーンがロードされたときに実行されるActionを登録する
+        /// </summary>
+        /// <param name="sceneId">対象のシーンID</param>
+        /// <param name="loadedAction">ロードされた際に実行されるAction</param>
+        /// <param name="invokeOnAlreadyLoaded">
+        /// 登録時にすでにロード済みだった際に実行するかどうか。
+        /// 実行しても登録は維持されるかはActionEntryに依存する。
+        /// </param>
+        /// <returns>Disposeすると登録を解除できる</returns>
         public IDisposable RegisterEventOnLoad(int sceneId, ActionEntry loadedAction,
             bool invokeOnAlreadyLoaded = false);
 
+        /// <summary>
+        /// 特定のシーンがアンロードされたときに実行されるActionを登録する
+        /// </summary>
+        /// <param name="sceneId">対象のシーンID</param>
+        /// <param name="unloadedAction">アンロードされた際に実行されるAction</param>
+        /// <returns>Disposeすると登録を解除できる</returns>
         public IDisposable RegisterEventOnUnload(int sceneId, ActionEntry unloadedAction);
 
+        /// <summary>
+        /// いずれかのシーンがロードされた際に実行されるActionを登録する
+        /// </summary>
+        /// <param name="loadedAction">シーンロード時に実行されるAction</param>
+        /// <returns>Disposeすると登録を解除できる</returns>
         public IDisposable RegisterEventAnySceneLoaded(ActionEntry loadedAction);
     }
 }
