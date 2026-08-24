@@ -10,7 +10,10 @@ namespace UsefulToolkit.BlackBoard
     [RegisterBoard(typeof(SceneBoard))]
     public class SceneState : GameStateBase, ISceneState
     {
-        public int LoadedMainSceneId { get; private set; } = -1;
+        /// <summary> メインシーンが未設定であることを表すシーンID </summary>
+        public const int NoSceneId = -1;
+
+        public int LoadedMainSceneId { get; private set; } = NoSceneId;
         public IReadOnlyList<int> LoadedSubSceneIds => _loadedSubSceneIds;
         private readonly List<int> _loadedSubSceneIds = new();
 
@@ -30,9 +33,20 @@ namespace UsefulToolkit.BlackBoard
             return false;
         }
 
+        /// <summary>
+        /// 指定したシーンがロードされた時に実行するアクションを登録する。
+        /// </summary>
+        /// <param name="sceneId">対象のシーンID</param>
+        /// <param name="loadedAction">登録するアクション</param>
+        /// <param name="invokeOnAlreadyLoaded">trueなら、既にロード済みの場合はその場で実行する</param>
+        /// <exception cref="ArgumentNullException">loadedActionにActionが設定されていないときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションが既に登録されているときに出力</exception>
         public IDisposable RegisterEventOnLoad(int sceneId, ActionEntry loadedAction,
             bool invokeOnAlreadyLoaded = false)
         {
+            var list = GetOrCreateActionList(_loadedActions, sceneId);
+            ThrowIfCannotRegister(list, loadedAction, nameof(loadedAction));
+
             if (invokeOnAlreadyLoaded && IsLoaded(sceneId))
             {
                 loadedAction.Invoke();
@@ -42,27 +56,36 @@ namespace UsefulToolkit.BlackBoard
                 }
             }
 
-            if (!_loadedActions.TryGetValue(sceneId, out var list))
-            {
-                list = new List<ActionEntry>();
-                _loadedActions[sceneId] = list;
-            }
-
             list.Add(loadedAction);
             return new BoardDispose(() => list.Remove(loadedAction));
         }
 
+        /// <summary>
+        /// 指定したシーンがアンロードされた時に実行するアクションを登録する。
+        /// </summary>
+        /// <param name="sceneId">対象のシーンID</param>
+        /// <param name="unloadedAction">登録するアクション</param>
+        /// <exception cref="ArgumentNullException">unloadedActionにActionが設定されていないときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションが既に登録されているときに出力</exception>
         public IDisposable RegisterEventOnUnload(int sceneId, ActionEntry unloadedAction)
         {
-            if (!_unLoadedActions.TryGetValue(sceneId, out var list))
-                _unLoadedActions[sceneId] = new List<ActionEntry>();
+            var list = GetOrCreateActionList(_unLoadedActions, sceneId);
+            ThrowIfCannotRegister(list, unloadedAction, nameof(unloadedAction));
 
-            _unLoadedActions[sceneId].Add(unloadedAction);
+            list.Add(unloadedAction);
             return new BoardDispose(() => list.Remove(unloadedAction));
         }
 
+        /// <summary>
+        /// どのシーンがロードされた時でも実行するアクションを登録する。
+        /// </summary>
+        /// <param name="loadedAction">登録するアクション</param>
+        /// <exception cref="ArgumentNullException">loadedActionにActionが設定されていないときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションが既に登録されているときに出力</exception>
         public IDisposable RegisterEventAnySceneLoaded(ActionEntry loadedAction)
         {
+            ThrowIfCannotRegister(_anySceneLoadedActions, loadedAction, nameof(loadedAction));
+
             _anySceneLoadedActions.Add(loadedAction);
             return new BoardDispose(() => _anySceneLoadedActions.Remove(loadedAction));
         }
@@ -88,11 +111,16 @@ namespace UsefulToolkit.BlackBoard
                 return;
             }
 
-
-            CheckUnLoadedActions(LoadedMainSceneId);
-            CheckLoadedActions(sceneId);
-
+            // アクションから見た時に実際のロード状況と食い違わないよう、Stateを更新してから通知する
+            var previousMainSceneId = LoadedMainSceneId;
             LoadedMainSceneId = sceneId;
+
+            if (previousMainSceneId != NoSceneId)
+            {
+                CheckUnLoadedActions(previousMainSceneId);
+            }
+
+            CheckLoadedActions(sceneId);
         }
 
         /// <summary>
@@ -112,18 +140,61 @@ namespace UsefulToolkit.BlackBoard
                 return;
             }
 
-            CheckLoadedActions(sceneId);
-
             _loadedSubSceneIds.Add(sceneId);
+
+            CheckLoadedActions(sceneId);
         }
 
+        /// <summary>
+        /// ロード済みのサブシーンをメインシーンへ昇格させ、それまでのメインシーンをサブシーンへ降格させる。
+        /// 実際のシーンのロード/アンロードは発生しないため、Load/Unloadのアクションは発火しない。
+        /// </summary>
+        /// <param name="newMainSceneId">メインシーンへ昇格させるシーンID</param>
         public void ChangeMainScene(int newMainSceneId)
         {
-            
+            if (LoadedMainSceneId == newMainSceneId)
+            {
+                UsefulLogger.LogWarning($"シーンID{newMainSceneId}は既にメインシーンです。", this);
+                return;
+            }
+
+            if (!_loadedSubSceneIds.Remove(newMainSceneId))
+            {
+                UsefulLogger.LogWarning($"シーンID{newMainSceneId}はサブシーンとしてロードされていない為、メインシーンへ変更できません。", this);
+                return;
+            }
+
+            // 旧メインシーンはアンロードされる訳ではないのでサブシーンとして残す
+            if (LoadedMainSceneId != NoSceneId)
+            {
+                _loadedSubSceneIds.Add(LoadedMainSceneId);
+            }
+
+            LoadedMainSceneId = newMainSceneId;
         }
 
+        /// <summary>
+        /// サブシーンをアンロードする
+        /// </summary>
+        /// <param name="sceneId">アンロードするシーンID</param>
         public void UnLoadSubScene(int sceneId)
         {
+            if (!_loadedSubSceneIds.Remove(sceneId))
+            {
+                if (LoadedMainSceneId == sceneId)
+                {
+                    UsefulLogger.LogWarning($"シーンID{sceneId}はメインシーンの為、サブシーンとしてアンロードできません。", this);
+                }
+                else
+                {
+                    UsefulLogger.LogWarning($"シーンID{sceneId}はサブシーンとしてロードされていません。", this);
+                }
+
+                return;
+            }
+
+            // アクションから見た時に実際のロード状況と食い違わないよう、Stateを更新してから通知する
+            CheckUnLoadedActions(sceneId);
         }
 
         #endregion
@@ -133,6 +204,41 @@ namespace UsefulToolkit.BlackBoard
             var allList = new List<int>(_loadedSubSceneIds);
             allList.Insert(0, LoadedMainSceneId);
             return string.Join("\n", allList);
+        }
+
+        /// <summary>
+        /// 指定シーンのアクションリストを取得する。無ければ作成して辞書へ登録する。
+        /// </summary>
+        private static List<ActionEntry> GetOrCreateActionList(Dictionary<int, List<ActionEntry>> actions, int sceneId)
+        {
+            if (!actions.TryGetValue(sceneId, out var list))
+            {
+                list = new List<ActionEntry>();
+                actions[sceneId] = list;
+            }
+
+            return list;
+        }
+
+        /// <summary>
+        /// 登録できないActionEntryを弾く。
+        /// 同じアクションを2回登録すると、解除時にどちらの登録なのか区別できず、
+        /// 片方をDisposeした時にもう片方が消える事故になるため登録時点で弾く。
+        /// </summary>
+        /// <exception cref="ArgumentNullException">ActionEntryにActionが設定されていないときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションが既に登録されているときに出力</exception>
+        private static void ThrowIfCannotRegister(List<ActionEntry> registeredActions, ActionEntry entry,
+            string paramName)
+        {
+            if (!entry.HasAction)
+            {
+                throw new ArgumentNullException(paramName, "ActionEntryに実行するActionが設定されていません。");
+            }
+
+            if (registeredActions.Contains(entry))
+            {
+                throw new InvalidOperationException($"アクション [{entry.ActionName}] はすでに登録されています。");
+            }
         }
 
         private void CheckLoadedActions(int sceneId)
