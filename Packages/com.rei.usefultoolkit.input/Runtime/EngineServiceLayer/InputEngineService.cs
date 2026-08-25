@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UsefulToolkit.Architecture;
+using UsefulToolkit.BlackBoard.Input;
 
-namespace UsefulToolkit.Input
+namespace UsefulToolkit.EngineService.Input
 {
     /// <summary>
     /// InputActionAssetを直接扱うEngineServiceLayer。BindしたAction分だけ、対応する

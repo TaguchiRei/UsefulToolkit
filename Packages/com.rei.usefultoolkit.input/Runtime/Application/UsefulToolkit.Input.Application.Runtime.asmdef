@@ -1,16 +1,13 @@
 {
-    "name": "UsefulToolkit.Input.Editor",
-    "rootNamespace": "UsefulToolkit.Editor",
+    "name": "UsefulToolkit.Input.Application.Runtime",
+    "rootNamespace": "UsefulToolkit.Application",
     "references": [
-        "UsefulToolkit.Input.Runtime",
-        "UsefulToolkit.Input.Application.Runtime",
         "UsefulToolkit.Input.BlackBoard.Runtime",
         "UsefulToolkit.Input.External.Runtime",
-        "UsefulToolkit.Input.EngineService.Runtime",
-        "UsefulToolkit.Input.Initialization.Runtime",
         "UsefulToolkit.Framework.Runtime",
-        "UsefulToolkit.Framework.Editor",
-        "Unity.InputSystem"
+        "UsefulToolkit.Framework.Application.Runtime",
+        "UsefulToolkit.Framework.BlackBoard.Runtime",
+        "UsefulToolkit.Framework.External.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

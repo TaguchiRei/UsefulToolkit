@@ -1,6 +1,6 @@
 using System;
 
-namespace UsefulToolkit.Input
+namespace UsefulToolkit.BlackBoard.Input
 {
     /// <summary>
     /// InputBoardへ入力を橋渡しする入力ソースの契約。EngineServiceLayerに属するクラス
