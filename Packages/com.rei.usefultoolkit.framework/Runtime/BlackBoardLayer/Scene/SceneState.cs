@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
 using UnityEngine;
@@ -26,7 +26,7 @@ namespace UsefulToolkit.BlackBoard.Scene
 
         private readonly Dictionary<int, List<ActionEntry>> _loadedActions = new();
         private readonly Dictionary<int, List<ActionEntry>> _unLoadedActions = new();
-        private readonly List<ActionEntry> _anySceneLoadedActions = new();
+        private readonly List<ActionEntry<int[], bool>> _anySceneLoadedActions = new();
         private readonly List<ActionEntry> _activeSceneChangedActions = new();
 
         #region ISceneState実装
@@ -93,7 +93,7 @@ namespace UsefulToolkit.BlackBoard.Scene
         /// <param name="loadedAction">登録するアクション</param>
         /// <exception cref="ArgumentNullException">loadedActionにActionが設定されていないときに出力</exception>
         /// <exception cref="InvalidOperationException">同じアクションエントリーが既に登録されているときに出力</exception>
-        public IDisposable RegisterEventAnySceneLoaded(ActionEntry loadedAction)
+        public IDisposable RegisterEventAnySceneLoaded(ActionEntry<int[], bool> loadedAction)
         {
             ThrowIfCannotRegister(_anySceneLoadedActions, loadedAction, nameof(loadedAction));
 
@@ -230,6 +230,7 @@ namespace UsefulToolkit.BlackBoard.Scene
                 }
 
                 NotifyLoadedScenes(loadedScenes);
+                NotifyAnySceneLoaded(loadedScenes, activeSceneChanged);
 
                 if (activeSceneChanged)
                 {
@@ -261,6 +262,7 @@ namespace UsefulToolkit.BlackBoard.Scene
             {
                 ApplyLoadAdditiveScenes(additiveScenes, loadedScenes);
                 NotifyLoadedScenes(loadedScenes);
+                NotifyAnySceneLoaded(loadedScenes, false);
 
                 return loadedScenes.Count == additiveScenes.Length;
             }
@@ -374,6 +376,7 @@ namespace UsefulToolkit.BlackBoard.Scene
             }
 
             CheckLoadedActions(sceneId);
+            NotifyAnySceneLoaded(sceneId, true);
             NotifyActiveSceneChanged();
 
             return true;
@@ -397,6 +400,7 @@ namespace UsefulToolkit.BlackBoard.Scene
             }
 
             CheckLoadedActions(sceneId);
+            NotifyAnySceneLoaded(sceneId, false);
 
             return true;
         }
@@ -596,16 +600,33 @@ namespace UsefulToolkit.BlackBoard.Scene
             }
         }
 
+        /// <summary>
+        /// 登録できないActionEntryを弾く。
+        /// </summary>
+        /// <param name="registeredActions">登録先のリスト。まだ作られていない場合はnull</param>
+        /// <param name="entry">登録しようとしているActionEntry</param>
+        /// <param name="paramName">例外に含める引数名</param>
+        /// <exception cref="ArgumentNullException">ActionEntryにActionが設定されていないときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションエントリーが既に登録されているときに出力</exception>
+        private static void ThrowIfCannotRegister<T1, T2>(List<ActionEntry<T1, T2>> registeredActions,
+            ActionEntry<T1, T2> entry, string paramName)
+        {
+            if (!entry.HasAction)
+            {
+                throw new ArgumentNullException(paramName, "ActionEntryに実行するActionが設定されていません。");
+            }
+
+            if (registeredActions != null && registeredActions.Contains(entry))
+            {
+                throw new InvalidOperationException($"アクション [{entry.ActionName}] はすでに登録されています。");
+            }
+        }
+
         private void CheckLoadedActions(int sceneId)
         {
             if (_loadedActions.TryGetValue(sceneId, out var loadAction))
             {
                 InvokeActionEntries(loadAction);
-            }
-
-            if (_anySceneLoadedActions.Count != 0)
-            {
-                InvokeActionEntries(_anySceneLoadedActions);
             }
         }
 
@@ -627,6 +648,36 @@ namespace UsefulToolkit.BlackBoard.Scene
             {
                 CheckLoadedActions(loadedScenes[i]);
             }
+        }
+
+        /// <summary>
+        /// Stateへ反映されたシーンをまとめて通知する。購読者がいない場合は配列を確保しない。
+        /// </summary>
+        /// <param name="loadedScenes">Stateへ反映されたシーンID</param>
+        /// <param name="containsActiveScene">0番目のシーンがアクティブシーンとしてロードされたか</param>
+        private void NotifyAnySceneLoaded(List<int> loadedScenes, bool containsActiveScene)
+        {
+            if (_anySceneLoadedActions.Count == 0 || loadedScenes.Count == 0)
+            {
+                return;
+            }
+
+            InvokeActionEntries(_anySceneLoadedActions, loadedScenes.ToArray(), containsActiveScene);
+        }
+
+        /// <summary>
+        /// Stateへ反映された単一のシーンを通知する。購読者がいない場合は配列を確保しない。
+        /// </summary>
+        /// <param name="loadedScene">Stateへ反映されたシーンID</param>
+        /// <param name="isActiveScene">アクティブシーンとしてロードされたか</param>
+        private void NotifyAnySceneLoaded(int loadedScene, bool isActiveScene)
+        {
+            if (_anySceneLoadedActions.Count == 0)
+            {
+                return;
+            }
+
+            InvokeActionEntries(_anySceneLoadedActions, new[] { loadedScene }, isActiveScene);
         }
 
         private void NotifyActiveSceneChanged()
@@ -662,6 +713,35 @@ namespace UsefulToolkit.BlackBoard.Scene
             finally
             {
                 CollectionPool<List<ActionEntry>, ActionEntry>.Release(temporaryList);
+            }
+        }
+
+        private static void InvokeActionEntries<T1, T2>(List<ActionEntry<T1, T2>> actions, T1 value1, T2 value2)
+        {
+            List<ActionEntry<T1, T2>> temporaryList =
+                CollectionPool<List<ActionEntry<T1, T2>>, ActionEntry<T1, T2>>.Get();
+            try
+            {
+                temporaryList.Clear();
+                temporaryList.AddRange(actions);
+
+                // 実行中にロードが入れ子で走った際に使い捨てのアクションが二重実行されないように実行する前にリストから取り除いておく
+                for (int i = actions.Count - 1; i >= 0; i--)
+                {
+                    if (actions[i].DisposeOnUsed)
+                    {
+                        actions.RemoveAt(i);
+                    }
+                }
+
+                for (int i = 0; i < temporaryList.Count; i++)
+                {
+                    temporaryList[i].Invoke(value1, value2);
+                }
+            }
+            finally
+            {
+                CollectionPool<List<ActionEntry<T1, T2>>, ActionEntry<T1, T2>>.Release(temporaryList);
             }
         }
 
@@ -718,9 +798,10 @@ namespace UsefulToolkit.BlackBoard.Scene
         /// <summary>
         /// いずれかのシーンがロードされた際に実行されるActionを登録する
         /// </summary>
-        /// <param name="loadedAction">シーンロード時に実行されるAction</param>
+        /// <param name="loadedAction">シーンロード時に実行されるAction。引数に新規にロードされたシーン情報が入り、第二引数がtrueの際は配列の０番目がアクティブシーンとしてロードされている
+        /// </param>
         /// <returns>Disposeすると登録を解除できる</returns>
-        public IDisposable RegisterEventAnySceneLoaded(ActionEntry loadedAction);
+        public IDisposable RegisterEventAnySceneLoaded(ActionEntry<int[], bool> loadedAction);
 
         /// <summary>
         /// アクティブシーンが切り替わった際に実行されるActionを登録する。
