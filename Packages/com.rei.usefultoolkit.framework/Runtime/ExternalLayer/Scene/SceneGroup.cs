@@ -1,19 +1,36 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using UnityEngine;
 
-namespace UsefulToolkit.BlackBoard.Scene
+namespace UsefulToolkit.External.Scene
 {
+    /// <summary>
+    /// 一まとまりでロードするシーンの組。
+    /// アクティブシーンにするシーンIDと、共にロードするシーンIDを保持する。
+    /// </summary>
     [Serializable]
     public sealed class SceneGroup : IEquatable<SceneGroup>
     {
-        public int MainSceneId { get; }
+        /// <summary> アクティブシーンにするシーンID </summary>
+        [field: SerializeField]
+        public int MainSceneId { get; private set; }
+
+        /// <summary> アクティブシーンと共にロードするシーンID </summary>
         public IReadOnlyList<int> SubSceneIds => _subSceneIds;
 
-        private readonly int[] _subSceneIds;
+        /// <summary>
+        /// ロード時に、このグループへ含まれないロード済みシーンをアンロードするかどうか。
+        /// falseの場合、既にロードされているシーンはそのまま残り、このグループが追加でロードされる。
+        /// </summary>
+        [field: SerializeField]
+        public bool OverwriteLoadedScenes { get; private set; }
 
-        public SceneGroup(int mainSceneID, int[] subSceneIds)
+        [SerializeField] private int[] _subSceneIds;
+
+        public SceneGroup(int mainSceneId, int[] subSceneIds, bool overwriteLoadedScenes)
         {
-            MainSceneId = mainSceneID;
+            MainSceneId = mainSceneId;
+            OverwriteLoadedScenes = overwriteLoadedScenes;
             _subSceneIds = (int[])subSceneIds.Clone();
         }
 
@@ -21,6 +38,7 @@ namespace UsefulToolkit.BlackBoard.Scene
         {
             var hash = new HashCode();
             hash.Add(MainSceneId);
+            hash.Add(OverwriteLoadedScenes);
 
             foreach (var scene in _subSceneIds)
             {
@@ -39,6 +57,7 @@ namespace UsefulToolkit.BlackBoard.Scene
                 return true;
 
             if (MainSceneId != other.MainSceneId ||
+                OverwriteLoadedScenes != other.OverwriteLoadedScenes ||
                 _subSceneIds.Length != other._subSceneIds.Length)
                 return false;
 
@@ -59,11 +78,12 @@ namespace UsefulToolkit.BlackBoard.Scene
         /// <summary>
         /// EnumからSceneGroupを構築する
         /// </summary>
-        /// <param name="mainSceneEnum"></param>
-        /// <param name="subSceneEnums"></param>
-        /// <typeparam name="T"></typeparam>
-        /// <returns></returns>
-        public static SceneGroup Create<T>(T mainSceneEnum, T[] subSceneEnums) where T : Enum
+        /// <param name="mainSceneEnum">アクティブシーンにするシーン</param>
+        /// <param name="subSceneEnums">共にロードするシーン</param>
+        /// <param name="overwriteLoadedScenes">このグループへ含まれないロード済みシーンをアンロードするか</param>
+        /// <typeparam name="T">ビルドシーンを表すEnum</typeparam>
+        public static SceneGroup Create<T>(T mainSceneEnum, T[] subSceneEnums, bool overwriteLoadedScenes)
+            where T : Enum
         {
             var subSceneNamesInt = new int[subSceneEnums.Length];
 
@@ -72,7 +92,7 @@ namespace UsefulToolkit.BlackBoard.Scene
                 subSceneNamesInt[i] = Convert.ToInt32(subSceneEnums[i]);
             }
 
-            return new SceneGroup(Convert.ToInt32(mainSceneEnum), subSceneNamesInt);
+            return new SceneGroup(Convert.ToInt32(mainSceneEnum), subSceneNamesInt, overwriteLoadedScenes);
         }
     }
 }

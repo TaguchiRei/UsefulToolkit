@@ -1,4 +1,5 @@
-﻿using UsefulToolkit.BlackBoard.Scene;
+﻿using System.Collections.Generic;
+using UsefulToolkit.BlackBoard.Scene;
 
 namespace UsefulToolkit.BlackBoard.BlackBoard
 {
@@ -19,6 +20,6 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// 指定シーンのUnload時に呼び、そのシーンがRegisterSceneState/RegisterSceneEventで
         /// 登録したStateとイベントチャンネルだけを、ChildBoardの種類をまたいで一括Unregisterする。
         /// </summary>
-        void OnSceneChanged(string sceneName);
+        void OnSceneChanged(List<int> sceneIds);
     }
 }

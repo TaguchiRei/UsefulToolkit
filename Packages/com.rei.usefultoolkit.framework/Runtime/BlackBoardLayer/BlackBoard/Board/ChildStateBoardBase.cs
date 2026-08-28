@@ -3,6 +3,7 @@ using System.Linq;
 using System;
 using System.Reflection;
 using UsefulToolkit.BlackBoard.Logger;
+using UsefulToolkit.BlackBoard.Scene;
 
 namespace UsefulToolkit.BlackBoard.BlackBoard
 {
@@ -16,7 +17,7 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         private readonly Dictionary<Type, IStateGetter> _gameStates = new();
 
         /// <summary> シーンに依存するステートの参照インターフェースのコンテナ </summary>
-        private readonly Dictionary<Type, (IStateGetter State, string SceneName)> _sceneStates = new();
+        private readonly Dictionary<Type, (IStateGetter State, int SceneId)> _sceneStates = new();
 
         /// <summary> 登録解除可能なステートの参照インターフェースを保持するコンテナ </summary>
         private readonly Dictionary<Type, IStateGetter> _unRegistableStates = new();
@@ -73,21 +74,25 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// シーンアンロードまで破棄されないステートを登録するメソッド。
         /// </summary>
         /// <param name="state">登録するステート</param>
-        /// <param name="sceneName">依存するシーン名</param>
+        /// <param name="sceneId">依存するシーンID</param>
         /// <typeparam name="TStateGetter">ステートのGetterインターフェース</typeparam>
         /// <exception cref="InvalidOperationException">すでにそのステートが登録されているときに出力</exception>
         /// <exception cref="ArgumentException">指定されたステートがStateGetterを実装していないときに出力</exception>
-        public void RegisterSceneState<TStateGetter>(SceneStateBase state, string sceneName)
+        /// <exception cref="ArgumentOutOfRangeException">sceneIdが負のときに出力</exception>
+        public void RegisterSceneState<TStateGetter>(SceneStateBase state, int sceneId)
             where TStateGetter : IStateGetter
         {
-            if (string.IsNullOrEmpty(sceneName)) throw new ArgumentException("シーン名はnullにはできません");
+            if (sceneId < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(sceneId), "シーンIDに負の値は指定できません");
+            }
 
             if (state is not TStateGetter stateGetter)
             {
                 throw new ArgumentException($"ステート [{state.GetType().Name}] は [{typeof(TStateGetter)}] を実装していません。");
             }
 
-            if (_sceneStates.TryAdd(typeof(TStateGetter), (stateGetter, sceneName)))
+            if (_sceneStates.TryAdd(typeof(TStateGetter), (stateGetter, sceneId)))
             {
                 UsefulLogger.Log($"[{state.GetType().Name}] を [{typeof(TStateGetter).Name}] として登録しました。", this);
                 OnRegisterdState<TStateGetter>();
@@ -144,7 +149,7 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
             return result;
         }
 
-        public bool TryGetSceneState<TStateGetter>(out TStateGetter state, out string sceneName)
+        public bool TryGetSceneState<TStateGetter>(out TStateGetter state, out int sceneId)
             where TStateGetter : IStateGetter
         {
             var result = _sceneStates.TryGetValue(typeof(TStateGetter), out var stateGetter);
@@ -152,11 +157,11 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
             if (result)
             {
                 state = (TStateGetter)stateGetter.State;
-                sceneName = stateGetter.SceneName;
+                sceneId = stateGetter.SceneId;
             }
             else
             {
-                sceneName = null;
+                sceneId = SceneState.NoSceneId;
                 state = default;
             }
 
@@ -235,11 +240,11 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// <summary>
         /// シーン変更時にそのシーンのStateの登録を解除するためのメソッド
         /// </summary>
-        /// <param name="sceneName"></param>
-        internal void OnSceneChanged(string sceneName)
+        /// <param name="sceneId">アンロードされたシーンID</param>
+        internal void OnSceneChanged(int sceneId)
         {
             var keys = _sceneStates
-                .Where(x => x.Value.SceneName == sceneName)
+                .Where(x => x.Value.SceneId == sceneId)
                 .Select(x => x.Key)
                 .ToList();
 

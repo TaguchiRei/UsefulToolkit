@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UsefulToolkit.BlackBoard.BlackBoard;
 
 namespace UsefulToolkit.BlackBoard.Scene
 {
     /// <summary>
-    /// シーンのロード状況を読み取り、その変化に対するActionを登録するためのインターフェース。
-    /// Stateの書き換えはこの面には含めないため、これを取得したクラスはシーンを操作できない。
+    /// シーンのロード状況の読み取り、変化時のActionの登録、
+    /// ロード/アンロードの要求を行うためのインターフェース。
     /// </summary>
     public interface ISceneState : IStateGetter
     {
@@ -61,5 +63,34 @@ namespace UsefulToolkit.BlackBoard.Scene
         /// <param name="changedAction">アクティブシーン切り替え時に実行されるAction</param>
         /// <returns>Disposeすると登録を解除できる</returns>
         public IDisposable RegisterEventOnActiveSceneChanged(ActionEntry changedAction);
+
+        /// <summary>
+        /// ロード/アンロードの進行状況が変わった際に実行されるActionを登録する。
+        /// ロード開始/終了とアンロード開始/終了は全てこの一本で受け取り、引数のPhaseで区別する。
+        /// </summary>
+        /// <param name="changedAction">進行状況の変化時に実行されるAction。引数には変化後のPhaseが入る</param>
+        /// <returns>Disposeすると登録を解除できる</returns>
+        public IDisposable RegisterEventOnPhaseChanged(ActionEntry<SceneLoadPhase> changedAction);
+
+        /// <summary>
+        /// シーンのロードを要求する。
+        /// 既にロード済みのシーンは読み直さないため、要求する側は重複を気にしなくてよい。
+        /// </summary>
+        /// <param name="mainSceneId">アクティブシーンにするシーンID。SceneState.NoSceneIdならアクティブシーンは変えない</param>
+        /// <param name="subSceneIds">共にロードするシーンID</param>
+        /// <param name="cancellationToken">ロードの中断に使う</param>
+        /// <returns>要求した全てのシーンがロードされStateへ反映されたか</returns>
+        public UniTask<bool> RequestLoadAsync(int mainSceneId, IReadOnlyList<int> subSceneIds,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// シーンのアンロードを要求する。
+        /// ロードされていないシーンとアクティブシーンは対象から外れる。
+        /// </summary>
+        /// <param name="sceneIds">アンロードするシーンID</param>
+        /// <param name="cancellationToken">アンロードの中断に使う</param>
+        /// <returns>対象の全てのシーンがアンロードされStateへ反映されたか</returns>
+        public UniTask<bool> RequestUnLoadAsync(IReadOnlyList<int> sceneIds,
+            CancellationToken cancellationToken = default);
     }
 }

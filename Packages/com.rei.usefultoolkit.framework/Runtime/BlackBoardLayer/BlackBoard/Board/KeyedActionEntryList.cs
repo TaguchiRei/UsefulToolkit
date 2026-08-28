@@ -4,9 +4,8 @@ using System.Collections.Generic;
 namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
-    /// キーごとに<see cref="ActionEntryList"/>を保持するリスト。
-    /// 「特定のシーンがロードされたとき」のように、対象を指定して登録するActionへ使う。
-    /// リストはRegisterで初めて必要になった時点で作られる。
+    /// キーごとにActionEntryを登録し、キーを指定してまとめて実行するリスト。
+    /// キーに対応するリストは、そのキーへ初めてRegisterした時点で作られる。
     /// </summary>
     /// <typeparam name="TKey">Actionの登録先を指定するキー</typeparam>
     public sealed class KeyedActionEntryList<TKey>
@@ -34,9 +33,7 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         }
 
         /// <summary>
-        /// 登録できないActionEntryを弾く。
-        /// 登録の前に別の処理を挟む場合に、Registerと分けて先に呼ぶ。
-        /// このメソッドではリストを作らないため、結局登録しなかった場合に空のリストが残らない。
+        /// 登録できないActionEntryなら例外を投げる。キーに対応するリストの作成も含め、状態は変更しない。
         /// </summary>
         /// <param name="key">登録先のキー</param>
         /// <param name="entry">登録しようとしているActionEntry</param>
@@ -51,7 +48,6 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
                 return;
             }
 
-            // リストが無ければ重複はあり得ないため、Actionが設定されているかだけを見る
             ActionEntryList.ThrowIfNoAction(entry.HasAction, paramName);
         }
 

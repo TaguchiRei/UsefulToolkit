@@ -5,8 +5,9 @@ using UsefulToolkit.BlackBoard.Logger;
 namespace UsefulToolkit.BlackBoard.Scene
 {
     /// <summary>
-    /// ロード済みのシーンID集合を保持し、ロード/アンロードをこの集合へ反映してよいかだけを判定する。
-    /// 通知は一切行わないため、どのActionをどの順序で実行するかは<see cref="SceneState"/>が決める。
+    /// ロード済みのシーンIDを保持する。
+    /// ロード/アンロードを反映できるかを判定し、できる場合だけ集合を更新して結果を返す。
+    /// 反映できない場合は警告ログを出してfalseを返す。Actionの実行は行わない。
     /// </summary>
     internal sealed class LoadedSceneSet
     {
@@ -149,7 +150,6 @@ namespace UsefulToolkit.BlackBoard.Scene
 
         /// <summary>
         /// 現在のアディティブシーンを配列へ複製する。
-        /// アンロード中は集合自体が変化するため、対象を先に確定させたい場合に使う。
         /// </summary>
         /// <param name="buffer">複製先。アディティブシーン数以上の長さが必要</param>
         /// <returns>複製した数</returns>

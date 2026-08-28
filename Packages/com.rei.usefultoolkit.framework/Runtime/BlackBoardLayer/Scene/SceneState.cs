@@ -1,6 +1,8 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Pool;
 using UsefulToolkit.BlackBoard.BlackBoard;
@@ -10,8 +12,7 @@ namespace UsefulToolkit.BlackBoard.Scene
 {
     /// <summary>
     /// どのシーンがロードされているかと、ロード/アンロードの進行状況を保持するState。
-    /// ロード済みシーンの集合そのものは<see cref="LoadedSceneSet"/>が持ち、
-    /// このクラスは進行状況の管理と、Stateの変化に対するActionの実行順序だけを受け持つ。
+    /// 状態が変わると、その変化に対して登録されているActionを実行する。
     /// </summary>
     [RegisterBoard(typeof(SceneBoard))]
     public class SceneState : GameStateBase, ISceneState, IProgress<float>
@@ -29,11 +30,18 @@ namespace UsefulToolkit.BlackBoard.Scene
         public IReadOnlyList<int> AdditiveScenes => _loadedScenes.AdditiveScenes;
 
         private readonly LoadedSceneSet _loadedScenes = new();
+        private readonly SceneLoadRequester _loadRequester;
 
         private readonly KeyedActionEntryList<int> _loadedActions = new();
         private readonly KeyedActionEntryList<int> _unLoadedActions = new();
         private readonly ActionEntryList<int[], bool> _anySceneLoadedActions = new();
         private readonly ActionEntryList _activeSceneChangedActions = new();
+        private readonly ActionEntryList<SceneLoadPhase> _phaseChangedActions = new();
+
+        public SceneState()
+        {
+            _loadRequester = new SceneLoadRequester(this);
+        }
 
         #region ISceneState実装
 
@@ -60,7 +68,7 @@ namespace UsefulToolkit.BlackBoard.Scene
                 loadedAction.Invoke();
                 if (loadedAction.DisposeOnUsed)
                 {
-                    // 登録せずに終わるため、アクションリストは作らない
+                    // 使い捨てのアクションは実行済みなので登録しない
                     return BoardDispose.Empty;
                 }
             }
@@ -102,6 +110,17 @@ namespace UsefulToolkit.BlackBoard.Scene
             return _activeSceneChangedActions.Register(changedAction, nameof(changedAction));
         }
 
+        /// <summary>
+        /// ロード/アンロードの進行状況が変わった時に実行するアクションを登録する。
+        /// </summary>
+        /// <param name="changedAction">登録するアクション。引数には変化後のPhaseが入る</param>
+        /// <exception cref="ArgumentNullException">changedActionにActionが設定されていないときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションエントリーが既に登録されているときに出力</exception>
+        public IDisposable RegisterEventOnPhaseChanged(ActionEntry<SceneLoadPhase> changedAction)
+        {
+            return _phaseChangedActions.Register(changedAction, nameof(changedAction));
+        }
+
         #endregion
 
         #region ロード/アンロードの進行状況
@@ -120,6 +139,7 @@ namespace UsefulToolkit.BlackBoard.Scene
             }
 
             Phase = SceneLoadPhase.Loading;
+            NotifyPhaseChanged();
             return true;
         }
 
@@ -137,12 +157,13 @@ namespace UsefulToolkit.BlackBoard.Scene
             }
 
             Phase = SceneLoadPhase.UnLoading;
+            NotifyPhaseChanged();
             return true;
         }
 
         /// <summary>
-        /// 進行中のロード/アンロードの終了をStateへ反映する。
-        /// LoadProgressの計算は外部に任せているため、完了の判断はこの呼び出しで行う。
+        /// 進行中のロード/アンロードの終了をStateへ反映し、Phase変更のActionを実行する。
+        /// 進行中のロード/アンロードが無い場合は、警告ログを出して何もしない。
         /// </summary>
         public void EndPhase()
         {
@@ -153,10 +174,11 @@ namespace UsefulToolkit.BlackBoard.Scene
             }
 
             Phase = SceneLoadPhase.None;
+            NotifyPhaseChanged();
         }
 
         /// <summary>
-        /// ロードをStateへ反映してよいか。アンロードが終わるまでロードはできない。
+        /// ロードをStateへ反映してよいか。アンロードが進行中ならfalseを返す。
         /// </summary>
         private bool CanApplyLoad()
         {
@@ -170,7 +192,7 @@ namespace UsefulToolkit.BlackBoard.Scene
         }
 
         /// <summary>
-        /// アンロードをStateへ反映してよいか。ロードが終わるまでアンロードはできない。
+        /// アンロードをStateへ反映してよいか。ロードが進行中ならfalseを返す。
         /// </summary>
         private bool CanApplyUnLoad()
         {
@@ -185,7 +207,36 @@ namespace UsefulToolkit.BlackBoard.Scene
 
         #endregion
 
-        #region 実体を保持するクラスが利用できるメソッド
+        #region シーン操作の要求
+
+        /// <summary>
+        /// 実際にシーンを操作する処理を登録する。登録できるのは一度だけ。
+        /// 登録前にロード/アンロードを要求した場合は、エラーログを出してfalseが返る。
+        /// </summary>
+        /// <param name="loadFunc">ロードを実行する処理</param>
+        /// <param name="unLoadFunc">アンロードを実行する処理</param>
+        /// <exception cref="ArgumentNullException">処理が指定されていないときに出力</exception>
+        /// <exception cref="InvalidOperationException">既に登録済みのときに出力</exception>
+        public void RegisterSceneLoader(SceneLoadFunc loadFunc, SceneUnLoadFunc unLoadFunc)
+        {
+            _loadRequester.RegisterSceneLoader(loadFunc, unLoadFunc);
+        }
+
+        public UniTask<bool> RequestLoadAsync(int mainSceneId, IReadOnlyList<int> subSceneIds,
+            CancellationToken cancellationToken = default)
+        {
+            return _loadRequester.RequestLoadAsync(mainSceneId, subSceneIds, cancellationToken);
+        }
+
+        public UniTask<bool> RequestUnLoadAsync(IReadOnlyList<int> sceneIds,
+            CancellationToken cancellationToken = default)
+        {
+            return _loadRequester.RequestUnLoadAsync(sceneIds, cancellationToken);
+        }
+
+        #endregion
+
+        #region シーンのロード状況をStateへ反映するメソッド
 
         /// <summary>
         /// 複数のシーンを一気にロードする。
@@ -306,7 +357,7 @@ namespace UsefulToolkit.BlackBoard.Scene
         #region Stateの更新
 
         /// <summary>
-        /// ロードをStateへ反映し、通知までを行う。全てのロード系メソッドはここへ集約される。
+        /// ロードをStateへ反映し、ロード時と切り替え時のActionを実行する。
         /// </summary>
         /// <param name="activeScene">アクティブシーンにするシーンID。<see cref="NoSceneId"/>ならアクティブシーンは変更しない</param>
         /// <param name="additiveScenes">追加でロードするシーンID</param>
@@ -330,7 +381,7 @@ namespace UsefulToolkit.BlackBoard.Scene
                     activeSceneChanged = _loadedScenes.TryLoadActiveScene(activeScene, out previousActiveScene);
                     if (activeSceneChanged)
                     {
-                        // 通知先が0番目をアクティブシーンとして扱えるよう、先頭へ入れておく
+                        // 0番目をアクティブシーンとして通知するため先頭へ入れる
                         loadedScenes.Add(activeScene);
                     }
                 }
@@ -360,7 +411,7 @@ namespace UsefulToolkit.BlackBoard.Scene
         }
 
         /// <summary>
-        /// アンロードをStateへ反映し、通知までを行う。全てのアンロード系メソッドはここへ集約される。
+        /// アンロードをStateへ反映し、アンロード時のActionを実行する。
         /// </summary>
         /// <param name="additiveScenes">アンロードするシーンID</param>
         /// <returns>指定した全てのシーンがStateへ反映されたか</returns>
@@ -429,6 +480,11 @@ namespace UsefulToolkit.BlackBoard.Scene
         private void NotifyActiveSceneChanged()
         {
             _activeSceneChangedActions.Invoke();
+        }
+
+        private void NotifyPhaseChanged()
+        {
+            _phaseChangedActions.Invoke(Phase);
         }
 
         #endregion
