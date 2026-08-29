@@ -1,4 +1,4 @@
-﻿{
+{
     "dependencies": {
         "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
         "com.rei.usefultoolkit.debugging": "file:./com.rei.usefultoolkit.debugging",

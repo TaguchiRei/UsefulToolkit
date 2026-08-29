@@ -42,26 +42,33 @@ namespace UsefulToolkit.Application.Scene
 
         /// <summary>
         /// 指定したシーングループをロードする。
-        /// グループのOverwriteLoadedScenesが立っている場合は、ロード後に
+        /// overwriteLoadedScenesがtrueの場合は、ロード後に
         /// グループへ含まれないアディティブシーンをアンロードする。
         /// インデックスが範囲外の場合と、ISceneStateが未登録の場合はエラーログを出してfalseを返す。
         /// </summary>
         /// <param name="groupIndex">ロードするシーングループのインデックス</param>
+        /// <param name="overwriteLoadedScenes">
+        /// trueならロード後にグループへ含まれないアディティブシーンをアンロードし、
+        /// ロード済みシーンをこのグループで上書きする。falseなら追加でロードするだけ。
+        /// </param>
         /// <param name="cancellationToken">ロードの中断に使う</param>
         /// <returns>グループの全てのシーンがロードされ、上書き指定時は余剰シーンのアンロードまで終わったか</returns>
-        public async UniTask<bool> LoadGroupAsync(int groupIndex, CancellationToken cancellationToken = default)
+        public async UniTask<bool> LoadGroupAsync(int groupIndex, bool overwriteLoadedScenes,
+            CancellationToken cancellationToken = default)
         {
             if (!TryGetGroup(groupIndex, out var group) || !TryGetSceneState(out var sceneState))
             {
                 return false;
             }
 
-            if (!await sceneState.RequestLoadAsync(group.MainSceneId, group.SubSceneIds, cancellationToken))
+            var mainSceneId = group.TryGetMainSceneId(out var id) ? id : SceneState.NoSceneId;
+
+            if (!await sceneState.RequestLoadAsync(mainSceneId, group.AdditiveSceneIds, cancellationToken))
             {
                 return false;
             }
 
-            if (!group.OverwriteLoadedScenes)
+            if (!overwriteLoadedScenes)
             {
                 return true;
             }
@@ -84,10 +91,9 @@ namespace UsefulToolkit.Application.Scene
                 return UniTask.FromResult(false);
             }
 
-            var targets = new List<int>(group.SubSceneIds.Count + 1) { group.MainSceneId };
-            targets.AddRange(group.SubSceneIds);
-
-            return sceneState.RequestUnLoadAsync(targets, cancellationToken);
+            // グループの全シーン(メイン含む)を対象にする。
+            // アクティブシーンと未ロードのシーンはRequestUnLoadAsync側で除外される。
+            return sceneState.RequestUnLoadAsync(group.SceneIds, cancellationToken);
         }
 
         /// <summary>
@@ -107,7 +113,7 @@ namespace UsefulToolkit.Application.Scene
             for (int i = 0; i < additiveScenes.Count; i++)
             {
                 var sceneId = additiveScenes[i];
-                if (sceneId == group.MainSceneId || Contains(group.SubSceneIds, sceneId))
+                if (Contains(group.SceneIds, sceneId))
                 {
                     continue;
                 }

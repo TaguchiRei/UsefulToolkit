@@ -15,14 +15,6 @@
         "com.rei.usefultoolkit.framework": "1.0.0"
       }
     },
-    "com.rei.usefultoolkit.architecture": {
-      "version": "file:com.rei.usefultoolkit.architecture",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {
-        "com.rei.usefultoolkit.framework": "1.0.0"
-      }
-    },
     "com.rei.usefultoolkit.debugging": {
       "version": "file:com.rei.usefultoolkit.debugging",
       "depth": 0,

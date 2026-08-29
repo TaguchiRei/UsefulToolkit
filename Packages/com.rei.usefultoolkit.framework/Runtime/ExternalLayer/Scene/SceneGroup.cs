@@ -5,44 +5,82 @@ using UnityEngine;
 namespace UsefulToolkit.External.Scene
 {
     /// <summary>
-    /// 一まとまりでロードするシーンの組。
-    /// アクティブシーンにするシーンIDと、共にロードするシーンIDを保持する。
+    /// 一まとまりでロード/アンロードするシーンの組。
+    /// 内部で持つのは「先頭要素をアクティブシーンとして扱うか」のフラグ1つと、
+    /// シーンID(ビルドインデックス)の配列1つだけ。
+    ///
+    /// <see cref="HasMainScene"/>がtrueなら配列の先頭がアクティブシーン、残りが追加シーン。
+    /// falseなら全てが追加シーンで、ロードしてもアクティブシーンは変わらない。
+    /// 「このグループを上書きロードするか追加ロードするか」はグループ自身は持たず、
+    /// 呼び出し側(<c>SceneLoadService</c>)が決める。
     /// </summary>
     [Serializable]
     public sealed class SceneGroup : IEquatable<SceneGroup>
     {
-        /// <summary> アクティブシーンにするシーンID </summary>
+        /// <summary> 配列の先頭要素をアクティブシーンとして扱うか </summary>
         [field: SerializeField]
-        public int MainSceneId { get; private set; }
+        public bool HasMainScene { get; private set; }
 
-        /// <summary> アクティブシーンと共にロードするシーンID </summary>
-        public IReadOnlyList<int> SubSceneIds => _subSceneIds;
+        [SerializeField] private int[] _sceneIds;
 
         /// <summary>
-        /// ロード時に、このグループへ含まれないロード済みシーンをアンロードするかどうか。
-        /// falseの場合、既にロードされているシーンはそのまま残り、このグループが追加でロードされる。
+        /// グループに属する全シーンID。<see cref="HasMainScene"/>がtrueなら先頭がアクティブシーン。
+        /// 読み取り専用として扱うこと。
         /// </summary>
-        [field: SerializeField]
-        public bool OverwriteLoadedScenes { get; private set; }
+        public IReadOnlyList<int> SceneIds => _sceneIds;
 
-        [SerializeField] private int[] _subSceneIds;
+        /// <summary> グループに含まれるシーン数 </summary>
+        public int Count => _sceneIds.Length;
 
-        public SceneGroup(int mainSceneId, int[] subSceneIds, bool overwriteLoadedScenes)
+        /// <param name="hasMainScene">先頭要素をアクティブシーンとして扱うか</param>
+        /// <param name="sceneIds">グループに属するシーンID。hasMainSceneがtrueなら先頭がアクティブシーン</param>
+        /// <exception cref="ArgumentNullException">sceneIdsがnullのときに出力</exception>
+        public SceneGroup(bool hasMainScene, int[] sceneIds)
         {
-            MainSceneId = mainSceneId;
-            OverwriteLoadedScenes = overwriteLoadedScenes;
-            _subSceneIds = (int[])subSceneIds.Clone();
+            if (sceneIds == null)
+            {
+                throw new ArgumentNullException(nameof(sceneIds));
+            }
+
+            HasMainScene = hasMainScene;
+            _sceneIds = (int[])sceneIds.Clone();
         }
+
+        /// <summary>
+        /// アクティブシーンにするシーンIDを取得する。
+        /// <see cref="HasMainScene"/>がfalse、または配列が空のときはfalseを返す。
+        /// </summary>
+        /// <param name="mainSceneId">アクティブシーンにするシーンID</param>
+        /// <returns>アクティブシーンにするシーンが決まっているか</returns>
+        public bool TryGetMainSceneId(out int mainSceneId)
+        {
+            if (HasMainScene && _sceneIds.Length > 0)
+            {
+                mainSceneId = _sceneIds[0];
+                return true;
+            }
+
+            mainSceneId = -1;
+            return false;
+        }
+
+        /// <summary>
+        /// アクティブシーンと共にロードする追加シーンID。
+        /// <see cref="HasMainScene"/>がtrueなら先頭を除いた範囲、falseなら全体。追加確保はしない。
+        /// </summary>
+        public ArraySegment<int> AdditiveSceneIds =>
+            HasMainScene && _sceneIds.Length > 0
+                ? new ArraySegment<int>(_sceneIds, 1, _sceneIds.Length - 1)
+                : new ArraySegment<int>(_sceneIds);
 
         public override int GetHashCode()
         {
             var hash = new HashCode();
-            hash.Add(MainSceneId);
-            hash.Add(OverwriteLoadedScenes);
+            hash.Add(HasMainScene);
 
-            foreach (var scene in _subSceneIds)
+            foreach (var sceneId in _sceneIds)
             {
-                hash.Add(scene);
+                hash.Add(sceneId);
             }
 
             return hash.ToHashCode();
@@ -56,14 +94,12 @@ namespace UsefulToolkit.External.Scene
             if (ReferenceEquals(this, other))
                 return true;
 
-            if (MainSceneId != other.MainSceneId ||
-                OverwriteLoadedScenes != other.OverwriteLoadedScenes ||
-                _subSceneIds.Length != other._subSceneIds.Length)
+            if (HasMainScene != other.HasMainScene || _sceneIds.Length != other._sceneIds.Length)
                 return false;
 
-            for (int i = 0; i < _subSceneIds.Length; i++)
+            for (int i = 0; i < _sceneIds.Length; i++)
             {
-                if (_subSceneIds[i] != other._subSceneIds[i])
+                if (_sceneIds[i] != other._sceneIds[i])
                     return false;
             }
 
@@ -76,23 +112,31 @@ namespace UsefulToolkit.External.Scene
         }
 
         /// <summary>
-        /// EnumからSceneGroupを構築する
+        /// EnumからSceneGroupを構築する。
         /// </summary>
-        /// <param name="mainSceneEnum">アクティブシーンにするシーン</param>
-        /// <param name="subSceneEnums">共にロードするシーン</param>
-        /// <param name="overwriteLoadedScenes">このグループへ含まれないロード済みシーンをアンロードするか</param>
+        /// <param name="hasMainScene">先頭要素をアクティブシーンとして扱うか</param>
+        /// <param name="mainSceneEnum">アクティブシーンにするシーン。hasMainSceneがfalseなら無視される</param>
+        /// <param name="additiveSceneEnums">共にロードするシーン</param>
         /// <typeparam name="T">ビルドシーンを表すEnum</typeparam>
-        public static SceneGroup Create<T>(T mainSceneEnum, T[] subSceneEnums, bool overwriteLoadedScenes)
+        public static SceneGroup Create<T>(bool hasMainScene, T mainSceneEnum, T[] additiveSceneEnums)
             where T : Enum
         {
-            var subSceneNamesInt = new int[subSceneEnums.Length];
+            additiveSceneEnums ??= Array.Empty<T>();
 
-            for (int i = 0; i < subSceneEnums.Length; i++)
+            var offset = hasMainScene ? 1 : 0;
+            var sceneIds = new int[additiveSceneEnums.Length + offset];
+
+            if (hasMainScene)
             {
-                subSceneNamesInt[i] = Convert.ToInt32(subSceneEnums[i]);
+                sceneIds[0] = Convert.ToInt32(mainSceneEnum);
             }
 
-            return new SceneGroup(Convert.ToInt32(mainSceneEnum), subSceneNamesInt, overwriteLoadedScenes);
+            for (int i = 0; i < additiveSceneEnums.Length; i++)
+            {
+                sceneIds[i + offset] = Convert.ToInt32(additiveSceneEnums[i]);
+            }
+
+            return new SceneGroup(hasMainScene, sceneIds);
         }
     }
 }
