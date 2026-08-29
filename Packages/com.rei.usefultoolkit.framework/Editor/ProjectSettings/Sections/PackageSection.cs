@@ -20,7 +20,6 @@ namespace UsefulToolkit.Editor.ProjectSettings
         private static readonly List<PackageInfoItem> TargetPackages = new()
         {
             new("com.rei.usefultoolkit.aitool", "AI Tool", "Packages/com.rei.usefultoolkit.aitool"),
-            new("com.rei.usefultoolkit.architecture", "Architecture", "Packages/com.rei.usefultoolkit.architecture"),
             new("com.rei.usefultoolkit.debugging", "Debugging", "Packages/com.rei.usefultoolkit.debugging"),
             new("com.rei.usefultoolkit.gitsupport", "Git Support", "Packages/com.rei.usefultoolkit.gitsupport"),
             new("com.rei.usefultoolkit.networking", "Networking", "Packages/com.rei.usefultoolkit.networking"),

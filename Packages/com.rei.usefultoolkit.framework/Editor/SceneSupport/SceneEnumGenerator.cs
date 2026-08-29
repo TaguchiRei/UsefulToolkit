@@ -6,6 +6,7 @@ using System;
 using UnityEditor.SceneManagement;
 using UnityEditor;
 using UnityEngine;
+using UsefulToolkit.BlackBoard.Logger;
 using UsefulToolkit.Editor.ProjectSettings;
 using UsefulToolkit.Editor.Utility;
 
@@ -87,8 +88,18 @@ namespace UsefulToolkit.Editor.SceneSupport
             var includedNames = includedPaths.Select(ToEnumMemberName).ToArray();
             var excludedNames = excludedPaths.Select(ToEnumMemberName).ToArray();
 
-            WarnDuplicatedNames("BuildScenes", includedNames);
-            WarnDuplicatedNames("NonBuildScenes", excludedNames);
+            // 重複したままenumを作ると、BuildScenesの値がビルドインデックスとずれる。
+            // 片方だけ更新すると2つのenumの内容がちぐはぐになるため、どちらか一方でも重複していれば両方止める。
+            var duplicatedInBuildScenes = HasDuplicatedNames("BuildScenes", includedNames, includedPaths);
+            var duplicatedInNonBuildScenes = HasDuplicatedNames("NonBuildScenes", excludedNames, excludedPaths);
+
+            if (duplicatedInBuildScenes || duplicatedInNonBuildScenes)
+            {
+                UsefulLogger.LogWarning("シーン名が重複している為、Enumの生成を中止しました。" +
+                                        "重複しているシーンの名前を変更してから、再度生成してください。",
+                    typeof(SceneEnumGenerator));
+                return;
+            }
 
             // Enum生成実行
             FileGenerator.AutoGenerateFile("BuildScenes.cs", GenerateEnumContent("BuildScenes", includedNames, ns),
@@ -96,8 +107,9 @@ namespace UsefulToolkit.Editor.SceneSupport
             FileGenerator.AutoGenerateFile("NonBuildScenes.cs",
                 GenerateEnumContent("NonBuildScenes", excludedNames, ns), GenerateType.Editor);
 
-            Debug.Log($"[UsefulTools] SceneEnums generated with namespace {ns} " +
-                      $"(BuildScenes: {includedNames.Length} / NonBuildScenes: {excludedNames.Length})");
+            UsefulLogger.Log($"SceneEnums generated with namespace {ns} " +
+                             $"(BuildScenes: {includedNames.Length} / NonBuildScenes: {excludedNames.Length})",
+                typeof(SceneEnumGenerator));
 
             // イベント発行
             OnGenerated?.Invoke();
@@ -121,21 +133,33 @@ namespace UsefulToolkit.Editor.SceneSupport
         }
 
         /// <summary>
-        /// enumはシーン名だけで作るため、別フォルダの同名シーンは1つにまとめられてしまう。
-        /// 黙って消えると原因が分からなくなるので警告を出す。
+        /// enumメンバー名が重複しているかを調べる。
+        /// 重複していた場合は、重複した名前と該当シーンのパスを警告ログへ出力する。
         /// </summary>
-        private static void WarnDuplicatedNames(string enumName, IReadOnlyList<string> names)
+        /// <param name="enumName">調べる対象のenum名</param>
+        /// <param name="names">enumメンバー名</param>
+        /// <param name="paths">namesと同じ並びのシーンパス</param>
+        /// <returns>重複があったか</returns>
+        private static bool HasDuplicatedNames(string enumName, IReadOnlyList<string> names,
+            IReadOnlyList<string> paths)
         {
-            var duplicatedNames = names
-                .GroupBy(name => name)
+            var duplicatedGroups = names
+                .Select((name, index) => (Name: name, Path: paths[index]))
+                .GroupBy(scene => scene.Name)
                 .Where(group => group.Count() > 1)
-                .Select(group => group.Key)
                 .ToArray();
 
-            if (duplicatedNames.Length == 0) return;
+            if (duplicatedGroups.Length == 0) return false;
 
-            Debug.LogWarning($"[UsefulTools] {enumName}: 同名のシーンが複数あるため、次の名前は1つにまとめられました: " +
-                             $"{string.Join(", ", duplicatedNames)}");
+            foreach (var group in duplicatedGroups)
+            {
+                var duplicatedPaths = string.Join("\n", group.Select(scene => scene.Path));
+                UsefulLogger.LogWarning(
+                    $"{enumName}: シーン名[{group.Key}]が重複しています。\n{duplicatedPaths}",
+                    typeof(SceneEnumGenerator));
+            }
+
+            return true;
         }
 
         private static string GenerateEnumContent(string enumName, string[] values, string namespaceName)
@@ -149,11 +173,10 @@ namespace UsefulToolkit.Editor.SceneSupport
             builder.AppendLine($"    public enum {enumName}");
             builder.AppendLine("    {");
 
-            var distinctValues = values.Distinct().ToArray();
-            for (int i = 0; i < distinctValues.Length; i++)
+            for (int i = 0; i < values.Length; i++)
             {
-                string comma = (i < distinctValues.Length - 1) ? "," : "";
-                builder.AppendLine($"        {distinctValues[i]} = {i}{comma}");
+                string comma = (i < values.Length - 1) ? "," : "";
+                builder.AppendLine($"        {values[i]} = {i}{comma}");
             }
 
             builder.AppendLine("    }");

@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using UsefulToolkit.Architecture;
+using UsefulToolkit.Initialization;
 
-namespace UsefulToolkit.Editor.Architecture
+namespace UsefulToolkit.Editor.Initialize
 {
     /// <summary>
     /// シーンから収集した型情報をもとに、GameCompositerの派生クラスのソースを組み立てる。

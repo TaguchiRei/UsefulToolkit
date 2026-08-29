@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,14 +7,14 @@ using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UsefulToolkit.Architecture;
+using UsefulToolkit.Initialization;
 using UsefulToolkit.BlackBoard.BlackBoard;
 using UsefulToolkit.BlackBoard.Scene;
 using UsefulToolkit.Editor.ProjectSettings;
 using UsefulToolkit.Editor.Reflection;
 using UsefulToolkit.Editor.Utility;
 
-namespace UsefulToolkit.Editor.Architecture
+namespace UsefulToolkit.Editor.Initialize
 {
     /// <summary>
     /// アクティブシーンを走査し、そのシーン専用のGameCompositer派生クラスを生成する。
@@ -144,6 +144,8 @@ namespace UsefulToolkit.Editor.Architecture
             var initializers = scene.GetRootGameObjects()
                 // 無効化されたオブジェクト上のInitializerも初期化対象になりうるので含める
                 .SelectMany(root => root.GetComponentsInChildren<InitializerBase>(true))
+                // GameCompositerがAwakeで直接呼ぶため、生成物からは除外する
+                .Where(initializer => initializer is not UsefulToolkitRuntimeInitializer)
                 .ToArray();
 
             return initializers

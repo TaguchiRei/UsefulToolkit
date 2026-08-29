@@ -9,6 +9,8 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
     /// </summary>
     public interface IBlackBoard
     {
+        SceneBoard GetSceneBoard();
+
         bool TryGetStateBoard<T>(out T childBoard) where T : ChildStateBoardBase;
         bool TryRegisterStateBoard<T>(T childBoard) where T : ChildStateBoardBase;
 

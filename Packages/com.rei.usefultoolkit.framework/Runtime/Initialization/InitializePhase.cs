@@ -1,4 +1,4 @@
-namespace UsefulToolkit.Architecture
+namespace UsefulToolkit.Initialization
 {
     /// <summary>
     /// GameCompositerが今どの初期化フェーズにいるかを表す。

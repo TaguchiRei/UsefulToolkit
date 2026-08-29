@@ -74,9 +74,8 @@ namespace UsefulToolkit.Editor.Setting
         //  パッケージリストの一覧定義
         private static List<PackageInfo> _packages = new()
         {
-            new PackageInfo("Framework", "com.rei.usefultoolkit.framework", "Toolkitのコア機能・共通基盤", true,
+            new PackageInfo("Framework", "com.rei.usefultoolkit.framework", "Toolkitのコア機能・共通基盤とコンポジションルート/初期化順序制御", true,
                 new[] { new ExternalDependency(UniTaskPackageName, UniTaskUrl) }),
-            new PackageInfo("Architecture", "com.rei.usefultoolkit.architecture", "コンポジションルート・初期化順序制御などのアーキテクチャ基盤"),
             new PackageInfo("Debugging Tools", "com.rei.usefultoolkit.debugging", "ログ拡張やランタイムデバッグを快適にするツール"),
             new PackageInfo("Git Support", "com.rei.usefultoolkit.gitsupport", "Gitignoreサポートやブランチ管理などVCS周りの補助機能"),
             new PackageInfo("Program Tools", "com.rei.usefultoolkit.programtools", "汎用的な最適化・コードヘルパー・ロジック集"),

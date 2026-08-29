@@ -1,7 +1,7 @@
 using UnityEngine;
 using UsefulToolkit.BlackBoard.BlackBoard;
 
-namespace UsefulToolkit.Architecture
+namespace UsefulToolkit.Initialization
 {
     /// <summary>
     /// 担当するクラス群の生成と初期化を受け持つクラスの基底。呼ばれる順序は次の通り。

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using Debug = UnityEngine.Debug;
 using UnityEngine;
 using UsefulToolkit.BlackBoard.BlackBoard;
@@ -38,6 +39,39 @@ namespace UsefulToolkit.BlackBoard.Logger
         public static void LogError(string message, object type)
         {
             Debug.LogError($"[{type.GetType()}]  {message}");
+        }
+
+        /// <summary>
+        /// staticクラスからログを出力する
+        /// </summary>
+        /// <param name="message">ログに出力するメッセージ</param>
+        /// <param name="type">typeof(自身のクラス)を指定</param>
+        [Conditional("UNITY_EDITOR")]
+        public static void Log(string message, Type type)
+        {
+            Debug.Log($"[{type}]  {message}");
+        }
+
+        /// <summary>
+        /// staticクラスから警告ログを出力する
+        /// </summary>
+        /// <param name="message">ログに出力するメッセージ</param>
+        /// <param name="type">typeof(自身のクラス)を指定</param>
+        [Conditional("UNITY_EDITOR")]
+        public static void LogWarning(string message, Type type)
+        {
+            Debug.LogWarning($"[{type}]  {message}");
+        }
+
+        /// <summary>
+        /// staticクラスからエラーログを出力する
+        /// </summary>
+        /// <param name="message">ログに出力するメッセージ</param>
+        /// <param name="type">typeof(自身のクラス)を指定</param>
+        [Conditional("UNITY_EDITOR")]
+        public static void LogError(string message, Type type)
+        {
+            Debug.LogError($"[{type}]  {message}");
         }
 
         /// <summary>

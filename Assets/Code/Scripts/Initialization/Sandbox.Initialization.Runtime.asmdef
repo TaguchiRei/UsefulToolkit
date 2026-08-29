@@ -1,4 +1,4 @@
-{
+﻿{
     "name": "Sandbox.Initialization.Runtime",
     "rootNamespace": "Sandbox.Initialization",
     "references": [
@@ -8,7 +8,7 @@
         "UsefulToolkit.Framework.External.Runtime",
         "UsefulToolkit.Framework.EngineService.Runtime",
         "UsefulToolkit.Framework.Initialization.Runtime",
-        "UsefulToolkit.Architecture.Runtime",
+        "UsefulToolkit.Framework.Initialization.Runtime",
         "UsefulToolkit.ProgramTools.BlackBoard.Runtime",
         "UsefulToolkit.Input.BlackBoard.Runtime",
         "UsefulToolkit.Input.EngineService.Runtime",

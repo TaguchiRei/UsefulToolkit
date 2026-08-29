@@ -1,5 +1,5 @@
 using UnityEngine;
-using UsefulToolkit.Architecture;
+using UsefulToolkit.Initialization;
 using UsefulToolkit.BlackBoard.BlackBoard;
 
 namespace Sandbox.Initialization

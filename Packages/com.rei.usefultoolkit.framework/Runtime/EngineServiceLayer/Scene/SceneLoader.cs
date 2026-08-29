@@ -4,7 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UsefulToolkit.Architecture;
+using UsefulToolkit.Initialization;
 using UsefulToolkit.BlackBoard.Logger;
 
 namespace UsefulToolkit.EngineService

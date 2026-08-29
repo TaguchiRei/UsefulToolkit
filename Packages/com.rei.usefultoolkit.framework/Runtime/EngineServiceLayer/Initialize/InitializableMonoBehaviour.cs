@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace UsefulToolkit.Architecture
+namespace UsefulToolkit.Initialization
 {
     public abstract class InitializableMonoBehaviour : MonoBehaviour
     {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Threading;
@@ -13,6 +13,7 @@ namespace UsefulToolkit.BlackBoard.Scene
     /// <summary>
     /// どのシーンがロードされているかと、ロード/アンロードの進行状況を保持するState。
     /// 状態が変わると、その変化に対して登録されているActionを実行する。
+    /// シーンをアンロードした際は、BlackBoardへ通知して各ChildBoardのシーンスコープを解除させる。
     /// </summary>
     [RegisterBoard(typeof(SceneBoard))]
     public class SceneState : GameStateBase, ISceneState, IProgress<float>
@@ -29,6 +30,7 @@ namespace UsefulToolkit.BlackBoard.Scene
         public int ActiveScene => _loadedScenes.ActiveScene;
         public IReadOnlyList<int> AdditiveScenes => _loadedScenes.AdditiveScenes;
 
+        private readonly IBlackBoard _blackBoard;
         private readonly LoadedSceneSet _loadedScenes = new();
         private readonly SceneLoadRequester _loadRequester;
 
@@ -38,8 +40,11 @@ namespace UsefulToolkit.BlackBoard.Scene
         private readonly ActionEntryList _activeSceneChangedActions = new();
         private readonly ActionEntryList<SceneLoadPhase> _phaseChangedActions = new();
 
-        public SceneState()
+        /// <param name="blackBoard">シーンのアンロードを通知する先</param>
+        /// <exception cref="ArgumentNullException">blackBoardがnullのときに出力</exception>
+        public SceneState(IBlackBoard blackBoard)
         {
+            _blackBoard = blackBoard ?? throw new ArgumentNullException(nameof(blackBoard));
             _loadRequester = new SceneLoadRequester(this);
         }
 
@@ -436,6 +441,12 @@ namespace UsefulToolkit.BlackBoard.Scene
                 for (int i = 0; i < unloadedScenes.Count; i++)
                 {
                     _unLoadedActions.Invoke(unloadedScenes[i]);
+                }
+
+                if (unloadedScenes.Count > 0)
+                {
+                    // Stateに登録されたActionを実行し終えてから、各ChildBoardのシーンスコープを解除する
+                    _blackBoard.OnSceneChanged(unloadedScenes);
                 }
 
                 return unloadedScenes.Count == additiveScenes.Length;

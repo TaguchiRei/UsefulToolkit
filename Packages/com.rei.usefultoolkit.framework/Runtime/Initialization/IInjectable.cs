@@ -1,4 +1,4 @@
-namespace UsefulToolkit.Architecture
+namespace UsefulToolkit.Initialization
 {
     public interface IInjectable<in T>
     {

@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace UsefulToolkit.Architecture
+namespace UsefulToolkit.Initialization
 {
     public abstract class CompositionBase : MonoBehaviour
     {

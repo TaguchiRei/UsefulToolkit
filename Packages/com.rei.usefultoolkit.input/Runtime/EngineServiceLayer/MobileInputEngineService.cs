@@ -5,7 +5,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.EnhancedTouch;
 using UnityEngine.UI;
-using UsefulToolkit.Architecture;
+using UsefulToolkit.Initialization;
 using UsefulToolkit.BlackBoard.Input;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 

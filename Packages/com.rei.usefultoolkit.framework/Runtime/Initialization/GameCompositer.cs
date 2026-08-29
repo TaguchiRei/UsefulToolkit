@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UsefulToolkit.BlackBoard.BlackBoard;
@@ -6,7 +6,7 @@ using UsefulToolkit.BlackBoard.Logger;
 using UsefulToolkit.BlackBoard.Scene;
 using UsefulToolkit.Utility;
 
-namespace UsefulToolkit.Architecture
+namespace UsefulToolkit.Initialization
 {
     /// <summary>
     /// シーンの合成ルート。BlackBoardの構築から各Initializerの初期化までを一手に引き受ける。
@@ -14,11 +14,20 @@ namespace UsefulToolkit.Architecture
     /// ChildBoardの登録・Inject・Initializeの中身はシーンごとに異なるため、この基底では
     /// フックを3つ切るだけに留め、実際の処理はEditor拡張が生成する派生クラスがoverrideする。
     /// 生成側が型を確定させることで、実行時にリフレクションを行わずに済ませている。
+    ///
+    /// UsefulToolkitRuntimeInitializerだけは、他のInitializerより先に動かす必要があるため
+    /// このクラスがAwakeで直接Initializeを呼ぶ。生成される派生クラスの初期化対象には含まれない。
     /// </summary>
     [DefaultExecutionOrder(InitializeOrderConst.Compositer)]
     public abstract class GameCompositer : CompositionBase
     {
         private static GameCompositer _instance;
+
+        /// <summary>
+        /// Toolkitのランタイム機能を初期化するInitializer。
+        /// 他のInitializerのAwakeより先に初期化するため、Compositerが直接参照して呼ぶ。
+        /// </summary>
+        [SerializeField] private UsefulToolkitRuntimeInitializer _runtimeInitializer;
 
         private readonly Dictionary<Type, object> _container = new();
         private InitializePhase _phase = InitializePhase.None;
@@ -30,6 +39,16 @@ namespace UsefulToolkit.Architecture
 
             // UsefulToolkit.BlackBoardが名前空間として解決されてしまうため完全修飾する
             _blackBoard = new UsefulToolkit.BlackBoard.BlackBoard.BlackBoard(new SceneBoard());
+
+            // 他のInitializerのAwakeから既にシーンシステムを使えるよう、ここで真っ先に初期化する。
+            if (_runtimeInitializer != null)
+            {
+                _runtimeInitializer.Initialize(_blackBoard);
+            }
+            else
+            {
+                UsefulLogger.LogError("UsefulToolkitRuntimeInitializerが設定されていない為、シーンシステムは初期化されません。", this);
+            }
 
             _phase = InitializePhase.Collection;
 

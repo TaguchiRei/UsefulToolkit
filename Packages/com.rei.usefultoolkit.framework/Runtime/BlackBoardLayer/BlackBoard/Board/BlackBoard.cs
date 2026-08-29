@@ -30,6 +30,11 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
             return _stateChildBoards.TryAdd(type, childBoard);
         }
 
+        public SceneBoard GetSceneBoard()
+        {
+            return _sceneBoard;
+        }
+
         public bool TryGetStateBoard<T>(out T childBoard) where T : ChildStateBoardBase
         {
             if (_stateChildBoards.TryGetValue(typeof(T), out var raw) && raw is T typed)
@@ -82,7 +87,6 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
                     childBoard.OnSceneChanged(sceneId);
                 }
             }
-
         }
     }
 }
