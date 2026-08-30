@@ -135,8 +135,7 @@ namespace UsefulToolkit.MeshCut
                     context.ObjectTriangleRange[i] = new int2(totalTriangleCount, tRange.y);
                     context.ObjectSubmeshCount[i] = submeshCount;
 
-                    // 既に断面サブメッシュを持つメッシュ(＝一度切られた破片)は、そのスロットへ断面を追記する。
-                    // 新しいサブメッシュを足さないので、何度切ってもサブメッシュ数とドローコールが増えない。
+                    // 既に断面サブメッシュを持つメッシュ(＝一度切られた破片)は、そのスロットへ断面を追記する(新しいサブメッシュは足さない)。
                     int capSubmesh = store.MeshCapSubmesh[meshId];
                     int capSlot = capSubmesh >= 0 ? capSubmesh : submeshCount;
                     context.ObjectCapSlot[i] = capSlot;
@@ -540,8 +539,7 @@ namespace UsefulToolkit.MeshCut
 
                     NativeArray<int>.Copy(context.FragmentIndicesFlat, idxRange.x, indices, indexOffset, subCount);
 
-                    // DontRecalculateBoundsを付けるとBoundsが未計算のままになり、破片がカリングで消える。
-                    // ここはバックグラウンドスレッドなので、SetSubMesh側でBoundsを計算させる。
+                    // SetSubMeshのデフォルト(Bounds再計算あり)で呼ぶ。DontRecalculateBoundsを付けるとBoundsが未計算になり破片がカリングで消える。
                     data.SetSubMesh(s, new SubMeshDescriptor(indexOffset, subCount));
 
                     indexOffset += subCount;

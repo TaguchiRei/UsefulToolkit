@@ -67,7 +67,7 @@ namespace UsefulToolkit.EngineService.Input
 
             EnhancedTouchSupport.Enable();
 #if UNITY_EDITOR
-            // Unity上ではクリックをタッチとしてシミュレーションを有効化する必要がある
+            // エディタ上でマウスクリックをタッチとして扱うシミュレーションを有効化する
             TouchSimulation.Enable();
 #endif
         }

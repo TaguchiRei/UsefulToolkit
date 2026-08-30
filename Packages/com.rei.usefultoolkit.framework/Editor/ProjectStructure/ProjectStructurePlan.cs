@@ -38,7 +38,7 @@ namespace UsefulToolkit.Editor.ProjectStructure
 
     /// <summary>
     /// テンプレートと現在のAssetsを突き合わせた結果の実行計画。
-    /// このクラスを作る処理には副作用が無いので、そのままドライランとして使える
+    /// このクラスの構築処理は副作用を持たず、ドライランとして使える。
     /// </summary>
     public class ProjectStructurePlan
     {
@@ -264,7 +264,7 @@ namespace UsefulToolkit.Editor.ProjectStructure
                 wanted.Add(ProjectStructurePath.ParentOf(move.DestinationPath));
             }
 
-            // 移動によって出来上がるフォルダは、先に作ると移動が失敗するので作成対象から外す
+            // 移動によって出来上がるフォルダは作成対象から外す(先に作ると移動が失敗する)
             var moveDestinations = moves
                 .Select(move => move.DestinationPath)
                 .ToList();

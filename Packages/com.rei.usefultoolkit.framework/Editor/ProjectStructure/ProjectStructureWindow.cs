@@ -306,14 +306,14 @@ namespace UsefulToolkit.Editor.ProjectStructure
 
             Debug.Log($"[UsefulToolkit] 構造テンプレートを保存しました: {ProjectStructureTemplateIO.ProjectTemplatePath}");
 
-            // 保存したテンプレートを読み直す。警告はその後に入れないとクリアされてしまう
+            // 保存したテンプレートを読み直してから警告を設定する
             ReloadTemplate();
             _snapshotWarnings = warnings;
         }
 
         private void ApplyPlan()
         {
-            // プレビュー後にAssetsが変わっている可能性があるので、必ず作り直してから実行する
+            // 実行直前にプランを作り直す(プレビュー後にAssetsが変わっている可能性がある)
             var plan = ProjectStructurePlanner.Build(_template);
             _plan = plan;
 

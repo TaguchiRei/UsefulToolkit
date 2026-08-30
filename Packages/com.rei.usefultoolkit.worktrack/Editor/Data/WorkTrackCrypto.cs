@@ -5,9 +5,8 @@ using System.Text;
 namespace UsefulToolkit.Editor.WorkTrack
 {
     /// <summary>
-    /// WorkTrackの保存データをテキストエディタ等で直接読めないようにするための簡易的な暗号化。
-    /// 鍵はソースコードに埋め込まれているため第三者の解析からデータを守るものではなく、
-    /// あくまで「うっかり素のJSONが見える」ことを防ぐ程度の保護であることに留意する。
+    /// WorkTrackの保存データをテキストエディタ等で直接読めないようにする簡易的な難読化。
+    /// 鍵はソースコードに埋め込まれており、第三者の解析には耐えない。
     /// </summary>
     internal static class WorkTrackCrypto
     {

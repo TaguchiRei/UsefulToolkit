@@ -86,12 +86,10 @@ namespace UsefulToolkit.Editor.Ai
 
         private void OnSessionStateChanged()
         {
-            // CreateGUI を呼ぶと全UIが再構築されインタラクションが切れる可能性があるため、
-            // ステータス更新のみに限定する
+            // ステータス更新のみに限定する(CreateGUIを呼ぶと全UIが再構築されインタラクションが切れる)
             UpdateStatusUI();
 
-            // コマンドカード内のボタンも更新する必要があるため、必要であれば個別に再レンダリングする
-            // ここでは簡易的に、ボタン群を探索して状態を更新する
+            // コマンドカード内のボタンの状態も更新する。ボタン群を探索して個別に更新する
             var buttons = rootVisualElement.Query<Button>().ToList();
             var session = CurrentSession;
             bool enabled = session != null && !session.IsProcessing;

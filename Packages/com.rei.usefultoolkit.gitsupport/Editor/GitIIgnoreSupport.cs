@@ -10,7 +10,7 @@ namespace UsefulToolkit.Editor.GitSupport
     /// <summary>
     /// Gitの.gitignore設定を利用して、指定したファイルやディレクトリが
     /// 無視対象かどうかを判定するためのサポートクラスです。
-    /// パフォーマンスのため、無視ファイル一覧をキャッシュして利用します。
+    /// 無視ファイル一覧はキャッシュして利用します。
     /// </summary>
     public static class GitIgnoreSupport
     {

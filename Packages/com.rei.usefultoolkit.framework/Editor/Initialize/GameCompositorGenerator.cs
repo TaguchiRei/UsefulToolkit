@@ -102,8 +102,7 @@ namespace UsefulToolkit.Editor.Initialize
         {
             var initializerFields = CollectInitializerFields(scene);
 
-            // 常駐シーン(UsefulToolkitRuntimeInitializerを持つシーン)だけがRoot Compositorになる。
-            // ChildBoardの登録と共有BlackBoardの構築はRootの担当なので、非Rootでは何も集めない。
+            // 常駐シーン(UsefulToolkitRuntimeInitializerを持つシーン)だけがRoot Compositorになり、ChildBoardを集める。非Rootでは空にする。
             bool isRoot = SceneContainsRuntimeInitializer(scene);
 
             var stateBoardTypes = isRoot

@@ -48,9 +48,8 @@ namespace UsefulToolkit.BlackBoard.Input
         /// EngineServiceLayerに属する入力ソース(IExternalInputSource&lt;TValue&gt;)を、指定した
         /// (map, action)のチャンネルへ橋渡しする。InputEngineService(InputSystem由来)や
         /// MobileInputEngineService(タッチ由来)を含め、すべての入力ソースはこの経路からのみ
-        /// InputBoardへ値を送り込める——EventChannel.Publishを直接呼ぶのはこのメソッド内の
-        /// ブリッジだけであり、IExternalInputSource実装側はチャンネルへの参照を一切持たないため、
-        /// 誤ってPublishしてしまう経路が型で防がれる。
+        /// InputBoardへ値を送り込める。EventChannel.Publishを直接呼ぶのはこのメソッド内の
+        /// ブリッジだけで、IExternalInputSource実装側はチャンネルへの参照を持たない。
         /// </summary>
         public IDisposable RegisterExternalInputSource<TValue>(Enum map, Enum action, IExternalInputSource<TValue> source)
             where TValue : unmanaged

@@ -29,16 +29,13 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         {
             if (handler is null) throw new ArgumentNullException(nameof(handler));
 
-            // 同じハンドラを2回登録すると、デリゲート比較による解除がどちらか一方しか区別できず、
-            // 片方をDisposeしたときにもう片方が消える事故になるため登録時点で弾く
+            // 同じハンドラの二重登録を弾く(デリゲート比較では解除時に2件を区別できない)
             if (_callbacks.Exists(x => x.Handler.Equals(handler)))
             {
                 throw new InvalidOperationException($"ハンドラ [{handler.Method.Name}] はすでに登録されています。");
             }
 
-            // Invokeのたびに並べ替えずに済むよう、登録時点で優先度順の位置へ挿入する。
-            // 同じ優先度のグループの末尾へ挿入することで同値同士の登録順が保たれる
-            // (List.Sortは安定ソートではないため、Invoke時のソートでは順序を保証できない)
+            // 登録時点で優先度順の位置へ挿入する。同じ優先度のグループの末尾へ挿入し、同値同士は登録順を保つ。
             var entry = (Priority: priority, Handler: handler);
             var index = _callbacks.FindIndex(x => x.Priority > priority);
 

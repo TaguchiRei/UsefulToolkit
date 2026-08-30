@@ -48,7 +48,7 @@ namespace UsefulToolkit.Application.Scene
         /// 本来のアクティブシーンになる。呼べるのは一度だけ。
         ///
         /// メインシーンを持たないグループを開始グループに指定した場合、アクティブシーンは
-        /// 常駐シーンのまま残る(常駐シーンがライティング等を担当する構成)。これは意図された挙動。
+        /// 常駐シーンのまま残る。
         /// </summary>
         /// <param name="startGroupIndex">起動時にロードするシーングループのインデックス。既定は0</param>
         /// <param name="cancellationToken">ロードの中断に使う</param>
@@ -63,8 +63,7 @@ namespace UsefulToolkit.Application.Scene
 
             _initialized = true;
 
-            // 起動直後は常駐シーンしかロードされていないので、上書きロードで開始グループへ遷移する。
-            // (常駐シーンは上書きロードのアンロード対象から常に外れる)
+            // 上書きロードで開始グループへ遷移する。
             return LoadGroupAsync(startGroupIndex, overwriteLoadedScenes: true, cancellationToken);
         }
 

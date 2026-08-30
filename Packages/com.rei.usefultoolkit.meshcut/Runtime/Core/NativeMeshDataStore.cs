@@ -8,8 +8,8 @@ namespace UsefulToolkit.MeshCut
 {
     /// <summary>
     /// シーン内に登録された全ユニークメッシュを、Burst Jobから直接読めるフラットなNativeArrayとして
-    /// 一度だけ構築・保持するストア。ジャグ配列(int[][])を毎カット時に走査する必要が無いようにする。
-    /// 何回でも切断可能なオブジェクトのために、切断結果のフラグメントを実行時に追加登録することもできる。
+    /// 一度だけ構築・保持するストア。
+    /// 切断結果のフラグメントを実行時に追加登録することもできる。
     /// </summary>
     public class NativeMeshDataStore : IDisposable
     {

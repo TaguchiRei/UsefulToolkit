@@ -54,7 +54,7 @@ namespace UsefulToolkit.Editor.ProjectStructure
             Enum.TryParse(action, true, out StructureActionType actionType) ? actionType : StructureActionType.Move;
 
         /// <summary>
-        /// ルールの記述ミスを検出する。JSONを手書きする前提なので、実行前に必ず通す
+        /// ルールの記述ミスを検出する。実行前に必ず通す。
         /// </summary>
         public bool Validate(out string error)
         {
@@ -76,7 +76,7 @@ namespace UsefulToolkit.Editor.ProjectStructure
                 return false;
             }
 
-            // Name照合だけは名前そのものを書くので、Assets始まりである必要がない
+            // Name照合以外はAssets/始まりのパスを要求する
             if (MatchMode != StructureMatchMode.Name && !ProjectStructurePath.IsAssetsPath(pattern))
             {
                 error = $"pattern '{pattern}' は Assets/ から始まるパスで指定してください。";

@@ -7,6 +7,7 @@
         "UsefulToolkit.Input.External.Runtime",
         "UsefulToolkit.Input.EngineService.Runtime",
         "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.Initialization.Runtime",
         "UsefulToolkit.Framework.Application.Runtime",
         "UsefulToolkit.Framework.BlackBoard.Runtime",
         "UsefulToolkit.Framework.External.Runtime",

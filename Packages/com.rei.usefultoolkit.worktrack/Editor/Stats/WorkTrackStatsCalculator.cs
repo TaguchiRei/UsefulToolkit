@@ -28,9 +28,8 @@ namespace UsefulToolkit.Editor.WorkTrack
     {
         /// <summary>
         /// periodStart/periodEndはローカル時刻。nullの場合はその方向に無制限。
-        /// excludeOverlapがtrueの場合、複数プロジェクトを同時に開いていた等で発生する時間帯の重複を
-        /// 除いた実時間を累計/日別/週別/月別集計に用いる(1セッションあたり・プロジェクト別は各セッション
-        /// 自身の作業時間をそのまま表すべきものなので、この重複除去の影響を受けない)。
+        /// excludeOverlapがtrueの場合、時間帯の重複(複数プロジェクトを同時に開いていた等)を除いた実時間を
+        /// 累計/日別/週別/月別集計に用いる。1セッションあたり・プロジェクト別の集計は重複除去の影響を受けない。
         /// </summary>
         public static WorkTrackStats Calculate(IReadOnlyList<WorkSession> sessions, DateTime? periodStart,
             DateTime? periodEnd, bool excludeOverlap = false)
