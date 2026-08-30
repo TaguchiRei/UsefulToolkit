@@ -31,7 +31,7 @@ namespace UsefulToolkit.BlackBoard.Scene
         public IReadOnlyList<int> AdditiveScenes => _loadedScenes.AdditiveScenes;
 
         private readonly IBlackBoard _blackBoard;
-        private readonly LoadedSceneSet _loadedScenes = new();
+        private readonly LoadedSceneSet _loadedScenes;
         private readonly SceneLoadRequester _loadRequester;
 
         private readonly KeyedActionEntryList<int> _loadedActions = new();
@@ -41,10 +41,15 @@ namespace UsefulToolkit.BlackBoard.Scene
         private readonly ActionEntryList<SceneLoadPhase> _phaseChangedActions = new();
 
         /// <param name="blackBoard">シーンのアンロードを通知する先</param>
+        /// <param name="persistentSceneIds">
+        /// 常駐シーンのビルドインデックス。アクティブシーンにはできず、アンロードや降格の対象にもならない。
+        /// 常に「ロード済み」として扱う。
+        /// </param>
         /// <exception cref="ArgumentNullException">blackBoardがnullのときに出力</exception>
-        public SceneState(IBlackBoard blackBoard)
+        public SceneState(IBlackBoard blackBoard, IReadOnlyList<int> persistentSceneIds = null)
         {
             _blackBoard = blackBoard ?? throw new ArgumentNullException(nameof(blackBoard));
+            _loadedScenes = new LoadedSceneSet(persistentSceneIds);
             _loadRequester = new SceneLoadRequester(this);
         }
 
@@ -53,6 +58,25 @@ namespace UsefulToolkit.BlackBoard.Scene
         public bool IsLoaded(int sceneId)
         {
             return _loadedScenes.IsLoaded(sceneId);
+        }
+
+        /// <summary>
+        /// 指定したシーンが常駐シーンか。
+        /// </summary>
+        /// <param name="sceneId">確認するシーンID</param>
+        public bool IsPersistentScene(int sceneId)
+        {
+            return _loadedScenes.IsPersistent(sceneId);
+        }
+
+        /// <summary>
+        /// 指定したシーンをアクティブシーンとしてロード/昇格できるか。
+        /// 負値と常駐シーンは不可。ロード要求は実行前にこれで弾かれる。
+        /// </summary>
+        /// <param name="sceneId">確認するシーンID</param>
+        public bool CanBeActiveScene(int sceneId)
+        {
+            return _loadedScenes.CanBeActiveScene(sceneId);
         }
 
         /// <summary>
@@ -239,6 +263,12 @@ namespace UsefulToolkit.BlackBoard.Scene
             return _loadRequester.RequestUnLoadAsync(sceneIds, cancellationToken);
         }
 
+        public UniTask<bool> RequestOverwriteLoadAsync(int mainSceneId, IReadOnlyList<int> subSceneIds,
+            CancellationToken cancellationToken = default)
+        {
+            return _loadRequester.RequestOverwriteLoadAsync(mainSceneId, subSceneIds, cancellationToken);
+        }
+
         #endregion
 
         #region シーンのロード状況をStateへ反映するメソッド
@@ -350,6 +380,48 @@ namespace UsefulToolkit.BlackBoard.Scene
             return true;
         }
 
+        /// <summary>
+        /// 上書きロードで不要になったシーンを集合から取り除き、アンロード時のActionを実行する。
+        /// アクティブシーンが対象に含まれる場合はアクティブシーンを未設定へ戻す。常駐シーンは対象外。
+        /// ロード進行中(Loading)から呼ばれるため、<see cref="CanApplyUnLoad"/>のガードは通さない。
+        /// </summary>
+        /// <param name="sceneIds">取り除くシーンID</param>
+        /// <returns>指定した全てのシーンが取り除かれたか</returns>
+        public bool OverwriteUnload(ReadOnlySpan<int> sceneIds)
+        {
+            var unloadedScenes = ListPool<int>.Get();
+            try
+            {
+                _loadedScenes.RemoveScenes(sceneIds, unloadedScenes);
+
+                for (int i = 0; i < unloadedScenes.Count; i++)
+                {
+                    _unLoadedActions.Invoke(unloadedScenes[i]);
+                }
+
+                if (unloadedScenes.Count > 0)
+                {
+                    // Stateに登録されたActionを実行し終えてから、各ChildBoardのシーンスコープを解除する
+                    _blackBoard.OnSceneChanged(unloadedScenes);
+                }
+
+                return unloadedScenes.Count == sceneIds.Length;
+            }
+            finally
+            {
+                ListPool<int>.Release(unloadedScenes);
+            }
+        }
+
+        /// <summary>
+        /// 現在ロード中の管理シーン(アクティブシーン + アディティブシーン、常駐シーンは除く)をバッファへ複製する。
+        /// </summary>
+        /// <param name="buffer">複製先</param>
+        public void CopyLoadedScenesTo(List<int> buffer)
+        {
+            _loadedScenes.CopyLoadedScenesTo(buffer);
+        }
+
         #endregion
 
         public override string GetLog()
@@ -379,11 +451,10 @@ namespace UsefulToolkit.BlackBoard.Scene
             {
                 var loadActiveScene = activeScene != NoSceneId;
                 var activeSceneChanged = false;
-                var previousActiveScene = NoSceneId;
 
                 if (loadActiveScene)
                 {
-                    activeSceneChanged = _loadedScenes.TryLoadActiveScene(activeScene, out previousActiveScene);
+                    activeSceneChanged = _loadedScenes.TryLoadActiveScene(activeScene, out _);
                     if (activeSceneChanged)
                     {
                         // 0番目をアクティブシーンとして通知するため先頭へ入れる
@@ -393,10 +464,8 @@ namespace UsefulToolkit.BlackBoard.Scene
 
                 _loadedScenes.LoadAdditiveScenes(additiveScenes, loadedScenes);
 
-                if (activeSceneChanged && previousActiveScene != NoSceneId)
-                {
-                    _unLoadedActions.Invoke(previousActiveScene);
-                }
+                // 旧アクティブシーンはアンロードされずアディティブシーンへ降格するだけなので、
+                // OnUnloadのActionは実行しない。切り替えはNotifyActiveSceneChangedで通知する。
 
                 NotifyLoadedScenes(loadedScenes);
                 NotifyAnySceneLoaded(loadedScenes, activeSceneChanged);

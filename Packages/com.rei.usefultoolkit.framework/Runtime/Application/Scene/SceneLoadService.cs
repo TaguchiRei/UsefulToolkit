@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UsefulToolkit.BlackBoard.BlackBoard;
@@ -17,6 +16,8 @@ namespace UsefulToolkit.Application.Scene
     {
         private readonly SceneBoard _sceneBoard;
         private readonly SceneGroup[] _sceneGroups;
+
+        private bool _initialized;
 
         /// <summary> 操作できるシーングループの数 </summary>
         public int GroupCount => _sceneGroups.Length;
@@ -41,39 +42,59 @@ namespace UsefulToolkit.Application.Scene
         }
 
         /// <summary>
+        /// 常駐シーンだけがロードされた起動直後の状態から、開始シーングループへ遷移する。
+        /// UsefulToolkitの常駐シーンから起動すると常駐シーンが最初のアクティブシーンになり、
+        /// このメソッドを呼ぶことで <paramref name="startGroupIndex"/> のグループのメインシーンが
+        /// 本来のアクティブシーンになる。呼べるのは一度だけ。
+        ///
+        /// メインシーンを持たないグループを開始グループに指定した場合、アクティブシーンは
+        /// 常駐シーンのまま残る(常駐シーンがライティング等を担当する構成)。これは意図された挙動。
+        /// </summary>
+        /// <param name="startGroupIndex">起動時にロードするシーングループのインデックス。既定は0</param>
+        /// <param name="cancellationToken">ロードの中断に使う</param>
+        /// <returns>開始グループのロードが完了したか。二度目以降の呼び出しはfalse</returns>
+        public UniTask<bool> Initialize(int startGroupIndex = 0, CancellationToken cancellationToken = default)
+        {
+            if (_initialized)
+            {
+                UsefulLogger.LogWarning("SceneLoadServiceは既に初期化済みです。", this);
+                return UniTask.FromResult(false);
+            }
+
+            _initialized = true;
+
+            // 起動直後は常駐シーンしかロードされていないので、上書きロードで開始グループへ遷移する。
+            // (常駐シーンは上書きロードのアンロード対象から常に外れる)
+            return LoadGroupAsync(startGroupIndex, overwriteLoadedScenes: true, cancellationToken);
+        }
+
+        /// <summary>
         /// 指定したシーングループをロードする。
-        /// overwriteLoadedScenesがtrueの場合は、ロード後に
-        /// グループへ含まれないアディティブシーンをアンロードする。
         /// インデックスが範囲外の場合と、ISceneStateが未登録の場合はエラーログを出してfalseを返す。
         /// </summary>
         /// <param name="groupIndex">ロードするシーングループのインデックス</param>
         /// <param name="overwriteLoadedScenes">
-        /// trueならロード後にグループへ含まれないアディティブシーンをアンロードし、
-        /// ロード済みシーンをこのグループで上書きする。falseなら追加でロードするだけ。
+        /// trueなら、グループへ含まれず常駐でもないロード済みシーン(アクティブシーンを含む)を
+        /// 全てアンロードしてから、このグループをロードする(元のシーン状況を丸ごと上書き)。
+        /// falseなら追加でロードするだけで、既存のロード済みシーンはそのまま残る。
         /// </param>
         /// <param name="cancellationToken">ロードの中断に使う</param>
         /// <returns>グループの全てのシーンがロードされ、上書き指定時は余剰シーンのアンロードまで終わったか</returns>
-        public async UniTask<bool> LoadGroupAsync(int groupIndex, bool overwriteLoadedScenes,
+        public UniTask<bool> LoadGroupAsync(int groupIndex, bool overwriteLoadedScenes,
             CancellationToken cancellationToken = default)
         {
             if (!TryGetGroup(groupIndex, out var group) || !TryGetSceneState(out var sceneState))
             {
-                return false;
+                return UniTask.FromResult(false);
             }
 
             var mainSceneId = group.TryGetMainSceneId(out var id) ? id : SceneState.NoSceneId;
 
-            if (!await sceneState.RequestLoadAsync(mainSceneId, group.AdditiveSceneIds, cancellationToken))
-            {
-                return false;
-            }
-
-            if (!overwriteLoadedScenes)
-            {
-                return true;
-            }
-
-            return await UnLoadUnusedScenesAsync(sceneState, group, cancellationToken);
+            // overwrite指定時は「元のシーン状況を丸ごとこのグループで上書き」する。
+            // 非指定時は追加でロードするだけ。
+            return overwriteLoadedScenes
+                ? sceneState.RequestOverwriteLoadAsync(mainSceneId, group.AdditiveSceneIds, cancellationToken)
+                : sceneState.RequestLoadAsync(mainSceneId, group.AdditiveSceneIds, cancellationToken);
         }
 
         /// <summary>
@@ -94,39 +115,6 @@ namespace UsefulToolkit.Application.Scene
             // グループの全シーン(メイン含む)を対象にする。
             // アクティブシーンと未ロードのシーンはRequestUnLoadAsync側で除外される。
             return sceneState.RequestUnLoadAsync(group.SceneIds, cancellationToken);
-        }
-
-        /// <summary>
-        /// ロード済みのアディティブシーンのうち、グループへ含まれないものをアンロードする。
-        /// </summary>
-        /// <param name="sceneState">アンロードを要求する先</param>
-        /// <param name="group">残すシーンを決めるシーングループ</param>
-        /// <param name="cancellationToken">アンロードの中断に使う</param>
-        /// <returns>対象の全てのシーンがアンロードされたか</returns>
-        private static UniTask<bool> UnLoadUnusedScenesAsync(ISceneState sceneState, SceneGroup group,
-            CancellationToken cancellationToken)
-        {
-            var additiveScenes = sceneState.AdditiveScenes;
-
-            // アンロード中にアディティブシーンの集合が変化するため、対象を先に複製しておく
-            var unusedScenes = new List<int>(additiveScenes.Count);
-            for (int i = 0; i < additiveScenes.Count; i++)
-            {
-                var sceneId = additiveScenes[i];
-                if (Contains(group.SceneIds, sceneId))
-                {
-                    continue;
-                }
-
-                unusedScenes.Add(sceneId);
-            }
-
-            if (unusedScenes.Count == 0)
-            {
-                return UniTask.FromResult(true);
-            }
-
-            return sceneState.RequestUnLoadAsync(unusedScenes, cancellationToken);
         }
 
         /// <summary>
@@ -161,19 +149,6 @@ namespace UsefulToolkit.Application.Scene
             }
 
             UsefulLogger.LogError("ISceneStateが登録されていない為、シーングループを操作できません。", this);
-            return false;
-        }
-
-        private static bool Contains(IReadOnlyList<int> sceneIds, int sceneId)
-        {
-            for (int i = 0; i < sceneIds.Count; i++)
-            {
-                if (sceneIds[i] == sceneId)
-                {
-                    return true;
-                }
-            }
-
             return false;
         }
     }

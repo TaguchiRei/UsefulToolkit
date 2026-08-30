@@ -8,6 +8,9 @@ namespace UsefulToolkit.BlackBoard.Scene
     /// ロード済みのシーンIDを保持する。
     /// ロード/アンロードを反映できるかを判定し、できる場合だけ集合を更新して結果を返す。
     /// 反映できない場合は警告ログを出してfalseを返す。Actionの実行は行わない。
+    ///
+    /// 常駐シーンはこの集合とは別に保持し、アクティブシーンにはできず、アンロードや降格の対象にもならない。
+    /// 常に「ロード済み」として扱う。
     /// </summary>
     internal sealed class LoadedSceneSet
     {
@@ -16,22 +19,65 @@ namespace UsefulToolkit.BlackBoard.Scene
         /// <summary> 現在のアクティブシーン。未設定なら<see cref="SceneState.NoSceneId"/> </summary>
         public int ActiveScene { get; private set; } = NoSceneId;
 
-        /// <summary> アクティブシーン以外にロードされているシーン </summary>
+        /// <summary> アクティブシーン以外にロードされているシーン(常駐シーンは含まない) </summary>
         public IReadOnlyList<int> AdditiveScenes => _additiveScenes;
 
         private readonly List<int> _additiveScenes = new();
 
+        /// <summary> 常駐シーン。アクティブ化・アンロード・降格のいずれもされない </summary>
+        private readonly HashSet<int> _persistentScenes = new();
+
+        /// <param name="persistentSceneIds">常駐シーンのビルドインデックス。nullや負値は無視する</param>
+        public LoadedSceneSet(IReadOnlyList<int> persistentSceneIds = null)
+        {
+            if (persistentSceneIds == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < persistentSceneIds.Count; i++)
+            {
+                var sceneId = persistentSceneIds[i];
+                if (sceneId >= 0)
+                {
+                    _persistentScenes.Add(sceneId);
+                }
+            }
+        }
+
         /// <summary>
-        /// 指定したシーンがアクティブ/アディティブのいずれかでロード済みか。
+        /// 指定したシーンが常駐シーンか。
+        /// </summary>
+        /// <param name="sceneId">確認するシーンID</param>
+        public bool IsPersistent(int sceneId)
+        {
+            return _persistentScenes.Contains(sceneId);
+        }
+
+        /// <summary>
+        /// 指定したシーンをアクティブシーンとしてロード/昇格できるか。
+        /// 負値と常駐シーンは不可。ロード要求を実際に処理する前のチェックに使う。
+        /// </summary>
+        /// <param name="sceneId">確認するシーンID</param>
+        public bool CanBeActiveScene(int sceneId)
+        {
+            return sceneId >= 0 && !_persistentScenes.Contains(sceneId);
+        }
+
+        /// <summary>
+        /// 指定したシーンがアクティブ/アディティブ/常駐のいずれかでロード済みか。
         /// </summary>
         /// <param name="sceneId">確認するシーンID</param>
         public bool IsLoaded(int sceneId)
         {
-            return ActiveScene == sceneId || _additiveScenes.Contains(sceneId);
+            return ActiveScene == sceneId
+                   || _additiveScenes.Contains(sceneId)
+                   || _persistentScenes.Contains(sceneId);
         }
 
         /// <summary>
         /// アクティブシーンのロードを反映する。
+        /// それまでのアクティブシーンはアンロードされず、アディティブシーンへ降格する。
         /// </summary>
         /// <param name="sceneId">ロードするシーンID</param>
         /// <param name="previousActiveScene">反映前のアクティブシーン。未設定だった場合は<see cref="SceneState.NoSceneId"/></param>
@@ -46,10 +92,23 @@ namespace UsefulToolkit.BlackBoard.Scene
                 return false;
             }
 
+            if (_persistentScenes.Contains(sceneId))
+            {
+                UsefulLogger.LogWarning($"シーンID{sceneId}は常駐シーンの為、アクティブシーンにできません", this);
+                return false;
+            }
+
             if (_additiveScenes.Contains(sceneId))
             {
-                UsefulLogger.LogWarning($"シーンID{sceneId}はアディティブシーンとしてロード済みの為、アクティブシーンとしてロードできません", this);
+                UsefulLogger.LogWarning(
+                    $"シーンID{sceneId}はアディティブシーンとしてロード済みです。アクティブシーンへの変更はTryChangeActiveSceneを使ってください", this);
                 return false;
+            }
+
+            // 旧アクティブシーンはアンロードされる訳ではないのでアディティブシーンとして残す
+            if (ActiveScene != NoSceneId)
+            {
+                _additiveScenes.Add(ActiveScene);
             }
 
             ActiveScene = sceneId;
@@ -63,6 +122,12 @@ namespace UsefulToolkit.BlackBoard.Scene
         /// <returns>反映されたか</returns>
         public bool TryLoadAdditiveScene(int sceneId)
         {
+            if (_persistentScenes.Contains(sceneId))
+            {
+                UsefulLogger.LogWarning($"シーンID{sceneId}は常駐シーンの為、アディティブシーンとして読み込む必要はありません。", this);
+                return false;
+            }
+
             if (_additiveScenes.Contains(sceneId))
             {
                 UsefulLogger.LogWarning($"シーンID{sceneId}はアディティブシーンとしてロード済みです。", this);
@@ -96,12 +161,18 @@ namespace UsefulToolkit.BlackBoard.Scene
         }
 
         /// <summary>
-        /// アディティブシーンのアンロードを反映する。
+        /// アディティブシーンのアンロードを反映する。常駐シーンは対象にできない。
         /// </summary>
         /// <param name="sceneId">アンロードするシーンID</param>
         /// <returns>反映されたか</returns>
         public bool TryUnLoadAdditiveScene(int sceneId)
         {
+            if (_persistentScenes.Contains(sceneId))
+            {
+                UsefulLogger.LogWarning($"シーンID{sceneId}は常駐シーンの為、アンロードできません。", this);
+                return false;
+            }
+
             if (_additiveScenes.Remove(sceneId))
             {
                 return true;
@@ -120,6 +191,36 @@ namespace UsefulToolkit.BlackBoard.Scene
         }
 
         /// <summary>
+        /// 上書きロードのために、指定したシーンを集合から取り除く。
+        /// アクティブシーンが対象に含まれる場合はアクティブシーンを未設定へ戻す。
+        /// 常駐シーンと、ロードされていないシーンは黙って対象から外す。
+        /// </summary>
+        /// <param name="sceneIds">取り除くシーンID</param>
+        /// <param name="removedScenes">実際に取り除かれたシーンIDの追加先</param>
+        public void RemoveScenes(ReadOnlySpan<int> sceneIds, List<int> removedScenes)
+        {
+            foreach (var sceneId in sceneIds)
+            {
+                if (_persistentScenes.Contains(sceneId))
+                {
+                    continue;
+                }
+
+                if (ActiveScene == sceneId)
+                {
+                    ActiveScene = NoSceneId;
+                    removedScenes.Add(sceneId);
+                    continue;
+                }
+
+                if (_additiveScenes.Remove(sceneId))
+                {
+                    removedScenes.Add(sceneId);
+                }
+            }
+        }
+
+        /// <summary>
         /// ロード済みのアディティブシーンをアクティブシーンへ昇格させ、それまでのアクティブシーンをアディティブシーンへ降格させる。
         /// </summary>
         /// <param name="newActiveSceneId">アクティブシーンへ昇格させるシーンID</param>
@@ -129,6 +230,12 @@ namespace UsefulToolkit.BlackBoard.Scene
             if (ActiveScene == newActiveSceneId)
             {
                 UsefulLogger.LogWarning($"シーンID{newActiveSceneId}は既にアクティブシーンです。", this);
+                return false;
+            }
+
+            if (_persistentScenes.Contains(newActiveSceneId))
+            {
+                UsefulLogger.LogWarning($"シーンID{newActiveSceneId}は常駐シーンの為、アクティブシーンへ変更できません。", this);
                 return false;
             }
 
@@ -157,6 +264,20 @@ namespace UsefulToolkit.BlackBoard.Scene
         {
             _additiveScenes.CopyTo(buffer, 0);
             return _additiveScenes.Count;
+        }
+
+        /// <summary>
+        /// 現在ロード中の管理シーン(アクティブシーン + アディティブシーン、常駐シーンは除く)を複製する。
+        /// </summary>
+        /// <param name="buffer">複製先</param>
+        public void CopyLoadedScenesTo(List<int> buffer)
+        {
+            if (ActiveScene != NoSceneId)
+            {
+                buffer.Add(ActiveScene);
+            }
+
+            buffer.AddRange(_additiveScenes);
         }
     }
 }

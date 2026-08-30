@@ -28,6 +28,12 @@ namespace UsefulToolkit.BlackBoard.Scene
         public bool IsLoaded(int sceneId);
 
         /// <summary>
+        /// 指定したシーンが常駐シーンか。常駐シーンはアクティブ化・アンロード・降格のいずれもされない。
+        /// </summary>
+        /// <param name="sceneId">確認するシーンID</param>
+        public bool IsPersistentScene(int sceneId);
+
+        /// <summary>
         /// 特定のシーンがロードされたときに実行されるActionを登録する
         /// </summary>
         /// <param name="sceneId">対象のシーンID</param>
@@ -85,12 +91,26 @@ namespace UsefulToolkit.BlackBoard.Scene
 
         /// <summary>
         /// シーンのアンロードを要求する。
-        /// ロードされていないシーンとアクティブシーンは対象から外れる。
+        /// ロードされていないシーン、アクティブシーン、常駐シーンは対象から外れる。
         /// </summary>
         /// <param name="sceneIds">アンロードするシーンID</param>
         /// <param name="cancellationToken">アンロードの中断に使う</param>
         /// <returns>対象の全てのシーンがアンロードされStateへ反映されたか</returns>
         public UniTask<bool> RequestUnLoadAsync(IReadOnlyList<int> sceneIds,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// シーンを上書きロードする。
+        /// 現在ロード中の管理シーン(アクティブ + アディティブ)のうち、要求に含まれず常駐でもないものを
+        /// 全てアンロードしてから、要求シーンをロードする。
+        /// アクティブシーンも要求に含まれなければアンロードされ、アディティブシーンへの降格は行わない。
+        /// 「元のシーン状況を丸ごとこのグループで上書きする」用途向け。
+        /// </summary>
+        /// <param name="mainSceneId">アクティブシーンにするシーンID。SceneState.NoSceneIdならアクティブシーンはNoneになる</param>
+        /// <param name="subSceneIds">共にロードするシーンID</param>
+        /// <param name="cancellationToken">ロードの中断に使う</param>
+        /// <returns>要求した全てのシーンがロードされ、余剰シーンのアンロードまでStateへ反映されたか</returns>
+        public UniTask<bool> RequestOverwriteLoadAsync(int mainSceneId, IReadOnlyList<int> subSceneIds,
             CancellationToken cancellationToken = default);
     }
 }

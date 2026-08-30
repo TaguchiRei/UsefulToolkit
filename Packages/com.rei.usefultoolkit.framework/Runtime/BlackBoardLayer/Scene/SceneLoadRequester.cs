@@ -69,6 +69,11 @@ namespace UsefulToolkit.BlackBoard.Scene
                 return false;
             }
 
+            if (!CanLoadAsActiveScene(mainSceneId))
+            {
+                return false;
+            }
+
             if (!_sceneState.TryBeginLoad())
             {
                 return false;
@@ -93,8 +98,70 @@ namespace UsefulToolkit.BlackBoard.Scene
         }
 
         /// <summary>
+        /// シーンを上書きロードする。
+        /// 先に要求シーンをロードしてアクティブシーンを切り替え、その後で
+        /// 要求に含まれず常駐でもない旧管理シーン(旧アクティブシーンを含む)を全てアンロードする。
+        /// 旧アクティブシーンはアディティブシーンへ降格されず、そのままアンロードされる。
+        /// ローダーが未登録の場合と、他のロード/アンロードが進行中の場合はfalseを返す。
+        /// </summary>
+        /// <param name="mainSceneId">アクティブシーンにするシーンID。<see cref="SceneState.NoSceneId"/>ならアクティブシーンをNoneにする</param>
+        /// <param name="subSceneIds">共にロードするシーンID</param>
+        /// <param name="cancellationToken">ロードの中断に使う</param>
+        /// <returns>要求した全てのシーンがロードされ、余剰シーンのアンロードまでStateへ反映されたか</returns>
+        public async UniTask<bool> RequestOverwriteLoadAsync(int mainSceneId, IReadOnlyList<int> subSceneIds,
+            CancellationToken cancellationToken)
+        {
+            if (_loadFunc == null || _unLoadFunc == null)
+            {
+                UsefulLogger.LogError("シーンローダーが登録されていない為、上書きロードを要求できません。", this);
+                return false;
+            }
+
+            if (!CanLoadAsActiveScene(mainSceneId))
+            {
+                return false;
+            }
+
+            if (!_sceneState.TryBeginLoad())
+            {
+                return false;
+            }
+
+            try
+            {
+                // 1. 要求シーンのうち未ロードのものをロードし、アクティブシーンを切り替える
+                var loadTargets = CollectLoadTargets(mainSceneId, subSceneIds, out var loadMainScene);
+                if (!await _loadFunc(loadTargets, mainSceneId, _sceneState, cancellationToken))
+                {
+                    return false;
+                }
+
+                var loadApplied = ApplyLoaded(mainSceneId, loadTargets, loadMainScene);
+
+                // 2. 新グループに含まれず常駐でもない、それまでの管理シーンをアンロードする
+                //    (この時点で旧アクティブシーンはアディティブシーンへ降格済みなので対象に含まれる)
+                var unloadTargets = CollectOverwriteUnloadTargets(mainSceneId, subSceneIds);
+                if (unloadTargets.Length == 0)
+                {
+                    return loadApplied;
+                }
+
+                if (!await _unLoadFunc(unloadTargets, _sceneState, cancellationToken))
+                {
+                    return false;
+                }
+
+                return loadApplied & _sceneState.OverwriteUnload(unloadTargets);
+            }
+            finally
+            {
+                _sceneState.EndPhase();
+            }
+        }
+
+        /// <summary>
         /// シーンのアンロードを要求する。
-        /// ロードされていないシーンとアクティブシーンは対象から外れ、対象が無い場合はtrueを返す。
+        /// ロードされていないシーン、アクティブシーン、常駐シーンは対象から外れ、対象が無い場合はtrueを返す。
         /// ローダーが未登録の場合と、他のロード/アンロードが進行中の場合はfalseを返す。
         /// </summary>
         /// <param name="sceneIds">アンロードするシーンID</param>
@@ -133,6 +200,26 @@ namespace UsefulToolkit.BlackBoard.Scene
             {
                 _sceneState.EndPhase();
             }
+        }
+
+        /// <summary>
+        /// アクティブシーンにするシーンIDが、実際にアクティブシーンにできるものか。
+        /// できない場合は警告ログを出す。<see cref="SceneState.NoSceneId"/>(アクティブシーンを変えない)は許可する。
+        /// ロード処理を走らせる前にこれで弾くことで、SceneLoaderがSetActiveSceneを
+        /// 常駐シーンなどに対して呼んでしまうのを防ぐ。
+        /// </summary>
+        /// <param name="mainSceneId">アクティブシーンにするシーンID</param>
+        /// <returns>ロードを進めてよいか</returns>
+        private bool CanLoadAsActiveScene(int mainSceneId)
+        {
+            if (mainSceneId == SceneState.NoSceneId || _sceneState.CanBeActiveScene(mainSceneId))
+            {
+                return true;
+            }
+
+            UsefulLogger.LogWarning(
+                $"シーンID{mainSceneId}はアクティブシーンにできない為、ロードを中止します。", this);
+            return false;
         }
 
         /// <summary>
@@ -198,6 +285,12 @@ namespace UsefulToolkit.BlackBoard.Scene
                     continue;
                 }
 
+                if (_sceneState.IsPersistentScene(sceneId))
+                {
+                    UsefulLogger.LogWarning($"シーンID{sceneId}は常駐シーンの為、アンロードできません。", this);
+                    continue;
+                }
+
                 if (!_sceneState.IsLoaded(sceneId))
                 {
                     UsefulLogger.LogWarning($"シーンID{sceneId}はロードされていない為、アンロードできません。", this);
@@ -208,6 +301,51 @@ namespace UsefulToolkit.BlackBoard.Scene
             }
 
             return targets.ToArray();
+        }
+
+        /// <summary>
+        /// 上書きロードでアンロードすべきシーンを算出する。
+        /// 現在ロード中の管理シーン(アクティブ + アディティブ、常駐は除く)のうち、
+        /// 要求されたメイン/サブに含まれないものが対象。
+        /// </summary>
+        /// <param name="mainSceneId">残すアクティブシーンにするシーンID</param>
+        /// <param name="subSceneIds">残すサブシーンID</param>
+        private int[] CollectOverwriteUnloadTargets(int mainSceneId, IReadOnlyList<int> subSceneIds)
+        {
+            var loaded = new List<int>();
+            _sceneState.CopyLoadedScenesTo(loaded);
+
+            var targets = new List<int>(loaded.Count);
+            for (int i = 0; i < loaded.Count; i++)
+            {
+                var sceneId = loaded[i];
+                if (sceneId == mainSceneId || Contains(subSceneIds, sceneId))
+                {
+                    continue;
+                }
+
+                targets.Add(sceneId);
+            }
+
+            return targets.ToArray();
+        }
+
+        private static bool Contains(IReadOnlyList<int> sceneIds, int sceneId)
+        {
+            if (sceneIds == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < sceneIds.Count; i++)
+            {
+                if (sceneIds[i] == sceneId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
