@@ -12,7 +12,7 @@ namespace UsefulToolkit.Editor.Initialize
     /// <summary>
     /// UsefulToolkitの初期化を行う常駐シーンを作成する。
     /// SceneLoaderとUsefulToolkitRuntimeInitializerを配置したシーンを保存し、
-    /// そのシーン用のCompositerを生成したうえで、コンパイル完了後にシーンへ組み込む。
+    /// そのシーン用のCompositorを生成したうえで、コンパイル完了後にシーンへ組み込む。
     /// </summary>
     public static class PersistentSceneCreator
     {
@@ -24,8 +24,8 @@ namespace UsefulToolkit.Editor.Initialize
         private const string PendingClassNameKey = "UsefulToolkit.PersistentSceneCreator.ClassName";
 
         /// <summary>
-        /// 常駐シーンを作成し、Compositerの生成まで行う。
-        /// Compositerコンポーネントの取り付けは、コンパイルが終わってから自動で続行される。
+        /// 常駐シーンを作成し、Compositorの生成まで行う。
+        /// Compositorコンポーネントの取り付けは、コンパイルが終わってから自動で続行される。
         /// </summary>
         [MenuItem("UsefulToolkit/Create/Persistent Scene", false, 20)]
         public static void CreatePersistentScene()
@@ -53,7 +53,7 @@ namespace UsefulToolkit.Editor.Initialize
             RegisterToBuildSettings(scenePath);
 
             string saveDirectory = ToDirectory(scenePath);
-            var result = GameCompositerGenerator.GenerateTo(scene, saveDirectory);
+            var result = GameCompositorGenerator.GenerateTo(scene, saveDirectory);
             string className = Path.GetFileNameWithoutExtension(result.FilePath);
 
             SessionState.SetString(PendingScenePathKey, scenePath);
@@ -135,11 +135,11 @@ namespace UsefulToolkit.Editor.Initialize
         }
 
         /// <summary>
-        /// コンパイル完了後に、生成されたCompositerを常駐シーンへ取り付ける。
+        /// コンパイル完了後に、生成されたCompositorを常駐シーンへ取り付ける。
         /// 作成が進行中でない場合は何もしない。
         /// </summary>
         [DidReloadScripts]
-        private static void AttachGeneratedCompositer()
+        private static void AttachGeneratedCompositor()
         {
             string scenePath = SessionState.GetString(PendingScenePathKey, string.Empty);
             string className = SessionState.GetString(PendingClassNameKey, string.Empty);
@@ -153,24 +153,24 @@ namespace UsefulToolkit.Editor.Initialize
             SessionState.EraseString(PendingScenePathKey);
             SessionState.EraseString(PendingClassNameKey);
 
-            EditorApplication.delayCall += () => AttachCompositerTo(scenePath, className);
+            EditorApplication.delayCall += () => AttachCompositorTo(scenePath, className);
         }
 
         /// <summary>
-        /// 指定した常駐シーンへCompositerを取り付け、RuntimeInitializerと繋いで保存する。
+        /// 指定した常駐シーンへCompositorを取り付け、RuntimeInitializerと繋いで保存する。
         /// </summary>
         /// <param name="scenePath">常駐シーンのパス</param>
-        /// <param name="className">生成されたCompositerのクラス名</param>
-        private static void AttachCompositerTo(string scenePath, string className)
+        /// <param name="className">生成されたCompositorのクラス名</param>
+        private static void AttachCompositorTo(string scenePath, string className)
         {
-            var compositerType = TypeCache.GetTypesDerivedFrom<GameCompositer>()
+            var CompositorType = TypeCache.GetTypesDerivedFrom<GameCompositor>()
                 .FirstOrDefault(type => !type.IsAbstract && type.Name == className);
 
-            if (compositerType == null)
+            if (CompositorType == null)
             {
-                Debug.LogWarning($"[UsefulToolkit] Compositer [{className}] が見つからなかった為、" +
+                Debug.LogWarning($"[UsefulToolkit] Compositor [{className}] が見つからなかった為、" +
                                  $"{scenePath} への取り付けを中止しました。" +
-                                 "コンパイルエラーを解消してから UsefulToolkit/Generate/Scene Compositer を実行してください。");
+                                 "コンパイルエラーを解消してから UsefulToolkit/Generate/Scene Compositor を実行してください。");
                 return;
             }
 
@@ -181,7 +181,7 @@ namespace UsefulToolkit.Editor.Initialize
 
             if (!scene.IsValid())
             {
-                Debug.LogWarning($"[UsefulToolkit] {scenePath} を開けなかった為、Compositerの取り付けを中止しました。");
+                Debug.LogWarning($"[UsefulToolkit] {scenePath} を開けなかった為、Compositorの取り付けを中止しました。");
                 return;
             }
 
@@ -191,17 +191,17 @@ namespace UsefulToolkit.Editor.Initialize
             if (runtimeInitializer == null)
             {
                 Debug.LogWarning($"[UsefulToolkit] {scenePath} に {RootObjectName} が見つからなかった為、" +
-                                 "Compositerの取り付けを中止しました。");
+                                 "Compositorの取り付けを中止しました。");
                 return;
             }
 
-            if (root.GetComponent<GameCompositer>() == null)
+            if (root.GetComponent<GameCompositor>() == null)
             {
-                var compositer = root.AddComponent(compositerType) as GameCompositer;
+                var Compositor = root.AddComponent(CompositorType) as GameCompositor;
 
-                var serializedCompositer = new SerializedObject(compositer);
-                serializedCompositer.FindProperty("_runtimeInitializer").objectReferenceValue = runtimeInitializer;
-                serializedCompositer.ApplyModifiedPropertiesWithoutUndo();
+                var serializedCompositor = new SerializedObject(Compositor);
+                serializedCompositor.FindProperty("_runtimeInitializer").objectReferenceValue = runtimeInitializer;
+                serializedCompositor.ApplyModifiedPropertiesWithoutUndo();
             }
 
             EditorSceneManager.MarkSceneDirty(scene);

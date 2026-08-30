@@ -10,7 +10,7 @@ namespace UsefulToolkit.Initialization
     /// <summary>
     /// Toolkitのランタイム機能を初期化するInitializer。
     /// SceneStateを生成してSceneBoardへ登録し、SceneLoaderをシーンの操作役として繋ぐ。
-    /// GameCompositerがBlackBoardを構築した直後、他のどのInitializerよりも先に実行する。
+    /// RootGameCompositorがBlackBoardを構築した直後、他のどのInitializerよりも先に実行する。
     /// </summary>
     public sealed class UsefulToolkitRuntimeInitializer : InitializerBase
     {

@@ -6,7 +6,7 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// ChildBoardを型ごとに登録・取得する最上位のBlackBoard本体。
-    /// シーンごとに1インスタンス、InitializationのContainer/Compositerが生成・登録する。
+    /// シーンごとに1インスタンス、InitializationのContainer/Compositorが生成・登録する。
     /// </summary>
     public sealed class BlackBoard : IBlackBoard
     {

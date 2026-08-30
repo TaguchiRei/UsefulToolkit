@@ -17,16 +17,16 @@ using UsefulToolkit.Editor.Utility;
 namespace UsefulToolkit.Editor.Initialize
 {
     /// <summary>
-    /// アクティブシーンを走査し、そのシーン専用のGameCompositer派生クラスを生成する。
+    /// アクティブシーンを走査し、そのシーン専用のGameCompositor派生クラスを生成する。
     /// 生成されたクラスのフィールドへの実体の割り当てはInspectorでの手作業とし、
     /// このツールはシーンファイルには一切触れない。
     /// </summary>
-    public static class GameCompositerGenerator
+    public static class GameCompositorGenerator
     {
-        private const string LastFolderKey = "UsefulToolkit.GameCompositerGenerator.LastFolder";
-        private const string ClassNameSuffix = "Compositer";
+        private const string LastFolderKey = "UsefulToolkit.GameCompositorGenerator.LastFolder";
+        private const string ClassNameSuffix = "Compositor";
 
-        [MenuItem("UsefulToolkit/Generate/Scene Compositer", false, 18)]
+        [MenuItem("UsefulToolkit/Generate/Scene Compositor", false, 18)]
         public static void Generate()
         {
             var scene = EditorSceneManager.GetActiveScene();
@@ -37,15 +37,20 @@ namespace UsefulToolkit.Editor.Initialize
                 return;
             }
 
-            if (CollectInitializerFields(scene).Count == 0 &&
-                !EditorUtility.DisplayDialog(
-                    "確認",
-                    $"シーン [{scene.name}] にInitializerBaseを継承したコンポーネントが見つかりませんでした。\n" +
-                    "ChildBoardの登録のみを行うクラスを生成しますか？",
-                    "生成する",
-                    "中止"))
+            if (CollectInitializerFields(scene).Count == 0)
             {
-                return;
+                bool isRoot = SceneContainsRuntimeInitializer(scene);
+                string message = isRoot
+                    ? $"シーン [{scene.name}] にInitializerBaseを継承したコンポーネントが見つかりませんでした。\n" +
+                      "ChildBoardの登録のみを行うRoot Compositorを生成しますか？"
+                    : $"シーン [{scene.name}] にInitializerBaseを継承したコンポーネントが見つかりませんでした。\n" +
+                      "(このシーンは常駐シーンではない為、ChildBoardの登録も行いません)\n" +
+                      "ほぼ空のCompositorを生成しますか？";
+
+                if (!EditorUtility.DisplayDialog("確認", message, "生成する", "中止"))
+                {
+                    return;
+                }
             }
 
             string saveDirectory = SelectSaveDirectory();
@@ -97,25 +102,34 @@ namespace UsefulToolkit.Editor.Initialize
         {
             var initializerFields = CollectInitializerFields(scene);
 
-            var stateBoardTypes = CollectBoardTypes<ChildStateBoardBase>()
-                // SceneBoardはBlackBoardのコンストラクタが受け取るため、ここで登録すると二重管理になる
-                .Where(type => type != typeof(SceneBoard))
-                .ToArray();
+            // 常駐シーン(UsefulToolkitRuntimeInitializerを持つシーン)だけがRoot Compositorになる。
+            // ChildBoardの登録と共有BlackBoardの構築はRootの担当なので、非Rootでは何も集めない。
+            bool isRoot = SceneContainsRuntimeInitializer(scene);
 
-            var eventBoardTypes = CollectBoardTypes<ChildEventBoardBase>();
+            var stateBoardTypes = isRoot
+                ? CollectBoardTypes<ChildStateBoardBase>()
+                    // SceneBoardはBlackBoardのコンストラクタが受け取るため、ここで登録すると二重管理になる
+                    .Where(type => type != typeof(SceneBoard))
+                    .ToArray()
+                : Array.Empty<Type>();
+
+            var eventBoardTypes = isRoot
+                ? CollectBoardTypes<ChildEventBoardBase>()
+                : Array.Empty<Type>();
 
             string filePath = BuildFilePath(scene, saveDirectory);
 
             string namespaceName = UsefulToolkitSettingsScriptable.instance
                 .CodeGenerationSectionSettings.Namespace;
 
-            string source = GameCompositerSourceBuilder.Build(
+            string source = GameCompositorSourceBuilder.Build(
                 namespaceName,
                 Path.GetFileNameWithoutExtension(filePath),
                 scene.name,
                 stateBoardTypes,
                 eventBoardTypes,
-                initializerFields);
+                initializerFields,
+                isRoot);
 
             FileGenerator.WriteFile(filePath, source);
 
@@ -138,24 +152,35 @@ namespace UsefulToolkit.Editor.Initialize
         /// シーン内のInitializerBase派生を具象型ごとにまとめる。
         /// 同じ型が複数あるシーンではListフィールドにする。
         /// </summary>
-        private static IReadOnlyList<GameCompositerSourceBuilder.InitializerField> CollectInitializerFields(
+        private static IReadOnlyList<GameCompositorSourceBuilder.InitializerField> CollectInitializerFields(
             UnityEngine.SceneManagement.Scene scene)
         {
             var initializers = scene.GetRootGameObjects()
                 // 無効化されたオブジェクト上のInitializerも初期化対象になりうるので含める
                 .SelectMany(root => root.GetComponentsInChildren<InitializerBase>(true))
-                // GameCompositerがAwakeで直接呼ぶため、生成物からは除外する
+                // GameCompositorがAwakeで直接呼ぶため、生成物からは除外する
                 .Where(initializer => initializer is not UsefulToolkitRuntimeInitializer)
                 .ToArray();
 
             return initializers
                 .GroupBy(initializer => initializer.GetType())
                 .OrderBy(group => group.Key.FullName, StringComparer.Ordinal)
-                .Select(group => new GameCompositerSourceBuilder.InitializerField(
+                .Select(group => new GameCompositorSourceBuilder.InitializerField(
                     group.Key,
                     ToFieldName(group.Key.Name, group.Count() > 1),
                     group.Count() > 1))
                 .ToArray();
+        }
+
+        /// <summary>
+        /// シーンにUsefulToolkitRuntimeInitializerが存在するか。存在すればそのシーンの
+        /// Compositorを常駐シーン用のRoot Compositorとして生成する。
+        /// </summary>
+        private static bool SceneContainsRuntimeInitializer(UnityEngine.SceneManagement.Scene scene)
+        {
+            return scene.GetRootGameObjects()
+                .SelectMany(root => root.GetComponentsInChildren<UsefulToolkitRuntimeInitializer>(true))
+                .Any();
         }
 
         /// <summary>
@@ -187,7 +212,7 @@ namespace UsefulToolkit.Editor.Initialize
         private static string SelectSaveDirectory()
         {
             string lastFolder = EditorPrefs.GetString(LastFolderKey, "Assets");
-            string selectedPath = EditorUtility.OpenFolderPanel("GameCompositerの保存先を選択", lastFolder, "");
+            string selectedPath = EditorUtility.OpenFolderPanel("GameCompositorの保存先を選択", lastFolder, "");
 
             if (string.IsNullOrEmpty(selectedPath)) return null;
 
@@ -213,13 +238,13 @@ namespace UsefulToolkit.Editor.Initialize
         private static void WarnRequiredAssemblies(
             IReadOnlyList<Type> stateBoardTypes,
             IReadOnlyList<Type> eventBoardTypes,
-            IReadOnlyList<GameCompositerSourceBuilder.InitializerField> initializerFields)
+            IReadOnlyList<GameCompositorSourceBuilder.InitializerField> initializerFields)
         {
             // Injectされる依存型は生成コードにTryGetContent<T>として現れるが、Initializerと違って
             // シーン上には存在せず(Application層の実体などが入る)、別アセンブリにあることが多い。
             // ここを拾い漏らすと生成先asmdefの参照不足に気付けない。
             var dependencyTypes = initializerFields
-                .SelectMany(field => GameCompositerSourceBuilder.GetInjectableInterfaces(field.InitializerType))
+                .SelectMany(field => GameCompositorSourceBuilder.GetInjectableInterfaces(field.InitializerType))
                 .SelectMany(injectable => injectable.GetGenericArguments());
 
             var assemblies = stateBoardTypes
@@ -227,7 +252,7 @@ namespace UsefulToolkit.Editor.Initialize
                 .Concat(initializerFields.Select(field => field.InitializerType))
                 .Concat(dependencyTypes)
                 .Select(type => type.Assembly)
-                .Append(typeof(GameCompositer).Assembly)
+                .Append(typeof(GameCompositor).Assembly)
                 .Append(typeof(IBlackBoard).Assembly)
                 .Select(assembly => assembly.GetName().Name)
                 .Distinct()
