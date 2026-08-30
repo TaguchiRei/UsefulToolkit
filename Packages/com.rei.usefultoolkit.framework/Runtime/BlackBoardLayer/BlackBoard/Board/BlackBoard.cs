@@ -14,11 +14,7 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         private readonly Dictionary<Type, ChildEventBoardBase> _eventChildBoards = new();
 
         /// <summary>
-        /// シーン管理システム専用のChildBoard。_stateChildBoardsには入れず、
-        /// 二重管理にならないようここからのみ参照する。
-        /// RegisterSceneLoader/RequestTransitionAsyncのような実行系はIBlackBoardに出さないため、
-        /// このフィールドはprivateに留め、SceneLoadService/SceneFlowControllerBaseへは
-        /// Initialization層から直接渡す。
+        /// シーン管理システム専用のChildBoard。
         /// </summary>
         private readonly SceneBoard _sceneBoard;
 
@@ -28,15 +24,15 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
             _sceneBoard = sceneBoard ?? throw new ArgumentNullException(nameof(sceneBoard));
         }
 
-        public bool TryGetSceneState(out ISceneStateGetter sceneState)
-        {
-            return _sceneBoard.TryGetGameState(out sceneState);
-        }
-
         public bool TryRegisterStateBoard<T>(T childBoard) where T : ChildStateBoardBase
         {
             var type = typeof(T);
             return _stateChildBoards.TryAdd(type, childBoard);
+        }
+
+        public SceneBoard GetSceneBoard()
+        {
+            return _sceneBoard;
         }
 
         public bool TryGetStateBoard<T>(out T childBoard) where T : ChildStateBoardBase
@@ -74,18 +70,22 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// Eventは値を永続化しないが、チャンネルの実体はChildEventBoardが握り続けるため、
         /// StateChildBoardと同様にシーンスコープの解除対象になる。
         /// </summary>
-        public void OnSceneChanged(string sceneName)
+        public void OnSceneChanged(List<int> sceneIds)
         {
-            _sceneBoard.OnSceneChanged(sceneName);
-
-            foreach (var childBoard in _stateChildBoards.Values)
+            for (int i = 0; i < sceneIds.Count; i++)
             {
-                childBoard.OnSceneChanged(sceneName);
-            }
+                int sceneId = sceneIds[i];
+                _sceneBoard.OnSceneChanged(sceneId);
 
-            foreach (var childBoard in _eventChildBoards.Values)
-            {
-                childBoard.OnSceneChanged(sceneName);
+                foreach (var childBoard in _stateChildBoards.Values)
+                {
+                    childBoard.OnSceneChanged(sceneId);
+                }
+
+                foreach (var childBoard in _eventChildBoards.Values)
+                {
+                    childBoard.OnSceneChanged(sceneId);
+                }
             }
         }
     }

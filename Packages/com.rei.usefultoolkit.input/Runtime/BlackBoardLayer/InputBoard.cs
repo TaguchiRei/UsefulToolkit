@@ -2,7 +2,7 @@
 using System;
 using UsefulToolkit.BlackBoard.BlackBoard;
 
-namespace UsefulToolkit.Input
+namespace UsefulToolkit.BlackBoard.Input
 {
     /// <summary>
     /// 入力をEventBoard形式で公開するChildBoard。

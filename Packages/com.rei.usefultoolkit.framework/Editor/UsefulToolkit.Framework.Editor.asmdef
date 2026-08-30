@@ -4,7 +4,9 @@
     "references": [
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.External.Runtime",
-        "UsefulToolkit.Framework.BlackBoard.Runtime"
+        "UsefulToolkit.Framework.BlackBoard.Runtime",
+        "UsefulToolkit.Framework.Initialization.Runtime",
+        "UsefulToolkit.Framework.EngineService.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

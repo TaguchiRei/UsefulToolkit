@@ -2,23 +2,13 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UsefulToolkit.Architecture;
+using UsefulToolkit.Initialization;
+using UsefulToolkit.BlackBoard.Input;
 
-namespace UsefulToolkit.Input
+namespace UsefulToolkit.EngineService.Input
 {
     /// <summary>
-    /// InputActionAssetを直接扱うEngineServiceLayer。BindしたAction分だけ、対応する
-    /// InputBoardのチャンネルへPublishする——アセット内の全Actionを無条件に橋渡しはしない
-    /// (Applicationにとって意味のある入力だけを、Initialization層が明示的に選んでBindする)。
-    ///
-    /// InputBoardはBlackBoardLayer側のプレーンなC#クラスなのでInspectorからは割り当てられない。
-    /// Initialization層がBlackBoardから取得したインスタンスを、Initializeより前に
-    /// SetInputBoardで渡すこと。
-    ///
-    /// ActionMap切替はInputBoard.GetActionMapChannelを購読する形で受け取る(State不使用)。
-    /// EventBoardにはリプレイ機構がないため、Applicationが先にSwitchActionMapを呼んでいても
-    /// このInitializeが済むまでは届かない——Initialization層はInputEngineServiceの初期化順序を
-    /// Applicationより先にすること。
+    /// 入力管理を行うエンジンサービス
     /// </summary>
     public sealed class InputEngineService : InitializableMonoBehaviour
     {

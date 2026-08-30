@@ -1,6 +1,6 @@
 using UnityEngine.InputSystem;
 
-namespace UsefulToolkit.Input
+namespace UsefulToolkit.BlackBoard.Input
 {
     /// <summary>
     /// InputBoardのチャンネルを流れるペイロード。InputActionの1コールバック分の

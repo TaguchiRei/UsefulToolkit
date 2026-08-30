@@ -5,10 +5,11 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.EnhancedTouch;
 using UnityEngine.UI;
-using UsefulToolkit.Architecture;
+using UsefulToolkit.Initialization;
+using UsefulToolkit.BlackBoard.Input;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
-namespace UsefulToolkit.Input
+namespace UsefulToolkit.EngineService.Input
 {
     /// <summary>
     /// タッチ入力(スクリーンドラッグ)をInputEngineServiceと同じInputBoardへ橋渡しする

@@ -2,6 +2,7 @@
 using System.Linq;
 using System;
 using UsefulToolkit.BlackBoard.Logger;
+using UsefulToolkit.BlackBoard.Scene;
 
 namespace UsefulToolkit.BlackBoard.BlackBoard
 {
@@ -17,7 +18,7 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         private readonly Dictionary<Type, IEvent> _gameEvents = new();
 
         /// <summary> シーンに依存するイベントの購読インターフェースのコンテナ </summary>
-        private readonly Dictionary<Type, (IEvent Event, string SceneName)> _sceneEvents = new();
+        private readonly Dictionary<Type, (IEvent Event, int SceneId)> _sceneEvents = new();
 
         /// <summary> 登録解除可能なイベントの購読インターフェースを保持するコンテナ </summary>
         private readonly Dictionary<Type, IEvent> _unRegistableEvents = new();
@@ -59,22 +60,27 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// シーンアンロードまで破棄されないイベントを登録するメソッド。
         /// </summary>
         /// <param name="channel">登録するイベントチャンネル</param>
-        /// <param name="sceneName">依存するシーン名</param>
+        /// <param name="sceneId">依存するシーンID</param>
         /// <typeparam name="TEvent">チャンネルの購読インターフェース</typeparam>
         /// <exception cref="ArgumentNullException">channelがnullのときに出力</exception>
         /// <exception cref="InvalidOperationException">すでにそのイベントが登録されているときに出力</exception>
-        /// <exception cref="ArgumentException">シーン名が空、または指定されたチャンネルがTEventを実装していないときに出力</exception>
-        public void RegisterSceneEvent<TEvent>(IEvent channel, string sceneName) where TEvent : IEvent
+        /// <exception cref="ArgumentException">指定されたチャンネルがTEventを実装していないときに出力</exception>
+        /// <exception cref="ArgumentOutOfRangeException">sceneIdが負のときに出力</exception>
+        public void RegisterSceneEvent<TEvent>(IEvent channel, int sceneId) where TEvent : IEvent
         {
             if (channel is null) throw new ArgumentNullException(nameof(channel));
-            if (string.IsNullOrEmpty(sceneName)) throw new ArgumentException("シーン名はnullにはできません");
+
+            if (sceneId < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(sceneId), "シーンIDに負の値は指定できません");
+            }
 
             if (channel is not TEvent eventChannel)
             {
                 throw new ArgumentException($"イベント [{channel.GetType().Name}] は [{typeof(TEvent)}] を実装していません。");
             }
 
-            if (_sceneEvents.TryAdd(typeof(TEvent), (eventChannel, sceneName)))
+            if (_sceneEvents.TryAdd(typeof(TEvent), (eventChannel, sceneId)))
             {
                 UsefulLogger.Log($"[{channel.GetType().Name}] を [{typeof(TEvent).Name}] として登録しました。", this);
                 OnRegisterdEvent<TEvent>();
@@ -133,18 +139,18 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
             return result;
         }
 
-        public bool TryGetSceneEvent<TEvent>(out TEvent channel, out string sceneName) where TEvent : IEvent
+        public bool TryGetSceneEvent<TEvent>(out TEvent channel, out int sceneId) where TEvent : IEvent
         {
             var result = _sceneEvents.TryGetValue(typeof(TEvent), out var eventChannel);
 
             if (result)
             {
                 channel = (TEvent)eventChannel.Event;
-                sceneName = eventChannel.SceneName;
+                sceneId = eventChannel.SceneId;
             }
             else
             {
-                sceneName = null;
+                sceneId = SceneState.NoSceneId;
                 channel = default;
             }
 
@@ -225,11 +231,11 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// イベントは値を保持しないが、チャンネルの実体はこのボードが握り続けるため、
         /// 発行元ごと破棄されたシーンのチャンネルはここで取り除く必要がある。
         /// </summary>
-        /// <param name="sceneName"></param>
-        internal void OnSceneChanged(string sceneName)
+        /// <param name="sceneId">アンロードされたシーンID</param>
+        internal void OnSceneChanged(int sceneId)
         {
             var keys = _sceneEvents
-                .Where(x => x.Value.SceneName == sceneName)
+                .Where(x => x.Value.SceneId == sceneId)
                 .Select(x => x.Key)
                 .ToList();
 

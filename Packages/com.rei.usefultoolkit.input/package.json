@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "com.rei.usefultoolkit.framework": "1.0.0",
-    "com.rei.usefultoolkit.architecture": "1.0.0",
     "com.unity.inputsystem": "1.18.0"
   }
 }
