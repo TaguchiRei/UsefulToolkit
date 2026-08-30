@@ -4,7 +4,7 @@ namespace UsefulToolkit.Utility
 {
     public static class InitializeOrderConst
     {
-        public const int Compositer = -100;
+        public const int Compositor = -100;
         public const int InitializerEarly = -80;
         public const int Initializer = -70;
         public const int InitializerLate = -60;

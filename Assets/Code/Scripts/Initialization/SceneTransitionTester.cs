@@ -21,7 +21,7 @@ namespace Sandbox.Initialization
     ///           常駐シーン起動から開始グループへ遷移する <see cref="SceneLoadService.Initialize"/>。
     ///
     /// 各シーンに付いているSceneMarkerと合わせて挙動を目視する。
-    /// UsefulToolkitPersistentシーンのGameCompositerに配線して使う。テスト専用。
+    /// UsefulToolkitPersistentシーンのGameCompositorに配線して使う。テスト専用。
     /// </summary>
     public sealed class SceneTransitionTester : InitializerBase
     {

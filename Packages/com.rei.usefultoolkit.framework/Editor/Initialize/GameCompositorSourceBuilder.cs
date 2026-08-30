@@ -7,11 +7,11 @@ using UsefulToolkit.Initialization;
 namespace UsefulToolkit.Editor.Initialize
 {
     /// <summary>
-    /// シーンから収集した型情報をもとに、GameCompositerの派生クラスのソースを組み立てる。
+    /// シーンから収集した型情報をもとに、GameCompositorの派生クラスのソースを組み立てる。
     /// 型の探索・IInjectableの判定はすべてここ(Editor)で完結させ、生成後のコードには
     /// リフレクションを一切残さない。
     /// </summary>
-    internal static class GameCompositerSourceBuilder
+    internal static class GameCompositorSourceBuilder
     {
         /// <summary>IInjectableの引数違いの定義。実装判定のキーに使う。</summary>
         private static readonly Type[] InjectableDefinitions =
@@ -39,15 +39,30 @@ namespace UsefulToolkit.Editor.Initialize
             }
         }
 
+        /// <param name="isRoot">
+        /// 常駐シーン用の Root Compositor として生成するか。true なら <see cref="RootGameCompositor{TSelf}"/> を
+        /// 継承して ChildBoard の登録も出力する。false なら <see cref="GameCompositor{TSelf}"/> 継承で
+        /// Inject / Initialize のみを出力し、ボード配列は無視する。
+        /// </param>
         public static string Build(
             string namespaceName,
             string className,
             string sceneName,
             IReadOnlyList<Type> stateBoardTypes,
             IReadOnlyList<Type> eventBoardTypes,
-            IReadOnlyList<InitializerField> initializerFields)
+            IReadOnlyList<InitializerField> initializerFields,
+            bool isRoot)
         {
             var builder = new StringBuilder();
+
+            string selfType = string.IsNullOrEmpty(namespaceName)
+                ? className
+                : $"{namespaceName}.{className}";
+
+            string initializationNamespace = typeof(GameCompositor<>).Namespace;
+            string baseTypeName = isRoot
+                ? $"{initializationNamespace}.RootGameCompositor<{selfType}>"
+                : $"{initializationNamespace}.GameCompositor<{selfType}>";
 
             builder.AppendLine("// 自動生成ファイルの為、手動での編集は上書きされます。");
             builder.AppendLine($"// 生成元シーン : {sceneName}");
@@ -58,11 +73,16 @@ namespace UsefulToolkit.Editor.Initialize
             builder.AppendLine("{");
             builder.AppendLine($"    /// <summary>{sceneName} の合成ルート。</summary>");
             builder.AppendLine(
-                $"    public sealed class {className} : {TypeName(typeof(GameCompositer))}");
+                $"    public sealed class {className} : {baseTypeName}");
             builder.AppendLine("    {");
 
             AppendFields(builder, initializerFields);
-            AppendRegisterChildBoards(builder, stateBoardTypes, eventBoardTypes);
+
+            if (isRoot)
+            {
+                AppendRegisterChildBoards(builder, stateBoardTypes, eventBoardTypes);
+            }
+
             AppendInjectAll(builder, initializerFields);
             AppendInitializeAll(builder, initializerFields);
 
