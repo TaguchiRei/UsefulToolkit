@@ -27,8 +27,18 @@ namespace UsefulToolkit.Editor.Setting
         private const string SelectionStateKey = "UsefulToolkit.Installer.Selection";
         private const string SelectionSavedStateKey = "UsefulToolkit.Installer.SelectionSaved";
         private const string PendingStateKey = "UsefulToolkit.Installer.Pending";
+        private const string PendingOpStateKey = "UsefulToolkit.Installer.PendingOp";
         private const string StateSeparator = ";";
         private static readonly char[] StateSeparators = { ';' };
+
+        // パッケージ操作の種別。パッケージ追加/削除の度にドメインリロードが走って状態が飛ぶため、
+        // リロードを跨いで結果を検証・報告するときに文言を切り替える用途で使う。
+        private enum PackageOperation
+        {
+            Install,
+            Uninstall,
+            Update,
+        }
 
         // 外部（Toolkit外）の必須依存パッケージ
         private readonly struct ExternalDependency
@@ -100,6 +110,7 @@ namespace UsefulToolkit.Editor.Setting
         private static readonly HashSet<string> InstalledPackageNames = new();
         private static ListRequest _listRequest;
         private static AddAndRemoveRequest _addRequest;
+        private static PackageOperation _pendingOperation = PackageOperation.Install;
         private static Action _onListCompleted;
         private static string _statusMessage;
         private static MessageType _statusType = MessageType.Info;
@@ -231,6 +242,23 @@ namespace UsefulToolkit.Editor.Setting
                         EditorGUILayout.LabelField(pkg.Description, descStyle);
                     }
                     EditorGUILayout.EndVertical();
+
+                    // 導入済みかつ必須枠でないものは、その場でアンインストールできる
+                    if (isInstalled && !pkg.IsRequired)
+                    {
+                        EditorGUI.BeginDisabledGroup(isBusy);
+                        {
+                            Color prevBg = GUI.backgroundColor;
+                            GUI.backgroundColor = new Color(1f, 0.5f, 0.5f);
+                            if (GUILayout.Button("削除", GUILayout.Width(56), GUILayout.Height(32)))
+                            {
+                                StartUninstall(pkg);
+                            }
+
+                            GUI.backgroundColor = prevBg;
+                        }
+                        EditorGUI.EndDisabledGroup();
+                    }
                 }
                 EditorGUILayout.EndHorizontal();
 
@@ -273,6 +301,20 @@ namespace UsefulToolkit.Editor.Setting
                 if (GUILayout.Button(buttonText, buttonStyle))
                 {
                     StartInstall();
+                }
+            }
+            EditorGUI.EndDisabledGroup();
+
+            GUILayout.Space(6);
+
+            // 導入済みのUsefulToolkitパッケージをまとめて最新コミットへ更新する（外部依存は対象外）
+            bool anyToolkitInstalled = _packages.Any(p => IsInstalled(p.PackageName));
+            EditorGUI.BeginDisabledGroup(isInstalling || isLoadingStatus || !anyToolkitInstalled);
+            {
+                string updateText = isInstalling ? "処理中..." : "導入済みを一括アップデート";
+                if (GUILayout.Button(updateText, GUILayout.Height(26)))
+                {
+                    StartUpdateAll();
                 }
             }
             EditorGUI.EndDisabledGroup();
@@ -374,14 +416,90 @@ namespace UsefulToolkit.Editor.Setting
             }
 
             SaveSelection();
+            ExecuteRequest(PackageOperation.Install, identifiers.ToArray(), Array.Empty<string>(), packageNames);
+        }
 
-            // 解決完了後のドメインリロードでリクエストごと状態が飛ぶため、結果検証用の名前をSessionStateへ退避しておく
-            SessionState.SetString(PendingStateKey, string.Join(StateSeparator, packageNames));
+        /// <summary>
+        /// 指定パッケージ単体をアンインストールする。必須枠（Framework）は対象外。
+        /// </summary>
+        private void StartUninstall(PackageInfo pkg)
+        {
+            if (pkg.IsRequired) return;
+
+            if (!EditorUtility.DisplayDialog(ToolkitName,
+                    $"{pkg.DisplayName}（{pkg.PackageName}）をアンインストールしますか？\n\n" +
+                    "このパッケージに依存している他パッケージが残っている場合、UPM 側で削除が拒否されることがあります。",
+                    "アンインストール", "キャンセル"))
+            {
+                return;
+            }
+
+            SaveSelection();
+            ExecuteRequest(PackageOperation.Uninstall, Array.Empty<string>(), new[] { pkg.PackageName },
+                new[] { pkg.PackageName });
+        }
+
+        /// <summary>
+        /// 導入済みのUsefulToolkitパッケージをすべて Git URL で再Addし、リモート既定ブランチの最新コミットへ再解決する。
+        /// 外部依存パッケージ（UniTask等）は対象にしない。
+        /// </summary>
+        private void StartUpdateAll()
+        {
+            var identifiers = new List<string>();
+            var packageNames = new List<string>();
+
+            foreach (var pkg in _packages)
+            {
+                if (!IsInstalled(pkg.PackageName)) continue;
+
+                identifiers.Add(pkg.GetFullIdentifier());
+                packageNames.Add(pkg.PackageName);
+            }
+
+            if (identifiers.Count == 0)
+            {
+                EditorUtility.DisplayDialog(ToolkitName, "アップデート対象の導入済みパッケージがありません。", "OK");
+                return;
+            }
+
+            string detail = string.Join("\n", packageNames.Select(name => "・" + name));
+            if (!EditorUtility.DisplayDialog(ToolkitName,
+                    $"導入済みの {identifiers.Count} 個のパッケージをリモートの最新コミットへ更新しますか？\n" +
+                    "（外部依存パッケージは対象外です）\n\n" + detail,
+                    "アップデート", "キャンセル"))
+            {
+                return;
+            }
+
+            SaveSelection();
+            ExecuteRequest(PackageOperation.Update, identifiers.ToArray(), Array.Empty<string>(), packageNames);
+        }
+
+        /// <summary>
+        /// Add/Remove を1リクエストにまとめて投げる。
+        /// 解決後のドメインリロードでリクエストごと状態が飛ぶため、結果検証用の名前と操作種別をSessionStateへ退避しておく。
+        /// </summary>
+        private static void ExecuteRequest(PackageOperation operation, string[] toAdd, string[] toRemove,
+            IEnumerable<string> resultCheckNames)
+        {
+            _pendingOperation = operation;
+            SessionState.SetString(PendingStateKey, string.Join(StateSeparator, resultCheckNames));
+            SessionState.SetString(PendingOpStateKey, operation.ToString());
             _statusMessage = null;
 
-            // Client.Addを1件ずつ回すとインストールの度にドメインリロードが走ってキューが消えるため、1リクエストにまとめて投げる
-            _addRequest = Client.AddAndRemove(identifiers.ToArray());
+            // Client.Addを1件ずつ回すと操作の度にドメインリロードが走ってキューが消えるため、1リクエストにまとめて投げる
+            _addRequest = Client.AddAndRemove(toAdd, toRemove);
             EditorApplication.update += AddProgressCallback;
+        }
+
+        private static string OperationLabel(PackageOperation operation)
+        {
+            return operation switch
+            {
+                PackageOperation.Uninstall => "アンインストール",
+                PackageOperation.Update => "アップデート",
+                _ => "インストール",
+            };
         }
 
         private static void AddProgressCallback()
@@ -392,25 +510,29 @@ namespace UsefulToolkit.Editor.Setting
             var request = _addRequest;
             _addRequest = null;
             SessionState.EraseString(PendingStateKey);
+            SessionState.EraseString(PendingOpStateKey);
+
+            string opLabel = OperationLabel(_pendingOperation);
 
             if (request.Status == StatusCode.Success)
             {
-                Debug.Log("[UsefulToolkit] 選択されたモジュールのインストールが完了しました。");
-                SetStatus("選択されたモジュールのインストールが完了しました。", MessageType.Info);
+                Debug.Log($"[UsefulToolkit] 選択されたモジュールの{opLabel}が完了しました。");
+                SetStatus($"選択されたモジュールの{opLabel}が完了しました。", MessageType.Info);
             }
             else if (request.Status >= StatusCode.Failure)
             {
                 string message = request.Error != null ? request.Error.message : "不明なエラー";
-                Debug.LogError($"[UsefulToolkit] インストールに失敗しました: {message}");
-                SetStatus($"インストールに失敗しました:\n{message}", MessageType.Error);
+                Debug.LogError($"[UsefulToolkit] {opLabel}に失敗しました: {message}");
+                SetStatus($"{opLabel}に失敗しました:\n{message}", MessageType.Error);
             }
 
+            _pendingOperation = PackageOperation.Install;
             RefreshInstalledPackages();
         }
 
         /// <summary>
         /// ドメインリロードでリクエストが失われた場合の後始末。
-        /// リロードされた時点で解決自体は終わっているため、実際に入ったかどうかを突き合わせて結果を報告する。
+        /// リロードされた時点で解決自体は終わっているため、実際の導入状況と突き合わせて結果を報告する。
         /// </summary>
         [InitializeOnLoadMethod]
         private static void ResumeAfterDomainReload()
@@ -419,15 +541,37 @@ namespace UsefulToolkit.Editor.Setting
             if (string.IsNullOrEmpty(pending)) return;
 
             SessionState.EraseString(PendingStateKey);
+
+            string opName = SessionState.GetString(PendingOpStateKey, PackageOperation.Install.ToString());
+            SessionState.EraseString(PendingOpStateKey);
+            var operation = Enum.TryParse(opName, out PackageOperation parsed) ? parsed : PackageOperation.Install;
+            string opLabel = OperationLabel(operation);
+
             var expected = pending.Split(StateSeparators, StringSplitOptions.RemoveEmptyEntries);
 
             RefreshInstalledPackages(() =>
             {
+                if (operation == PackageOperation.Uninstall)
+                {
+                    var remaining = expected.Where(IsInstalled).ToArray();
+                    if (remaining.Length == 0)
+                    {
+                        Debug.Log($"[UsefulToolkit] {opLabel}が完了しました（{expected.Length} 個）。");
+                        SetStatus($"{opLabel}が完了しました（{expected.Length} 個）。", MessageType.Info);
+                        return;
+                    }
+
+                    string stillHere = string.Join("\n", remaining.Select(name => "・" + name));
+                    Debug.LogError($"[UsefulToolkit] 次のパッケージが削除されていません:\n{stillHere}");
+                    SetStatus($"次のパッケージが削除されていません:\n{stillHere}", MessageType.Error);
+                    return;
+                }
+
                 var missing = expected.Where(name => !IsInstalled(name)).ToArray();
                 if (missing.Length == 0)
                 {
-                    Debug.Log($"[UsefulToolkit] インストールが完了しました（{expected.Length} 個）。");
-                    SetStatus($"インストールが完了しました（{expected.Length} 個）。", MessageType.Info);
+                    Debug.Log($"[UsefulToolkit] {opLabel}が完了しました（{expected.Length} 個）。");
+                    SetStatus($"{opLabel}が完了しました（{expected.Length} 個）。", MessageType.Info);
                     return;
                 }
 
