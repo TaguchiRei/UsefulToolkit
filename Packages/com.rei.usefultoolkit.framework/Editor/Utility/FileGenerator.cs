@@ -64,8 +64,7 @@ namespace UsefulToolkit.Editor.Utility
 
             string filePath = Path.Combine(rootPath, fileName);
 
-            // 内容が同じなら書き込まない。生成のたびに書き込むと、シーンを保存しただけで
-            // 自動生成が走るような経路でスクリプトの再コンパイルを誘発してしまう。
+            // 内容が同じなら書き込まない。
             if (File.Exists(filePath) && File.ReadAllText(filePath) == content) return;
 
             File.WriteAllText(filePath, content);

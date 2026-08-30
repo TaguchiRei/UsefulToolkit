@@ -91,7 +91,7 @@ namespace UsefulToolkit.Editor.ProjectStructure
         }
 
         /// <summary>
-        /// ドットで始まる要素を含むパスか。Unity自身が無視する隠しフォルダなので、常に対象外にする
+        /// ドットで始まる要素を含むパスか(Unityが無視する隠しフォルダ)。
         /// </summary>
         public static bool IsHidden(string path)
         {

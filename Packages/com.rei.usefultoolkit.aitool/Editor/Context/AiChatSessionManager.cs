@@ -227,7 +227,7 @@ namespace UsefulToolkit.Editor.Ai
             }
             else
             {
-                // セッションがメモリ上にあった場合でも、念のため永続化履歴と再同期
+                // メモリ上にあったセッションを永続化履歴と再同期する
                 var history = Context.GetOrCreateHistory(guid);
                 session.Client.ImportMessages(history.Messages);
             }
@@ -331,8 +331,7 @@ namespace UsefulToolkit.Editor.Ai
 
             Debug.Log($"[AiChatSessionManager] Triggering API for {agent.Name}: {message.Content}");
 
-            // messageAlreadySaved: true → history.Messages に保存済みなので
-            // RequestAiResponseAfterCommandAsync 内部の AddMessageToHistory("user") をスキップし二重保存を防ぐ。
+            // messageAlreadySaved: true → RequestAiResponseAfterCommandAsync 内部の AddMessageToHistory("user") をスキップさせる(既に history.Messages に保存済み)
             await session.RequestAiResponseAfterCommandAsync(message.Content, isInternalCall: false,
                 messageAlreadySaved: true);
         }

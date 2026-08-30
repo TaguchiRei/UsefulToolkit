@@ -32,7 +32,6 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
 
         /// <summary>
         /// 同一性はActionのみで判定する。
-        /// DisposeOnUsedの違いで別物として扱うと、同じActionが二重登録されて二重実行になるため。
         /// </summary>
         public bool Equals(ActionEntry other)
         {
@@ -77,7 +76,6 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
 
         /// <summary>
         /// 同一性はActionのみで判定する。
-        /// DisposeOnUsedの違いで別物として扱うと、同じActionが二重登録されて二重実行になるため。
         /// </summary>
         public bool Equals(ActionEntry<T> other)
         {
@@ -122,7 +120,6 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
 
         /// <summary>
         /// 同一性はActionのみで判定する。
-        /// DisposeOnUsedの違いで別物として扱うと、同じActionが二重登録されて二重実行になるため。
         /// </summary>
         public bool Equals(ActionEntry<T1, T2> other)
         {

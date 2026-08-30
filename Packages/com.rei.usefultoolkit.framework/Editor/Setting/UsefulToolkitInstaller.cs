@@ -477,7 +477,7 @@ namespace UsefulToolkit.Editor.Setting
 
         /// <summary>
         /// Add/Remove を1リクエストにまとめて投げる。
-        /// 解決後のドメインリロードでリクエストごと状態が飛ぶため、結果検証用の名前と操作種別をSessionStateへ退避しておく。
+        /// 結果検証用の名前と操作種別をSessionStateへ退避する(解決後のドメインリロードでリクエスト状態が失われる)。
         /// </summary>
         private static void ExecuteRequest(PackageOperation operation, string[] toAdd, string[] toRemove,
             IEnumerable<string> resultCheckNames)

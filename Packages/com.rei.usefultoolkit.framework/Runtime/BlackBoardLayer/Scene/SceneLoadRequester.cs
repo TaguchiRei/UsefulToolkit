@@ -205,8 +205,7 @@ namespace UsefulToolkit.BlackBoard.Scene
         /// <summary>
         /// アクティブシーンにするシーンIDが、実際にアクティブシーンにできるものか。
         /// できない場合は警告ログを出す。<see cref="SceneState.NoSceneId"/>(アクティブシーンを変えない)は許可する。
-        /// ロード処理を走らせる前にこれで弾くことで、SceneLoaderがSetActiveSceneを
-        /// 常駐シーンなどに対して呼んでしまうのを防ぐ。
+        /// ロード処理を走らせる前の事前チェックとして呼ぶ。
         /// </summary>
         /// <param name="mainSceneId">アクティブシーンにするシーンID</param>
         /// <returns>ロードを進めてよいか</returns>

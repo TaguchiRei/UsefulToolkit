@@ -9,6 +9,8 @@
         "UsefulToolkit.Input.EngineService.Runtime",
         "UsefulToolkit.Input.Initialization.Runtime",
         "UsefulToolkit.Framework.Runtime",
+        "UsefulToolkit.Framework.EngineService.Runtime",
+        "UsefulToolkit.Framework.Initialization.Runtime",
         "UsefulToolkit.Framework.Editor",
         "Unity.InputSystem"
     ],

@@ -350,7 +350,7 @@ namespace UsefulToolkit.BlackBoard.Scene
                 return true;
             }
 
-            // アンロード中にアディティブシーンの集合が変化するため、対象を先に複製しておく
+            // 対象のアディティブシーンIDを先に複製する(アンロード中に集合が変化する)
             int[] loadedAdditiveSceneIds = ArrayPool<int>.Shared.Rent(additiveSceneCount);
             try
             {
@@ -464,8 +464,7 @@ namespace UsefulToolkit.BlackBoard.Scene
 
                 _loadedScenes.LoadAdditiveScenes(additiveScenes, loadedScenes);
 
-                // 旧アクティブシーンはアンロードされずアディティブシーンへ降格するだけなので、
-                // OnUnloadのActionは実行しない。切り替えはNotifyActiveSceneChangedで通知する。
+                // 旧アクティブシーンはアディティブシーンへ降格するだけで、OnUnloadのActionは実行しない。切り替えはNotifyActiveSceneChangedで通知する。
 
                 NotifyLoadedScenes(loadedScenes);
                 NotifyAnySceneLoaded(loadedScenes, activeSceneChanged);

@@ -9,9 +9,8 @@ namespace UsefulToolkit.Editor.ProjectStructure
 {
     /// <summary>
     /// 現在のAssetsの状態を、そのまま「あるべき構造」としてテンプレート化する。
-    /// 現状からは「どこから移動してきたか」までは分からないので、
-    /// 生成できるのは「この名前のものはここに置く」というName照合ルールまで。
-    /// ExactPath / Folder / Glob のルールは手書き分をそのまま引き継ぐ
+    /// 移動元は記録されていないため、生成できるのは「この名前のものはここに置く」というName照合ルールまで。
+    /// ExactPath / Folder / Glob のルールは手書き分をそのまま引き継ぐ。
     /// </summary>
     public static class ProjectStructureSnapshot
     {
@@ -61,7 +60,7 @@ namespace UsefulToolkit.Editor.ProjectStructure
                     rule.MatchMode != StructureMatchMode.Name || rule.Action != StructureActionType.Move));
             }
 
-            // フォルダは中身ごと移動できるので、まずフォルダ単位でルールにまとめる
+            // まずフォルダ単位のName照合ルールを作る
             template.rules.AddRange(BuildNameRules(folders, "フォルダ", warnings));
 
             if (includeFileRules)

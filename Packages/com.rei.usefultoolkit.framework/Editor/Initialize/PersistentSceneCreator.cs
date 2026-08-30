@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -79,6 +80,8 @@ namespace UsefulToolkit.Editor.Initialize
             serializedInitializer.FindProperty("_sceneLoader").objectReferenceValue = sceneLoader;
             serializedInitializer.ApplyModifiedPropertiesWithoutUndo();
 
+            InvokeContributors(root);
+
             if (EditorSceneManager.SaveScene(scene, scenePath))
             {
                 return scene;
@@ -86,6 +89,37 @@ namespace UsefulToolkit.Editor.Initialize
 
             EditorUtility.DisplayDialog("エラー", $"シーンを {scenePath} へ保存できませんでした。", "OK");
             return default;
+        }
+
+        /// <summary>
+        /// <see cref="IPersistentSceneContributor"/> を実装した全クラスを列挙し、
+        /// 常駐シーンのルートへパッケージ固有のコンポーネントを追加させる。
+        /// framework から input などの上位パッケージを参照せずに、
+        /// 各パッケージが自分の Initializer を常駐シーンへ載せられるようにするための経路。
+        /// この後 <see cref="GameCompositorGenerator"/> が走るため、ここで追加された
+        /// InitializerBase は生成される Compositor に取り込まれる。
+        /// </summary>
+        /// <param name="root">常駐シーンのルート GameObject</param>
+        private static void InvokeContributors(GameObject root)
+        {
+            var contributors = TypeCache.GetTypesDerivedFrom<IPersistentSceneContributor>()
+                .Where(type => !type.IsAbstract && !type.IsInterface && type.GetConstructor(Type.EmptyTypes) != null)
+                .Select(type => (IPersistentSceneContributor)Activator.CreateInstance(type))
+                .OrderBy(contributor => contributor.Order);
+
+            foreach (var contributor in contributors)
+            {
+                try
+                {
+                    contributor.Contribute(root);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogError(
+                        $"[UsefulToolkit] {contributor.GetType().FullName} の常駐シーンへの寄与に失敗しました。");
+                    Debug.LogException(exception);
+                }
+            }
         }
 
         /// <summary>
@@ -149,7 +183,7 @@ namespace UsefulToolkit.Editor.Initialize
                 return;
             }
 
-            // 再入を防ぐため、処理の成否に関わらず先に取り下げる
+            // 処理の成否に関わらず、SessionStateのキーを先に消す
             SessionState.EraseString(PendingScenePathKey);
             SessionState.EraseString(PendingClassNameKey);
 

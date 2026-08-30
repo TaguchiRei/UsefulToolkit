@@ -62,7 +62,7 @@ namespace UsefulToolkit.Editor.ProjectStructure
                     return null;
                 }
 
-                // JsonUtilityは配列項目が無いとnullを入れてくるので、以降で扱いやすいように埋めておく
+                // JsonUtilityは配列項目が無いとnullを返すので、空リストで埋める
                 template.excludes ??= new();
                 template.folders ??= new();
                 template.rules ??= new();

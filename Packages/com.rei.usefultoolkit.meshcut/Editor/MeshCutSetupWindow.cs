@@ -274,7 +274,7 @@ namespace UsefulToolkit.Editor.MeshCut
 
             foreach (GameObject obj in Selection.gameObjects)
             {
-                // プレハブアセットは Hierarchy の選択に含まれないが、念のため弾く
+                // プレハブアセットは弾く
                 if (EditorUtility.IsPersistent(obj) && PrefabUtility.IsPartOfPrefabAsset(obj))
                 {
                     Debug.LogWarning($"[UsefulToolkit.MeshCut] {obj.name} はプレハブアセットのためスキップしました。");

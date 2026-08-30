@@ -24,7 +24,7 @@ namespace UsefulToolkit.Initialization
 
         /// <summary>
         /// 共有 BlackBoard を設定する。Root Compositor だけが呼ぶ。
-        /// 既に設定済みなら Root が複数存在する誤配線なので、エラーにして false を返す。
+        /// 既に設定済みならエラーログを出して false を返す。
         /// </summary>
         protected static bool TrySetSharedBlackBoard(IBlackBoard blackBoard)
         {

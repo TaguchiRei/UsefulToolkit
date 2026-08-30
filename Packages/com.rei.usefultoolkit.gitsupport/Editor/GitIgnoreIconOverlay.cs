@@ -40,7 +40,7 @@ namespace UsefulToolkit.Editor.GitSupport
 
         private static void OnProjectWindowGUI(string guid, Rect rect)
         {
-            // Repaint時のみ処理（Layout等での無駄な呼び出しを防ぐ）
+            // Repaint時のみ処理する
             if (Event.current == null || Event.current.type != EventType.Repaint)
                 return;
 
