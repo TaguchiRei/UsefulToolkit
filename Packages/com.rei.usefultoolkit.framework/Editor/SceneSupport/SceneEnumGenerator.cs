@@ -7,6 +7,7 @@ using UnityEditor.SceneManagement;
 using UnityEditor;
 using UnityEngine;
 using UsefulToolkit.BlackBoard.Logger;
+using UsefulToolkit.Editor.Initialize;
 using UsefulToolkit.Editor.ProjectSettings;
 using UsefulToolkit.Editor.Utility;
 
@@ -78,6 +79,19 @@ namespace UsefulToolkit.Editor.SceneSupport
                 .ToArray();
 
             var includedPathSet = new HashSet<string>(includedPaths);
+
+            // 常駐シーンはビルドインデックス0に固定する。0番目になければBuildScenesの採番がずれ、
+            // 既存のSceneGroupの指すシーンが変わるため、両方のenum生成を中止する。
+            int persistentIndex = Array.FindIndex(includedPaths,
+                path => Path.GetFileNameWithoutExtension(path) == PersistentSceneConst.SceneName);
+            if (persistentIndex > 0)
+            {
+                UsefulLogger.LogError(
+                    $"常駐シーン[{PersistentSceneConst.SceneName}]がビルドインデックス0にありません(現在{persistentIndex})。" +
+                    "BuildProfileで常駐シーンを先頭へ移動してから、再度生成してください。Enumの生成を中止しました。",
+                    typeof(SceneEnumGenerator));
+                return;
+            }
 
             // 残りはすべてNonBuildScenes。こちらは順序に意味がないのでパス順で安定させる。
             var excludedPaths = scenePaths
