@@ -143,8 +143,13 @@ namespace UsefulToolkit.Editor.Initialize
 
         private static string BuildFilePath(UnityEngine.SceneManagement.Scene scene, string saveDirectory)
         {
-            string className = ToIdentifier(scene.name) + ClassNameSuffix;
-            return Path.Combine(saveDirectory, className + ".cs").Replace('\\', '/');
+            return Path.Combine(saveDirectory, ToCompositorClassName(scene.name) + ".cs").Replace('\\', '/');
+        }
+
+        /// <summary>シーン名から、生成されるCompositorクラス名を求める。</summary>
+        internal static string ToCompositorClassName(string sceneName)
+        {
+            return ToIdentifier(sceneName) + ClassNameSuffix;
         }
 
         /// <summary>
@@ -208,7 +213,7 @@ namespace UsefulToolkit.Editor.Initialize
         }
 
         /// <summary>保存先をユーザーに選ばせる。キャンセルまたはAssets外ならnullを返す。</summary>
-        private static string SelectSaveDirectory()
+        internal static string SelectSaveDirectory()
         {
             string lastFolder = EditorPrefs.GetString(LastFolderKey, "Assets");
             string selectedPath = EditorUtility.OpenFolderPanel("GameCompositorの保存先を選択", lastFolder, "");

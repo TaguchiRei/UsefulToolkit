@@ -28,11 +28,37 @@ namespace UsefulToolkit.Editor.Initialize
         /// 常駐シーンを作成し、Compositorの生成まで行う。
         /// Compositorコンポーネントの取り付けは、コンパイルが終わってから自動で続行される。
         /// </summary>
-        [MenuItem("UsefulToolkit/Create/Persistent Scene", false, 20)]
+        [MenuItem("UsefulToolkit/Scene/GenerateUsefulPersistentScene", false, 20)]
         public static void CreatePersistentScene()
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             {
+                return;
+            }
+
+            string existingScenePath = FindExistingPersistentScenePath();
+            if (!string.IsNullOrEmpty(existingScenePath))
+            {
+                if (!EditorUtility.DisplayDialog(
+                        "常駐シーンの更新",
+                        $"既存の常駐シーン {existingScenePath} を最新状態に更新します。\n" +
+                        "保存先の選択は行わず、このシーンとそのCompositorを再生成します。",
+                        "更新", "キャンセル"))
+                {
+                    return;
+                }
+
+                var existingScene = RebuildExistingScene(existingScenePath);
+                if (!existingScene.IsValid())
+                {
+                    return;
+                }
+
+                RegisterToBuildSettings(existingScenePath);
+                ContinueWithGeneration(
+                    existingScene,
+                    existingScenePath,
+                    FindExistingCompositorDirectory(existingScene.name, existingScenePath));
                 return;
             }
 
@@ -45,6 +71,12 @@ namespace UsefulToolkit.Editor.Initialize
                 return;
             }
 
+            string compositorDirectory = GameCompositorGenerator.SelectSaveDirectory();
+            if (compositorDirectory == null)
+            {
+                return;
+            }
+
             var scene = BuildScene(scenePath);
             if (!scene.IsValid())
             {
@@ -52,15 +84,164 @@ namespace UsefulToolkit.Editor.Initialize
             }
 
             RegisterToBuildSettings(scenePath);
+            ContinueWithGeneration(scene, scenePath, compositorDirectory);
+        }
 
-            string saveDirectory = ToDirectory(scenePath);
-            var result = GameCompositorGenerator.GenerateTo(scene, saveDirectory);
+        /// <summary>
+        /// シーンの保存後に共通で行う、Compositorの生成とコンパイル完了後の取り付け予約。
+        /// </summary>
+        /// <param name="scene">保存済みの常駐シーン</param>
+        /// <param name="scenePath">常駐シーンのパス</param>
+        /// <param name="compositorDirectory">Compositorスクリプトを生成するAssets配下のディレクトリ</param>
+        private static void ContinueWithGeneration(
+            UnityEngine.SceneManagement.Scene scene, string scenePath, string compositorDirectory)
+        {
+            var result = GameCompositorGenerator.GenerateTo(scene, compositorDirectory);
             string className = Path.GetFileNameWithoutExtension(result.FilePath);
 
             SessionState.SetString(PendingScenePathKey, scenePath);
             SessionState.SetString(PendingClassNameKey, className);
 
             AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// 生成済みのCompositorスクリプトが置かれているディレクトリを探す。
+        /// シーン名から求まるクラス名のMonoScriptを検索し、その所在フォルダを返す。
+        /// 見つからない場合はシーンと同じフォルダを返す。
+        /// </summary>
+        /// <param name="sceneName">常駐シーンの名前</param>
+        /// <param name="scenePath">常駐シーンのパス</param>
+        private static string FindExistingCompositorDirectory(string sceneName, string scenePath)
+        {
+            string className = GameCompositorGenerator.ToCompositorClassName(sceneName);
+
+            foreach (var guid in AssetDatabase.FindAssets($"{className} t:MonoScript"))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (Path.GetFileNameWithoutExtension(path) != className)
+                {
+                    continue;
+                }
+
+                var type = AssetDatabase.LoadAssetAtPath<MonoScript>(path)?.GetClass();
+                if (type != null && typeof(GameCompositor).IsAssignableFrom(type))
+                {
+                    return ToDirectory(path);
+                }
+            }
+
+            return ToDirectory(scenePath);
+        }
+
+        /// <summary>
+        /// プロジェクト内から、<see cref="UsefulToolkitRuntimeInitializer"/> を参照しているシーンを探す。
+        /// シーンを開かず、シーンファイルのテキストがそのスクリプトのGUIDを含むかで判定する。
+        /// </summary>
+        /// <returns>
+        /// 該当シーンが1つだけ見つかった場合はそのパス。0件、または複数件の場合はnull。
+        /// 複数件のときはコンソールへ一覧を警告出力する。
+        /// </returns>
+        private static string FindExistingPersistentScenePath()
+        {
+            string initializerGuid = FindRuntimeInitializerScriptGuid();
+            if (string.IsNullOrEmpty(initializerGuid))
+            {
+                return null;
+            }
+
+            string guidToken = "guid: " + initializerGuid;
+
+            var matched = AssetDatabase.FindAssets("t:SceneAsset")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(path => !string.IsNullOrEmpty(path)
+                               && path.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
+                .Where(path => File.Exists(path) && File.ReadAllText(path).Contains(guidToken))
+                .Distinct()
+                .ToList();
+
+            if (matched.Count == 1)
+            {
+                return matched[0];
+            }
+
+            if (matched.Count > 1)
+            {
+                Debug.LogWarning(
+                    "[UsefulToolkit] UsefulToolkitRuntimeInitializer を含むシーンが複数見つかりました。" +
+                    "1つへ統合してから再実行してください。\n" +
+                    string.Join("\n", matched));
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// <see cref="UsefulToolkitRuntimeInitializer"/> の MonoScript アセットのGUIDを取得する。
+        /// </summary>
+        private static string FindRuntimeInitializerScriptGuid()
+        {
+            foreach (var guid in AssetDatabase.FindAssets($"{nameof(UsefulToolkitRuntimeInitializer)} t:MonoScript"))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+
+                if (script != null && script.GetClass() == typeof(UsefulToolkitRuntimeInitializer))
+                {
+                    return guid;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 既存の常駐シーンを開き、ルートと初期化コンポーネントの不足分を補ってから保存する。
+        /// 既に付いているコンポーネントや、Contributorが過去に追加した要素はそのまま残す。
+        /// </summary>
+        /// <param name="scenePath">既存の常駐シーンのパス</param>
+        /// <returns>開いたシーン。開けなかった、または保存できなかった場合は無効なシーン</returns>
+        private static UnityEngine.SceneManagement.Scene RebuildExistingScene(string scenePath)
+        {
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            if (!scene.IsValid())
+            {
+                EditorUtility.DisplayDialog("エラー", $"シーン {scenePath} を開けませんでした。", "OK");
+                return default;
+            }
+
+            var root = scene.GetRootGameObjects().FirstOrDefault(target => target.name == RootObjectName);
+            if (root == null)
+            {
+                root = new GameObject(RootObjectName);
+            }
+
+            var sceneLoader = root.GetComponent<SceneLoader>();
+            if (sceneLoader == null)
+            {
+                sceneLoader = root.AddComponent<SceneLoader>();
+            }
+
+            var runtimeInitializer = root.GetComponent<UsefulToolkitRuntimeInitializer>();
+            if (runtimeInitializer == null)
+            {
+                runtimeInitializer = root.AddComponent<UsefulToolkitRuntimeInitializer>();
+            }
+
+            var serializedInitializer = new SerializedObject(runtimeInitializer);
+            serializedInitializer.FindProperty("_sceneLoader").objectReferenceValue = sceneLoader;
+            serializedInitializer.ApplyModifiedPropertiesWithoutUndo();
+
+            InvokeContributors(root);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            if (EditorSceneManager.SaveScene(scene, scenePath))
+            {
+                return scene;
+            }
+
+            EditorUtility.DisplayDialog("エラー", $"シーンを {scenePath} へ保存できませんでした。", "OK");
+            return default;
         }
 
         /// <summary>

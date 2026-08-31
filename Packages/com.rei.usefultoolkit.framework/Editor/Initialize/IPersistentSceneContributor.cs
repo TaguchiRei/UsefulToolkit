@@ -3,7 +3,7 @@ using UnityEngine;
 namespace UsefulToolkit.Editor.Initialize
 {
     /// <summary>
-    /// 常駐シーン(<see cref="PersistentSceneCreator"/> / UsefulToolkit/Create/Persistent Scene)の生成時に、
+    /// 常駐シーン(<see cref="PersistentSceneCreator"/> / UsefulToolkit/Scene/GenerateUsefulPersistentScene)の生成時に、
     /// パッケージ固有のコンポーネントを "UsefulToolkit System" ルートへ追加するための拡張点。
     ///
     /// framework は input などの上位パッケージを参照できない(依存方向が逆になる)ため、
