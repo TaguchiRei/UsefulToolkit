@@ -30,6 +30,11 @@ namespace UsefulToolkit.Editor.SceneSupport
         private static readonly GUIContent MainSceneLabel = new("メインシーン");
         private static readonly GUIContent AdditionalScenesLabel = new("追加シーン");
 
+        private static readonly GUIContent AcknowledgeButtonLabel = new(
+            "この参照で問題ない（警告を消す）",
+            "現在のインデックスが指すシーンで正しい場合に押す。" +
+            "シーン名を今の値へ記録し直すだけで、グループの参照先(インデックス)は変更しない。");
+
         private void OnEnable()
         {
             _hasMainScene = serializedObject.FindProperty("_hasMainScene");
@@ -84,7 +89,11 @@ namespace UsefulToolkit.Editor.SceneSupport
 
             if (_mainSceneName != null && _mainScene != null)
             {
-                _mainSceneName.stringValue = EnumMemberName(_mainScene);
+                string name = EnumMemberName(_mainScene);
+                if (name.Length > 0)
+                {
+                    _mainSceneName.stringValue = name;
+                }
             }
 
             if (_additionalSceneNames != null && _additionalScenes != null)
@@ -93,8 +102,11 @@ namespace UsefulToolkit.Editor.SceneSupport
 
                 for (int i = 0; i < _additionalScenes.arraySize; i++)
                 {
-                    _additionalSceneNames.GetArrayElementAtIndex(i).stringValue =
-                        EnumMemberName(_additionalScenes.GetArrayElementAtIndex(i));
+                    string name = EnumMemberName(_additionalScenes.GetArrayElementAtIndex(i));
+                    if (name.Length > 0)
+                    {
+                        _additionalSceneNames.GetArrayElementAtIndex(i).stringValue = name;
+                    }
                 }
             }
 
@@ -106,13 +118,21 @@ namespace UsefulToolkit.Editor.SceneSupport
             if (_cachedResult.HasRemovedScene)
             {
                 EditorGUILayout.HelpBox(
-                    SceneGroupReferenceMaintainer.RemovedSceneMessage, MessageType.Warning);
+                    SceneGroupReferenceMaintainer.RemovedSceneMessage +
+                    "\nシーン名でもインデックスでも解決できないため、インスペクターでシーンを選び直してください。",
+                    MessageType.Warning);
             }
 
             if (_cachedResult.HasIndexResolvedScene)
             {
                 EditorGUILayout.HelpBox(
                     SceneGroupReferenceMaintainer.IndexResolvedMessage, MessageType.Warning);
+
+                if (GUILayout.Button(AcknowledgeButtonLabel))
+                {
+                    CaptureSceneNames();
+                    RefreshCachedResult();
+                }
             }
         }
 
