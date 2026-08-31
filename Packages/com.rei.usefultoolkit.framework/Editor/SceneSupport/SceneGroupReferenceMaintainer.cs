@@ -16,10 +16,10 @@ namespace UsefulToolkit.Editor.SceneSupport
     [InitializeOnLoad]
     public static class SceneGroupReferenceMaintainer
     {
-        private const string RemovedSceneMessage =
+        internal const string RemovedSceneMessage =
             "ビルドから除かれたシーンを含むSceneGroupが定義されています";
 
-        private const string IndexResolvedMessage =
+        internal const string IndexResolvedMessage =
             "Indexでシーンを解決したため、間違ったシーンを含む可能性のあるSceneGroupが定義されています";
 
         static SceneGroupReferenceMaintainer()
