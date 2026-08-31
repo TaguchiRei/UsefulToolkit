@@ -78,13 +78,14 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// <typeparam name="TStateGetter">ステートのGetterインターフェース</typeparam>
         /// <exception cref="InvalidOperationException">すでにそのステートが登録されているときに出力</exception>
         /// <exception cref="ArgumentException">指定されたステートがStateGetterを実装していないときに出力</exception>
-        /// <exception cref="ArgumentOutOfRangeException">sceneIdが負のときに出力</exception>
         public void RegisterSceneState<TStateGetter>(SceneStateBase state, int sceneId)
             where TStateGetter : IStateGetter
         {
             if (sceneId < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(sceneId), "シーンIDに負の値は指定できません");
+                UsefulLogger.LogWarning(
+                    $"シーンID{sceneId}はビルドに含まれない開発専用シーンです。" +
+                    $"ステート [{typeof(TStateGetter).Name}] をこのシーンスコープのまま登録します。", this);
             }
 
             if (state is not TStateGetter stateGetter)
