@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UsefulToolkit.Editor.Initialize;
 
 namespace UsefulToolkit.Editor.SceneSupport
 {
@@ -18,10 +19,9 @@ namespace UsefulToolkit.Editor.SceneSupport
     public class SceneLoadWindow : EditorWindow
     {
         /// <summary>
-        /// 常駐シーンとして最上段へ固定するシーン名。
-        /// PersistentSceneCreator の既定シーン名と揃えている（リネームした場合は検出できない）。
+        /// 常駐シーンとして最上段へ固定するシーン名（リネームした場合は検出できない）。
         /// </summary>
-        private const string PersistentSceneName = "UsefulToolkitPersistent";
+        private const string PersistentSceneName = PersistentSceneConst.SceneName;
 
         /// <summary>
         /// 表示に必要なシーン1件分の情報。

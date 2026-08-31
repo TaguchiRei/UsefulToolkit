@@ -65,14 +65,15 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// <exception cref="ArgumentNullException">channelがnullのときに出力</exception>
         /// <exception cref="InvalidOperationException">すでにそのイベントが登録されているときに出力</exception>
         /// <exception cref="ArgumentException">指定されたチャンネルがTEventを実装していないときに出力</exception>
-        /// <exception cref="ArgumentOutOfRangeException">sceneIdが負のときに出力</exception>
         public void RegisterSceneEvent<TEvent>(IEvent channel, int sceneId) where TEvent : IEvent
         {
             if (channel is null) throw new ArgumentNullException(nameof(channel));
 
             if (sceneId < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(sceneId), "シーンIDに負の値は指定できません");
+                UsefulLogger.LogWarning(
+                    $"シーンID{sceneId}はビルドに含まれない開発専用シーンです。" +
+                    $"イベント [{typeof(TEvent).Name}] をこのシーンスコープのまま登録します。", this);
             }
 
             if (channel is not TEvent eventChannel)
