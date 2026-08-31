@@ -55,7 +55,10 @@ namespace UsefulToolkit.Editor.Initialize
                 }
 
                 RegisterToBuildSettings(existingScenePath);
-                ContinueWithGeneration(existingScene, existingScenePath);
+                ContinueWithGeneration(
+                    existingScene,
+                    existingScenePath,
+                    FindExistingCompositorDirectory(existingScene.name, existingScenePath));
                 return;
             }
 
@@ -68,6 +71,12 @@ namespace UsefulToolkit.Editor.Initialize
                 return;
             }
 
+            string compositorDirectory = GameCompositorGenerator.SelectSaveDirectory();
+            if (compositorDirectory == null)
+            {
+                return;
+            }
+
             var scene = BuildScene(scenePath);
             if (!scene.IsValid())
             {
@@ -75,7 +84,7 @@ namespace UsefulToolkit.Editor.Initialize
             }
 
             RegisterToBuildSettings(scenePath);
-            ContinueWithGeneration(scene, scenePath);
+            ContinueWithGeneration(scene, scenePath, compositorDirectory);
         }
 
         /// <summary>
@@ -83,16 +92,46 @@ namespace UsefulToolkit.Editor.Initialize
         /// </summary>
         /// <param name="scene">保存済みの常駐シーン</param>
         /// <param name="scenePath">常駐シーンのパス</param>
-        private static void ContinueWithGeneration(UnityEngine.SceneManagement.Scene scene, string scenePath)
+        /// <param name="compositorDirectory">Compositorスクリプトを生成するAssets配下のディレクトリ</param>
+        private static void ContinueWithGeneration(
+            UnityEngine.SceneManagement.Scene scene, string scenePath, string compositorDirectory)
         {
-            string saveDirectory = ToDirectory(scenePath);
-            var result = GameCompositorGenerator.GenerateTo(scene, saveDirectory);
+            var result = GameCompositorGenerator.GenerateTo(scene, compositorDirectory);
             string className = Path.GetFileNameWithoutExtension(result.FilePath);
 
             SessionState.SetString(PendingScenePathKey, scenePath);
             SessionState.SetString(PendingClassNameKey, className);
 
             AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// 生成済みのCompositorスクリプトが置かれているディレクトリを探す。
+        /// シーン名から求まるクラス名のMonoScriptを検索し、その所在フォルダを返す。
+        /// 見つからない場合はシーンと同じフォルダを返す。
+        /// </summary>
+        /// <param name="sceneName">常駐シーンの名前</param>
+        /// <param name="scenePath">常駐シーンのパス</param>
+        private static string FindExistingCompositorDirectory(string sceneName, string scenePath)
+        {
+            string className = GameCompositorGenerator.ToCompositorClassName(sceneName);
+
+            foreach (var guid in AssetDatabase.FindAssets($"{className} t:MonoScript"))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (Path.GetFileNameWithoutExtension(path) != className)
+                {
+                    continue;
+                }
+
+                var type = AssetDatabase.LoadAssetAtPath<MonoScript>(path)?.GetClass();
+                if (type != null && typeof(GameCompositor).IsAssignableFrom(type))
+                {
+                    return ToDirectory(path);
+                }
+            }
+
+            return ToDirectory(scenePath);
         }
 
         /// <summary>
