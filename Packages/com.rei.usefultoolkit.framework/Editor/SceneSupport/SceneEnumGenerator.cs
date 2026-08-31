@@ -101,11 +101,15 @@ namespace UsefulToolkit.Editor.SceneSupport
                 return;
             }
 
-            // Enum生成実行
-            FileGenerator.AutoGenerateFile("BuildScenes.cs", GenerateEnumContent("BuildScenes", includedNames, ns),
+            // Enum生成実行。
+            // BuildScenesはビルドインデックスと一致させるため0から昇順、
+            // NonBuildScenesはビルド非対称の開発専用シーンを表すため-1から降順で採番する。
+            FileGenerator.AutoGenerateFile("BuildScenes.cs",
+                GenerateEnumContent("BuildScenes", includedNames, ns, firstValue: 0, step: 1),
                 GenerateType.Runtime);
             FileGenerator.AutoGenerateFile("NonBuildScenes.cs",
-                GenerateEnumContent("NonBuildScenes", excludedNames, ns), GenerateType.Editor);
+                GenerateEnumContent("NonBuildScenes", excludedNames, ns, firstValue: -1, step: -1),
+                GenerateType.Editor);
 
             UsefulLogger.Log($"SceneEnums generated with namespace {ns} " +
                              $"(BuildScenes: {includedNames.Length} / NonBuildScenes: {excludedNames.Length})",
@@ -162,7 +166,10 @@ namespace UsefulToolkit.Editor.SceneSupport
             return true;
         }
 
-        private static string GenerateEnumContent(string enumName, string[] values, string namespaceName)
+        /// <param name="firstValue">先頭メンバーへ割り当てる値</param>
+        /// <param name="step">メンバーごとに加算する値</param>
+        private static string GenerateEnumContent(string enumName, string[] values, string namespaceName,
+            int firstValue, int step)
         {
             System.Text.StringBuilder builder = new System.Text.StringBuilder();
 
@@ -176,7 +183,7 @@ namespace UsefulToolkit.Editor.SceneSupport
             for (int i = 0; i < values.Length; i++)
             {
                 string comma = (i < values.Length - 1) ? "," : "";
-                builder.AppendLine($"        {values[i]} = {i}{comma}");
+                builder.AppendLine($"        {values[i]} = {firstValue + i * step}{comma}");
             }
 
             builder.AppendLine("    }");
