@@ -18,7 +18,7 @@ namespace UsefulToolkit.BlackBoard.Input
     ///
     /// map / action は公開APIの境界でenumから名前の文字列へ変換し、内部では文字列で扱う。
     /// </summary>
-    [RegisterBoard(typeof(InputStateBoard))]
+    [RegisterBoard(typeof(InputBoard))]
     public sealed class InputState : GameStateBase, IInputState, IInputDispatcher
     {
         /// <summary> (ActionMap名, Action名)ごとのコールバック。値はActionChannel&lt;InputContext&lt;TValue&gt;&gt; </summary>

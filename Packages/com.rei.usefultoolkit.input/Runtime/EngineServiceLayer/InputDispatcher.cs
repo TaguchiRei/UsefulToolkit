@@ -36,7 +36,7 @@ namespace UsefulToolkit.EngineService.Input
                 return;
             }
 
-            if (!blackBoard.TryGetStateBoard<InputStateBoard>(out var inputStateBoard))
+            if (!blackBoard.TryGetStateBoard<InputBoard>(out var inputStateBoard))
             {
                 UsefulLogger.LogError(
                     "InputStateBoard がBlackBoardに登録されていません。" +
