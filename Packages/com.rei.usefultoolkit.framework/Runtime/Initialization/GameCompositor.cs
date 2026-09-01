@@ -149,14 +149,14 @@ namespace UsefulToolkit.Initialization
         /// 誤用を検出した際に、このシーンの初期化を打ち切る。
         /// フェーズを Aborted にする事で Start での Inject / Initialize が走らなくなる。
         /// </summary>
-        /// <param name="reason">中断の原因。ログの先頭に出力する</param>
+        /// <param name="reason">中断の原因。ログの先頭に出力するため、句点で終わる文を渡す</param>
         private void AbortInitialize(string reason)
         {
             _phase = InitializePhase.Aborted;
             enabled = false;
 
             UsefulLogger.LogError(
-                $"{reason} この為 {typeof(TSelf).Name} の初期化を中断しました。" +
+                $"{reason}この為 {typeof(TSelf).Name} の初期化を中断しました。" +
                 "Start 以降の処理 (Inject / Initialize、Root Compositor なら開始シーンへの遷移) は実行されません。",
                 this);
         }
@@ -178,7 +178,7 @@ namespace UsefulToolkit.Initialization
         /// (例: <c>InGameCompositor.TryRegisterContent&lt;IPauseManager&gt;(pauseManager)</c>)
         /// 公開したい面だけを渡せるよう、T には実装クラスではなくインターフェースを指定するのが基本。
         ///
-        /// instance が null の場合は何も登録せずに false を返す。
+        /// instance が null (破棄済みの UnityEngine.Object を含む) の場合は何も登録せずに false を返す。
         /// 自分のスコープ、または Root スコープに同じ型が既に登録されている場合はエラーログを出し、
         /// このシーンの初期化を中断する。
         /// </summary>
@@ -191,15 +191,6 @@ namespace UsefulToolkit.Initialization
             {
                 UsefulLogger.LogError(
                     $"{typeof(TSelf).Name} がシーンに存在しません : {typeof(T).Name}", typeof(TSelf));
-                return false;
-            }
-
-            // is null は破棄済みの UnityEngine.Object を素通しする為、その場合は == で改めて判定する。
-            if (instance is null || (instance is UnityEngine.Object unityObject && unityObject == null))
-            {
-                UsefulLogger.LogError(
-                    $"null は登録できません : {typeof(T).Name}。" +
-                    "キーだけが埋まり、後から正しい実体を登録し直せなくなります。", _instance);
                 return false;
             }
 
@@ -216,6 +207,15 @@ namespace UsefulToolkit.Initialization
                 UsefulLogger.LogError(
                     $"現在は収集フェーズではありません。Awake で登録してください。現在のフェーズ {_instance._phase}",
                     _instance);
+                return false;
+            }
+
+            // is null は破棄済みの UnityEngine.Object を素通しする為、その場合は == で改めて判定する。
+            if (instance is null || (instance is UnityEngine.Object unityObject && unityObject == null))
+            {
+                UsefulLogger.LogError(
+                    $"null は登録できません : {typeof(T).Name}。" +
+                    "キーだけが埋まり、後から正しい実体を登録し直せなくなります。", _instance);
                 return false;
             }
 
