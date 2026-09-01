@@ -9,7 +9,8 @@
         "GUID:248492dfec8fd534bb42673686fafbf6",
         "GUID:43792ead35d682748ac25d578b0e52a2",
         "GUID:f51ebe6a0ceec4240a699833d6309b23",
-        "GUID:76e3937e6a6df0e4eba2ec553913c34b"
+        "GUID:76e3937e6a6df0e4eba2ec553913c34b",
+        "UsefulToolkit.ProgramTools.BlackBoard.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
