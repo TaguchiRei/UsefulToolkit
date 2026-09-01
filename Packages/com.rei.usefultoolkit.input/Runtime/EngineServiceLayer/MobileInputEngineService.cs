@@ -15,7 +15,7 @@ namespace UsefulToolkit.EngineService.Input
     /// <summary>
     /// タッチ入力(スクリーンドラッグ)をInputDispatcherと同じInputStateへ橋渡しする
     /// EngineServiceLayer。IExternalInputSource&lt;Vector2&gt;を自ら実装し、
-    /// IInputDispatcher.RegisterExternalInputSourceでInputDispatcherと同じ(map, action)
+    /// IInputController.RegisterExternalInputSourceでInputDispatcherと同じ(map, action)
     /// チャンネルへ登録するだけで済む——Application側から見ればどちらの入力ソースが
     /// 発火したかは区別されない。
     /// </summary>
@@ -23,7 +23,7 @@ namespace UsefulToolkit.EngineService.Input
     {
         [SerializeField] private GraphicRaycaster _rayCaster;
 
-        private IInputDispatcher _inputDispatcher;
+        private IInputController _inputController;
         private Enum _map;
         private Enum _action;
         private Action<InputContext<Vector2>> _onInput;
@@ -41,10 +41,10 @@ namespace UsefulToolkit.EngineService.Input
         /// <summary>
         /// 入力ソースの登録先を渡す。Initializeより前に呼ぶこと。
         /// </summary>
-        /// <param name="inputDispatcher">InputStateの操作面</param>
-        public void SetInputDispatcher(IInputDispatcher inputDispatcher)
+        /// <param name="inputController">InputStateの操作面</param>
+        public void SetInputController(IInputController inputController)
         {
-            _inputDispatcher = inputDispatcher;
+            _inputController = inputController;
         }
 
         /// <summary>タッチ入力をどの(ActionMap, Action)としてInputStateへ橋渡しするかを指定する。</summary>
@@ -58,15 +58,15 @@ namespace UsefulToolkit.EngineService.Input
         {
             base.Initialize();
 
-            if (_inputDispatcher == null || _action == null)
+            if (_inputController == null || _action == null)
             {
                 UsefulLogger.LogError(
-                    "InputDispatcher/Bindが設定されていません。Initialize()より前にSetInputDispatcher/Bindを呼んでください。",
+                    "InputController/Bindが設定されていません。Initialize()より前にSetInputController/Bindを呼んでください。",
                     this);
                 return;
             }
 
-            _registration = _inputDispatcher.RegisterExternalInputSource(_map, _action, this);
+            _registration = _inputController.RegisterExternalInputSource(_map, _action, this);
 
             _eventSystem = EventSystem.current;
             _eventData = new PointerEventData(_eventSystem);
@@ -93,7 +93,7 @@ namespace UsefulToolkit.EngineService.Input
 
         private void Update()
         {
-            if (_inputDispatcher == null || _action == null) return;
+            if (_inputController == null || _action == null) return;
 
             var touches = Touch.activeTouches;
 
@@ -113,14 +113,14 @@ namespace UsefulToolkit.EngineService.Input
                 {
                     _isTracking = false;
                     _trackedTouchId = -1;
-                    RaiseInput(InputActionPhase.Canceled, Vector2.zero);
+                    RaiseInput(InputPhase.Canceled, Vector2.zero);
                     return;
                 }
 
                 var currentPosition = trackingTouch.Value.screenPosition;
                 var delta = currentPosition - _legacyPosition;
                 _legacyPosition = currentPosition;
-                RaiseInput(InputActionPhase.Performed, delta);
+                RaiseInput(InputPhase.Performed, delta);
                 return;
             }
 
@@ -135,12 +135,12 @@ namespace UsefulToolkit.EngineService.Input
                 _trackedTouchId = touch.touchId;
                 _isTracking = true;
                 _legacyPosition = position;
-                RaiseInput(InputActionPhase.Started, Vector2.zero);
+                RaiseInput(InputPhase.Started, Vector2.zero);
                 break;
             }
         }
 
-        private void RaiseInput(InputActionPhase phase, Vector2 value)
+        private void RaiseInput(InputPhase phase, Vector2 value)
         {
             _onInput?.Invoke(new InputContext<Vector2>(phase, value));
         }

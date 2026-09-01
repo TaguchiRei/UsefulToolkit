@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -163,6 +163,8 @@ namespace UsefulToolkit.Editor.Initialize
             var initializers = scene.GetRootGameObjects()
                 // 無効化されたオブジェクト上のInitializerも初期化対象になりうるので含める
                 .SelectMany(root => root.GetComponentsInChildren<InitializerBase>(true))
+                // スクリプトが欠損している、または抽象クラスを指しているコンポーネントはnullで返るため落とす
+                .Where(initializer => initializer != null)
                 // GameCompositorがAwakeで直接呼ぶため、生成物からは除外する
                 .Where(initializer => initializer is not UsefulToolkitRuntimeInitializer)
                 .ToArray();

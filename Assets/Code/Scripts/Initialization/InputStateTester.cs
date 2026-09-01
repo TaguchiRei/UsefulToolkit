@@ -14,18 +14,22 @@ namespace Sandbox.Initialization
     ///
     /// 上段 : <see cref="IInputState"/> の読み取り面(InputEnabled / ActiveActionMaps / ReadValue)。
     /// 中段 : コールバックの発火状況と、変更通知の受信状況。
-    /// 下段 : <see cref="IInputDispatcher"/> の操作面(ActionMap切り替え・入力の有効無効)と、
+    /// 下段 : <see cref="IInputController"/> の操作面(ActionMap切り替え・入力の有効無効)と、
     ///        入力ソースが繋がらないActionに対する RegisterInputAsync のタイムアウト確認。
+    ///
+    /// 読み取り面はBlackBoardから、操作面はDIコンテナから受け取る。
+    /// 操作面をBlackBoard越しに取得する経路は存在しない。
     ///
     /// UsefulToolkitPersistentシーンのGameCompositorに配線して使う。テスト専用。
     /// </summary>
-    public sealed class InputStateTester : InitializerBase
+    public sealed class InputStateTester : InitializerBase, IInjectable<IInputController>
     {
         [SerializeField]
         [Tooltip("OnGUI の表示位置。他のテスト用ハーネスと重ならないようにする。")]
         private Vector2 _guiPosition = new Vector2(10f, 450f);
 
         private IInputState _inputState;
+        private IInputController _inputController;
 
         private readonly List<IDisposable> _registrations = new();
 
@@ -38,15 +42,30 @@ namespace Sandbox.Initialization
         private string _asyncRegisterLog = "未実行";
 
         /// <summary>
+        /// 操作面をDIコンテナから受け取る。生成されたInputInitializerがAwakeで登録したもの。
+        /// </summary>
+        /// <param name="inputController">入力の操作面</param>
+        public void Inject(IInputController inputController)
+        {
+            _inputController = inputController;
+        }
+
+        /// <summary>
         /// IInputStateを取得し、変更通知の購読・入力ソースの橋渡し・コールバック登録を行う。
         ///
         /// InputStateの登録もBindもInputInitializerのInitializeより後である必要がある。
-        /// InputInitializerはInitializeOrderConst.InitializerEarlyを宣言しており、
+        /// InputInitializerBaseはInitializeOrderConst.InitializerEarlyを宣言しており、
         /// このクラスは未宣言(0)なので生成されるInitializeAllでは必ず後になる。
         /// </summary>
         public override void Initialize(IBlackBoard blackBoard)
         {
             base.Initialize(blackBoard);
+
+            if (_inputController == null)
+            {
+                Debug.LogError("[InputStateTester] IInputControllerが注入されていません。", this);
+                return;
+            }
 
             if (!blackBoard.TryGetStateBoard<InputBoard>(out var inputBoard))
             {
@@ -66,18 +85,16 @@ namespace Sandbox.Initialization
             _registrations.Add(_inputState.RegisterEventOnActiveActionMapsChanged(
                 new ActionEntry(false, OnActiveActionMapsChanged)));
 
-            var dispatcher = _inputState.Dispatcher;
+            _inputController.Bind<Vector2>(ActionMaps.Player, PlayerActions.Move);
+            _inputController.Bind<float>(ActionMaps.Player, PlayerActions.Attack);
 
-            dispatcher.Bind<Vector2>(ActionMaps.Player, PlayerActions.Move);
-            dispatcher.Bind<float>(ActionMaps.Player, PlayerActions.Attack);
-
-            _registrations.Add(dispatcher.RegisterInput<Vector2>(
+            _registrations.Add(_inputState.RegisterInput<Vector2>(
                 ActionMaps.Player, PlayerActions.Move, OnMove));
 
-            _registrations.Add(dispatcher.RegisterInput<float>(
+            _registrations.Add(_inputState.RegisterInput<float>(
                 ActionMaps.Player, PlayerActions.Attack, OnAttack));
 
-            dispatcher.SwitchActionMap(ActionMaps.Player);
+            _inputController.SwitchActionMap(ActionMaps.Player);
         }
 
         private void OnDestroy()
@@ -121,7 +138,7 @@ namespace Sandbox.Initialization
 
             float startTime = Time.realtimeSinceStartup;
 
-            var registration = await _inputState.Dispatcher.RegisterInputAsync<float>(
+            var registration = await _inputState.RegisterInputAsync<float>(
                 ActionMaps.UI, UIActions.Submit, OnAttack, 2f);
 
             _asyncRegisterLog = $"{Time.realtimeSinceStartup - startTime:0.00}秒で終了";
@@ -166,24 +183,23 @@ namespace Sandbox.Initialization
                 GUILayout.Label($"ActionMaps変更通知 : {_actionMapsChangedLog}");
 
                 GUILayout.Space(4f);
-                var dispatcher = _inputState.Dispatcher;
 
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Switch Player")) dispatcher.SwitchActionMap(ActionMaps.Player);
-                    if (GUILayout.Button("Switch UI")) dispatcher.SwitchActionMap(ActionMaps.UI);
+                    if (GUILayout.Button("Switch Player")) _inputController.SwitchActionMap(ActionMaps.Player);
+                    if (GUILayout.Button("Switch UI")) _inputController.SwitchActionMap(ActionMaps.UI);
                 }
 
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Enable UI")) dispatcher.EnableActionMap(ActionMaps.UI);
-                    if (GUILayout.Button("Disable UI")) dispatcher.DisableActionMap(ActionMaps.UI);
+                    if (GUILayout.Button("Enable UI")) _inputController.EnableActionMap(ActionMaps.UI);
+                    if (GUILayout.Button("Disable UI")) _inputController.DisableActionMap(ActionMaps.UI);
                 }
 
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Enable Input")) dispatcher.EnableInput();
-                    if (GUILayout.Button("Disable Input")) dispatcher.DisableInput();
+                    if (GUILayout.Button("Enable Input")) _inputController.EnableInput();
+                    if (GUILayout.Button("Disable Input")) _inputController.DisableInput();
                 }
 
                 GUILayout.Label($"RegisterInputAsync : {_asyncRegisterLog}");

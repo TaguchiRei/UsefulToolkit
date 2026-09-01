@@ -1,60 +1,42 @@
 using System;
-using System.Threading;
-using Cysharp.Threading.Tasks;
 
 namespace UsefulToolkit.BlackBoard.Input
 {
     /// <summary>
-    /// 入力の操作面。コールバックの登録、ActionMapの切り替え、入力の有効・無効の切り替えを行う。
-    /// <see cref="IInputState"/>から取得する。
+    /// 入力の操作面。ActionMapの切り替え、入力の有効・無効、入力ソースの接続を行う。
+    ///
+    /// この型は BlackBoard には載せない。InputState を変更できるのはそれを生成した
+    /// Application のクラス(<see cref="UsefulToolkit.Application.Input.IInputManager"/> の実装)だけであり、
+    /// その操作面は Compositor の DI コンテナ経由で <c>IInjectable&lt;IInputController&gt;</c> として配る。
+    /// BlackBoard から取得できるのは読み取り面の <see cref="IInputState"/> のみ。
+    ///
+    /// 型定義がこの層にあるのは、Application と EngineService の双方から参照できる位置が
+    /// BlackBoardLayer だけであるため(<see cref="IInputEngineBridge"/> と同じ理由)。
     ///
     /// map / action の指定にはInputActionEnumGeneratorが生成したActionMaps・XxxActionsのenumを渡す。
     /// 内部では名前の文字列として扱うため、このパッケージはどのenum型にも依存しない。
     /// </summary>
-    public interface IInputDispatcher
+    public interface IInputController
     {
-        /// <summary>
-        /// 指定したActionの入力コールバックを登録する。
-        /// started / performed / canceled は1本のコールバックへまとめて届くため、
-        /// 区別が必要な場合は<see cref="InputContext{TValue}.Phase"/>で判定する。
-        /// </summary>
-        /// <param name="map">ActionMapを表すenum</param>
-        /// <param name="action">Actionを表すenum</param>
-        /// <param name="handler">入力時に実行するハンドラ</param>
-        /// <returns>Disposeすると登録を解除できる</returns>
-        IDisposable RegisterInput<TValue>(Enum map, Enum action, Action<InputContext<TValue>> handler)
-            where TValue : unmanaged;
-
-        /// <summary>
-        /// 指定したActionへ入力ソースが登録されるのを待ってから、入力コールバックを登録する。
-        /// 入力ソースが既に登録済みならその場で登録する。
-        /// </summary>
-        /// <param name="map">ActionMapを表すenum</param>
-        /// <param name="action">Actionを表すenum</param>
-        /// <param name="handler">入力時に実行するハンドラ</param>
-        /// <param name="timeoutSeconds">待機の打ち切り秒数。nullならUsefulToolkitConst.DefaultTimeoutSeconds</param>
-        /// <param name="cancellationToken">待機の中断に使う</param>
-        /// <returns>Disposeすると登録を解除できる。タイムアウトした場合は何も解除しないハンドル</returns>
-        UniTask<IDisposable> RegisterInputAsync<TValue>(Enum map, Enum action,
-            Action<InputContext<TValue>> handler, float? timeoutSeconds = null,
-            CancellationToken cancellationToken = default) where TValue : unmanaged;
-
         /// <summary>
         /// 指定したActionMapだけを有効にする。他の有効なActionMapは全て無効になる。
         /// </summary>
         /// <param name="map">有効にするActionMapを表すenum</param>
+        /// <exception cref="ArgumentNullException">mapがnullのときに出力</exception>
         void SwitchActionMap(Enum map);
 
         /// <summary>
         /// 指定したActionMapを、現在有効なものへ追加で有効にする。
         /// </summary>
         /// <param name="map">有効にするActionMapを表すenum</param>
+        /// <exception cref="ArgumentNullException">mapがnullのときに出力</exception>
         void EnableActionMap(Enum map);
 
         /// <summary>
         /// 指定したActionMapを無効にする。
         /// </summary>
         /// <param name="map">無効にするActionMapを表すenum</param>
+        /// <exception cref="ArgumentNullException">mapがnullのときに出力</exception>
         void DisableActionMap(Enum map);
 
         /// <summary> 入力全体を有効にする。 </summary>
@@ -69,16 +51,18 @@ namespace UsefulToolkit.BlackBoard.Input
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
         /// <param name="action">Actionを表すenum</param>
+        /// <exception cref="ArgumentNullException">map・actionがnullのときに出力</exception>
         void Bind<TValue>(Enum map, Enum action) where TValue : unmanaged;
 
         /// <summary>
-        /// 指定したActionへ入力ソースを繋ぐ。EngineServiceLayerのクラスから呼ぶ。
+        /// 指定したActionへ、エンジン以外の入力ソースを繋ぐ。
         /// 入力ソースはチャンネルへの参照を持たず、値の流し込みはこのメソッドが張るブリッジだけが行う。
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
         /// <param name="action">Actionを表すenum</param>
         /// <param name="source">登録する入力ソース</param>
         /// <returns>Disposeすると登録を解除できる</returns>
+        /// <exception cref="ArgumentNullException">map・action・sourceがnullのときに出力</exception>
         IDisposable RegisterExternalInputSource<TValue>(Enum map, Enum action,
             IExternalInputSource<TValue> source) where TValue : unmanaged;
     }
