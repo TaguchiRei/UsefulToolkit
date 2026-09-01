@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace UsefulToolkit.BlackBoard.Input
 {
     /// <summary>
@@ -10,15 +13,23 @@ namespace UsefulToolkit.BlackBoard.Input
         /// <summary>
         /// 指定したActionの現在値を読み出す。
         /// </summary>
-        /// <param name="map">ActionMap名</param>
-        /// <param name="action">Action名</param>
-        InputContext<TValue> ReadValue<TValue>(string map, string action) where TValue : unmanaged;
+        /// <param name="map">ActionMapを表すenum</param>
+        /// <param name="action">Actionを表すenum</param>
+        InputContext<TValue> ReadValue<TValue>(Enum map, Enum action) where TValue : unmanaged;
+
+        /// <summary>
+        /// 指定したActionをエンジン側の入力ソースとしてInputStateのチャンネルへ繋ぐ。
+        /// 張ったブリッジの解除はこの実装側が持つ。
+        /// </summary>
+        /// <param name="map">ActionMapを表すenum</param>
+        /// <param name="action">Actionを表すenum</param>
+        void BindAction<TValue>(Enum map, Enum action) where TValue : unmanaged;
 
         /// <summary>
         /// 有効なActionMapを指定された内容へ揃える。列挙に含まれないActionMapは無効化する。
         /// </summary>
         /// <param name="activeActionMaps">有効にするActionMap名</param>
-        void ApplyActiveActionMaps(System.Collections.Generic.IReadOnlyList<string> activeActionMaps);
+        void ApplyActiveActionMaps(IReadOnlyList<string> activeActionMaps);
 
         /// <summary>
         /// 入力全体の有効・無効を反映する。
