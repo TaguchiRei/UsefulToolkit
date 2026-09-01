@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System;
 using UnityEditor;
 using UnityEngine.SceneManagement;
@@ -38,11 +38,20 @@ namespace UsefulToolkit.Editor.Ai
 
             EditorGUI.BeginChangeCheck();
             serializedChatSettings.Update();
-            var prop = serializedChatSettings.FindProperty("Settings").FindPropertyRelative("ActiveClientSettings");
+            var settingsProp = serializedChatSettings.FindProperty("Settings");
+            var prop = settingsProp.FindPropertyRelative("ActiveClientSettings");
             EditorGUILayout.PropertyField(prop, new GUIContent("Active AI Client"), true);
+
+            var planningPathProp = settingsProp.FindPropertyRelative("PlanningDocumentsPath");
+            if (planningPathProp != null)
+            {
+                EditorGUILayout.PropertyField(planningPathProp, new GUIContent("Planning Documents Path"));
+            }
+
             serializedChatSettings.ApplyModifiedProperties();
 
             chatSettings.ActiveClientSettings = ((SettingsWrapper)serializedChatSettings.targetObject).Settings.ActiveClientSettings;
+            chatSettings.PlanningDocumentsPath = ((SettingsWrapper)serializedChatSettings.targetObject).Settings.PlanningDocumentsPath;
 
             if (EditorGUI.EndChangeCheck())
             {

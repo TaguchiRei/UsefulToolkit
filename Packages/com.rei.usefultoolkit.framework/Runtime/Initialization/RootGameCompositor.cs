@@ -31,6 +31,10 @@ namespace UsefulToolkit.Initialization
         /// <summary>
         /// Toolkit のランタイム機能を初期化する Initializer。
         /// 他の Initializer の Awake より先に初期化するため、直接参照して呼ぶ。
+        ///
+        /// この Initializer だけは base.Awake (_instance の設定と収集フェーズ開始) より前に走る。
+        /// その為、TryRegisterContent でのコンテナへの登録も、RegisterChildBoards 後にしか
+        /// 存在しない ChildBoard の取得もできない。触れるのは BlackBoard 本体と SceneBoard のみ。
         /// </summary>
         [SerializeField] private UsefulToolkitRuntimeInitializer _runtimeInitializer;
 
@@ -61,6 +65,11 @@ namespace UsefulToolkit.Initialization
             {
                 UsefulLogger.LogError(
                     "別の Root Compositor が既に Root スコープを占有しています。", this);
+
+                // 共有 BlackBoard と Root スコープは常に一緒に設定・解放する。
+                // 中身が空のまま共有スロットに残ると、他シーンの Compositor が初期化を続行してしまう。
+                ClearSharedBlackBoard();
+                _ownsSharedBlackBoard = false;
                 enabled = false;
                 return;
             }
@@ -78,8 +87,8 @@ namespace UsefulToolkit.Initialization
 
             base.Awake();
 
-            // base.Awake が停止した場合 (共有 BlackBoard の未設定など) はボード登録へ進まない。
-            if (!enabled) return;
+            // base.Awake が停止・中断した場合 (共有 BlackBoard の未設定など) はボード登録へ進まない。
+            if (CurrentPhase != InitializePhase.Collection) return;
 
             RegisterChildBoards(blackBoard);
         }
@@ -88,7 +97,8 @@ namespace UsefulToolkit.Initialization
         {
             base.Start();
 
-            if (!enabled) return;
+            // base.Start が Inject / Initialize を完走した場合のみ Initialize フェーズになる。
+            if (CurrentPhase != InitializePhase.Initialize) return;
 
             TransitionToStartSceneAsync().Forget();
         }
@@ -115,10 +125,13 @@ namespace UsefulToolkit.Initialization
         /// <summary>
         /// <see cref="_startScene"/> が指定されていれば、そのシーンへ単発で遷移する。
         /// Build 登録済みなら SceneState 経由で上書きロードし、未登録なら Editor 専用ロードで開く。
+        /// 待機中にこの Compositor が破棄された場合は、await 以降の処理へ進まず打ち切る。
         /// </summary>
         private async UniTaskVoid TransitionToStartSceneAsync()
         {
             if (string.IsNullOrEmpty(_startScene)) return;
+
+            var token = destroyCancellationToken;
 
             if (!SharedBlackBoard.GetSceneBoard().TryGetGameState<ISceneState>(out var sceneState))
             {
@@ -130,7 +143,8 @@ namespace UsefulToolkit.Initialization
 
             if (buildIndex >= 0)
             {
-                await sceneState.RequestOverwriteLoadAsync(buildIndex, Array.Empty<int>());
+                await sceneState.RequestOverwriteLoadAsync(buildIndex, Array.Empty<int>())
+                    .AttachExternalCancellation(token);
                 return;
             }
 
@@ -144,7 +158,7 @@ namespace UsefulToolkit.Initialization
 
             if (operation == null) return;
 
-            await operation.ToUniTask();
+            await operation.ToUniTask(cancellationToken: token);
 
             var loaded = SceneManager.GetSceneByPath(_startScene);
             if (loaded.IsValid())
