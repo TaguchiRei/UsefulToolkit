@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
 using UsefulToolkit.BlackBoard.BlackBoard;
 using UsefulToolkit.BlackBoard.Logger;
@@ -12,10 +10,17 @@ namespace UsefulToolkit.Initialization
     ///
     /// 具体的な初期化ロジックは <see cref="GameCompositor{TSelf}"/> が持つ。この非ジェネリック層は
     /// Editor の TypeCache での列挙点と、Root Compositor が構築する
-    /// ゲーム全体で唯一の BlackBoard の共有点としてだけ存在する。
+    /// ゲーム全体で唯一の BlackBoard、および全 Compositor が共有する DI コンテナの置き場として存在する。
     /// </summary>
     public abstract class GameCompositor : MonoBehaviour
     {
+        /// <summary>
+        /// 全 Compositor が共有する DI コンテナ。中身は Compositor の具象型ごとのスコープに分かれており、
+        /// 各 Compositor は自分のスコープと Root スコープしか参照できない。
+        /// internal である為、利用側アセンブリの派生クラスからは直接触れない。
+        /// </summary>
+        internal static readonly CompositionContainer Container = new();
+
         /// <summary>
         /// <see cref="RootGameCompositor{TSelf}"/> が構築する、ゲーム全体で唯一の BlackBoard。
         /// 非 Root のシーン Compositor はこれを読むだけで、自前では作らない。
@@ -51,8 +56,10 @@ namespace UsefulToolkit.Initialization
     /// シーンごとの合成ルート。BlackBoard 上の各 Initializer への Inject / Initialize を受け持つ。
     ///
     /// CRTP (<typeparamref name="TSelf"/> に自分自身を渡す) により、静的メンバである
-    /// <c>_instance</c> と DI コンテナを派生具象型ごとに分離する。これにより、
-    /// 同時に生きている Compositor が複数あっても取り合いが起きない。
+    /// <c>_instance</c> を派生具象型ごとに分離し、同時に DI コンテナのスコープキーとしても使う。
+    /// これにより、同時に生きている Compositor が複数あっても取り合いが起きない。
+    /// 依存の解決範囲は自分のスコープと Root スコープの 2 つで、常駐シーンで生成された実体は
+    /// どのシーンからでも受け取れるが、シーン同士がお互いのスコープを覗くことはできない。
     /// 逆に、同一の具象 Compositor 型のインスタンスを同時に複数生かすことは想定しない
     /// (別シーンで同じ機能が要るならシーンごと分ける、というのが本設計の前提)。
     ///
@@ -66,7 +73,6 @@ namespace UsefulToolkit.Initialization
     {
         private static TSelf _instance;
 
-        private readonly Dictionary<Type, object> _container = new();
         private InitializePhase _phase = InitializePhase.None;
 
         protected virtual void Awake()
@@ -114,7 +120,33 @@ namespace UsefulToolkit.Initialization
             if (_instance == this)
             {
                 _instance = null;
+                Container.ClearScope(typeof(TSelf));
             }
+        }
+
+        /// <summary>
+        /// この Compositor 型のスコープを Root スコープにする。常駐シーンの Compositor だけが呼ぶ。
+        /// 既に別の型が Root スコープなら false を返す。
+        /// </summary>
+        private protected static bool TrySetAsRootScope()
+        {
+            return Container.TrySetRootScope(typeof(TSelf));
+        }
+
+        /// <summary>Root スコープの指定を解除する。設定した Compositor の破棄時に呼ぶ。</summary>
+        private protected static void ClearRootScope()
+        {
+            Container.ClearRootScope(typeof(TSelf));
+        }
+
+        /// <summary>
+        /// 誤用を検出した際に、このシーンの初期化を打ち切る。
+        /// フェーズを None に戻す事で Start での Inject / Initialize が走らなくなる。
+        /// </summary>
+        private void AbortInitialize()
+        {
+            _phase = InitializePhase.None;
+            enabled = false;
         }
 
         /// <summary>
@@ -133,6 +165,9 @@ namespace UsefulToolkit.Initialization
         /// 各 Initializer の Awake から、自分のシーンの具象 Compositor 型を指定して呼ぶ。
         /// (例: <c>InGameCompositor.TryRegisterContent&lt;IPauseManager&gt;(pauseManager)</c>)
         /// 公開したい面だけを渡せるよう、T には実装クラスではなくインターフェースを指定するのが基本。
+        ///
+        /// 自分のスコープ、または Root スコープに同じ型が既に登録されている場合はエラーログを出し、
+        /// このシーンの初期化を中断する。
         /// </summary>
         /// <param name="instance">登録する実体</param>
         /// <typeparam name="T">登録する型。この型が Inject 時の解決キーになる</typeparam>
@@ -153,29 +188,36 @@ namespace UsefulToolkit.Initialization
                 return false;
             }
 
-            if (!_instance._container.TryAdd(typeof(T), instance))
+            var result = Container.TryAdd(typeof(TSelf), typeof(T), instance);
+
+            if (result != CompositionContainer.AddResult.Success)
             {
-                UsefulLogger.LogWarning($"この型は登録済みです : {typeof(T).Name}", _instance);
+                string reason = result == CompositionContainer.AddResult.DuplicateInRootScope
+                    ? "常駐シーンの Compositor が既に同じ型を登録しています"
+                    : "この Compositor が既に同じ型を登録しています";
+
+                UsefulLogger.LogError(
+                    $"依存の登録が重複しています : {typeof(T).Name} ({reason})。" +
+                    "同じ型の実体が複数の経路で配られると参照が分裂する為、このシーンの初期化を中断します。",
+                    _instance);
+
+                _instance.AbortInitialize();
                 return false;
             }
 
             return true;
         }
 
-        /// <summary>登録済みの依存を取得する。生成された派生クラスの InjectAll から呼ばれる。</summary>
+        /// <summary>
+        /// 登録済みの依存を取得する。生成された派生クラスの InjectAll から呼ばれる。
+        /// 自分のスコープを先に探し、見つからなければ Root スコープを探す。
+        /// </summary>
         /// <param name="instance">取得した実体</param>
         /// <typeparam name="T">取得する型</typeparam>
         /// <returns>取得できたら true</returns>
         protected static bool TryGetContent<T>(out T instance)
         {
-            if (_instance != null && _instance._container.TryGetValue(typeof(T), out var raw) && raw is T typed)
-            {
-                instance = typed;
-                return true;
-            }
-
-            instance = default;
-            return false;
+            return Container.TryGet<T>(typeof(TSelf), out instance);
         }
     }
 }

@@ -20,6 +20,9 @@ namespace UsefulToolkit.Initialization
     ///
     /// ChildBoard の登録をこの Root だけに集約するのが本設計の方針。非 Root のシーン Compositor は
     /// この Root が構築・登録済みの共有 BlackBoard を読むだけで、自分では何も登録しない。
+    ///
+    /// DI コンテナ上では、この Root のスコープが全 Compositor 共通のフォールバック先になる。
+    /// 常駐シーンの Initializer が登録した実体は、後からロードされたどのシーンからでも Inject で受け取れる。
     /// </summary>
     [DefaultExecutionOrder(InitializeOrderConst.Compositor)]
     public abstract class RootGameCompositor<TSelf> : GameCompositor<TSelf>
@@ -52,6 +55,15 @@ namespace UsefulToolkit.Initialization
             }
 
             _ownsSharedBlackBoard = true;
+
+            // 他のシーンの Compositor が依存を解決する際のフォールバック先になる。
+            if (!TrySetAsRootScope())
+            {
+                UsefulLogger.LogError(
+                    "別の Root Compositor が既に Root スコープを占有しています。", this);
+                enabled = false;
+                return;
+            }
 
             // 他の Initializer の Awake から既にシーンシステムを使えるよう、ここで真っ先に初期化する。
             if (_runtimeInitializer != null)
@@ -88,6 +100,7 @@ namespace UsefulToolkit.Initialization
             if (_ownsSharedBlackBoard)
             {
                 ClearSharedBlackBoard();
+                ClearRootScope();
                 _ownsSharedBlackBoard = false;
             }
         }
