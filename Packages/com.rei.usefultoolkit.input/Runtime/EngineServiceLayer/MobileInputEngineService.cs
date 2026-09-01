@@ -7,14 +7,15 @@ using UnityEngine.InputSystem.EnhancedTouch;
 using UnityEngine.UI;
 using UsefulToolkit.Initialization;
 using UsefulToolkit.BlackBoard.Input;
+using UsefulToolkit.BlackBoard.Logger;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 namespace UsefulToolkit.EngineService.Input
 {
     /// <summary>
-    /// タッチ入力(スクリーンドラッグ)をInputEngineServiceと同じInputBoardへ橋渡しする
+    /// タッチ入力(スクリーンドラッグ)をInputDispatcherと同じInputStateへ橋渡しする
     /// EngineServiceLayer。IExternalInputSource&lt;Vector2&gt;を自ら実装し、
-    /// InputBoard.RegisterExternalInputSourceでInputEngineServiceと同じ(map, action)
+    /// IInputDispatcher.RegisterExternalInputSourceでInputDispatcherと同じ(map, action)
     /// チャンネルへ登録するだけで済む——Application側から見ればどちらの入力ソースが
     /// 発火したかは区別されない。
     /// </summary>
@@ -22,7 +23,7 @@ namespace UsefulToolkit.EngineService.Input
     {
         [SerializeField] private GraphicRaycaster _rayCaster;
 
-        private InputBoard _inputBoard;
+        private IInputDispatcher _inputDispatcher;
         private Enum _map;
         private Enum _action;
         private Action<InputContext<Vector2>> _onInput;
@@ -37,12 +38,16 @@ namespace UsefulToolkit.EngineService.Input
 
         private readonly List<RaycastResult> _raycastResults = new();
 
-        public void SetInputBoard(InputBoard inputBoard)
+        /// <summary>
+        /// 入力ソースの登録先を渡す。Initializeより前に呼ぶこと。
+        /// </summary>
+        /// <param name="inputDispatcher">InputStateの操作面</param>
+        public void SetInputDispatcher(IInputDispatcher inputDispatcher)
         {
-            _inputBoard = inputBoard;
+            _inputDispatcher = inputDispatcher;
         }
 
-        /// <summary>タッチ入力をどの(ActionMap, Action)としてInputBoardへ橋渡しするかを指定する。</summary>
+        /// <summary>タッチ入力をどの(ActionMap, Action)としてInputStateへ橋渡しするかを指定する。</summary>
         public void Bind(Enum map, Enum action)
         {
             _map = map;
@@ -53,14 +58,15 @@ namespace UsefulToolkit.EngineService.Input
         {
             base.Initialize();
 
-            if (_inputBoard == null || _action == null)
+            if (_inputDispatcher == null || _action == null)
             {
-                Debug.LogError(
-                    "[MobileInputEngineService] InputBoard/Bindが設定されていません。Initialize()より前にSetInputBoard/Bindを呼んでください。");
+                UsefulLogger.LogError(
+                    "InputDispatcher/Bindが設定されていません。Initialize()より前にSetInputDispatcher/Bindを呼んでください。",
+                    this);
                 return;
             }
 
-            _registration = _inputBoard.RegisterExternalInputSource(_map, _action, this);
+            _registration = _inputDispatcher.RegisterExternalInputSource(_map, _action, this);
 
             _eventSystem = EventSystem.current;
             _eventData = new PointerEventData(_eventSystem);
@@ -87,7 +93,7 @@ namespace UsefulToolkit.EngineService.Input
 
         private void Update()
         {
-            if (_inputBoard == null || _action == null) return;
+            if (_inputDispatcher == null || _action == null) return;
 
             var touches = Touch.activeTouches;
 

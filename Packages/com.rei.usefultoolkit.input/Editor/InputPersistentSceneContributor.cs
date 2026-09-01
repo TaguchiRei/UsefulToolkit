@@ -10,8 +10,8 @@ namespace UsefulToolkit.Editor.Input
     /// 常駐シーンの生成時に、入力システムの初期化コンポーネントを
     /// "UsefulToolkit System" ルートへ載せる <see cref="IPersistentSceneContributor"/> 実装。
     ///
-    /// <see cref="InputEngineService"/>(InputSystem 経路)と、それを BlackBoard 上の
-    /// InputBoard へ繋ぐ <see cref="InputInitializer"/> を追加し、両者を結線する。
+    /// <see cref="InputDispatcher"/>(InputSystem 経路)と、それを初期化する
+    /// <see cref="InputInitializer"/> を追加し、両者を結線する。
     /// InputActionAsset の割り当ては Inspector での手作業とする。
     /// タッチ入力用の MobileInputEngineService は GraphicRaycaster を要し用途も限られるため、
     /// ここでは追加せず利用者が手動で載せる。
@@ -27,16 +27,16 @@ namespace UsefulToolkit.Editor.Input
                 return;
             }
 
-            var engineService = systemRoot.GetComponent<InputEngineService>();
-            if (engineService == null)
+            var dispatcher = systemRoot.GetComponent<InputDispatcher>();
+            if (dispatcher == null)
             {
-                engineService = systemRoot.AddComponent<InputEngineService>();
+                dispatcher = systemRoot.AddComponent<InputDispatcher>();
             }
 
             var initializer = systemRoot.AddComponent<InputInitializer>();
 
             var serializedInitializer = new SerializedObject(initializer);
-            serializedInitializer.FindProperty("_inputEngineService").objectReferenceValue = engineService;
+            serializedInitializer.FindProperty("_inputDispatcher").objectReferenceValue = dispatcher;
             serializedInitializer.ApplyModifiedPropertiesWithoutUndo();
         }
     }

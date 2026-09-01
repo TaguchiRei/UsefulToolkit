@@ -77,7 +77,7 @@ namespace UsefulToolkit.BlackBoard.Input
                 return new InputContext<TValue>(InputActionPhase.Disabled, default);
             }
 
-            return _engine.ReadValue<TValue>(map.ToString(), action.ToString());
+            return _engine.ReadValue<TValue>(map, action);
         }
 
         public IDisposable RegisterEventOnInputEnabledChanged(ActionEntry<StateContext<bool>> changedAction)
@@ -129,6 +129,17 @@ namespace UsefulToolkit.BlackBoard.Input
             }
 
             return RegisterInput(map, action, handler);
+        }
+
+        public void Bind<TValue>(Enum map, Enum action) where TValue : unmanaged
+        {
+            if (_engine == null)
+            {
+                UsefulLogger.LogWarning($"入力ソースが繋がっていない為、[{map}.{action}] を橋渡しできません。", this);
+                return;
+            }
+
+            _engine.BindAction<TValue>(map, action);
         }
 
         public IDisposable RegisterExternalInputSource<TValue>(Enum map, Enum action,

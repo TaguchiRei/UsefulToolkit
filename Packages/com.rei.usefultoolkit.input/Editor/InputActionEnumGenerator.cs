@@ -13,7 +13,7 @@ namespace UsefulToolkit.Editor.Input
     /// 出力先フォルダ・名前空間は UsefulToolkit/Settings のコード生成設定
     /// (UsefulToolkitSettingsScriptable.CodeGenerationSectionSettings)に従う——
     /// このパッケージ自体は生成したenum型に一切依存しない
-    /// (InputBoard/InputEngineServiceはSystem.Enumで受け取る)。
+    /// (InputState/InputDispatcherはSystem.Enumで受け取る)。
     /// </summary>
     public static class InputActionEnumGenerator
     {

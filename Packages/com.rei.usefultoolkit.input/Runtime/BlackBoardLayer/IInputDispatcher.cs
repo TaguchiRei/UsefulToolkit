@@ -64,6 +64,14 @@ namespace UsefulToolkit.BlackBoard.Input
         void DisableInput();
 
         /// <summary>
+        /// 指定したActionを、エンジン側の入力ソースとしてチャンネルへ繋ぐ。
+        /// 生成されたActionMaps・XxxActionsのenumに依存するため、利用側のInitializerから呼ぶ。
+        /// </summary>
+        /// <param name="map">ActionMapを表すenum</param>
+        /// <param name="action">Actionを表すenum</param>
+        void Bind<TValue>(Enum map, Enum action) where TValue : unmanaged;
+
+        /// <summary>
         /// 指定したActionへ入力ソースを繋ぐ。EngineServiceLayerのクラスから呼ぶ。
         /// 入力ソースはチャンネルへの参照を持たず、値の流し込みはこのメソッドが張るブリッジだけが行う。
         /// </summary>

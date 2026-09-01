@@ -1,52 +1,58 @@
 using UnityEngine;
+using UsefulToolkit.Application.Input;
+using UsefulToolkit.Attributes;
 using UsefulToolkit.BlackBoard.BlackBoard;
-using UsefulToolkit.BlackBoard.Input;
 using UsefulToolkit.BlackBoard.Logger;
 using UsefulToolkit.EngineService.Input;
 
 namespace UsefulToolkit.Initialization
 {
     /// <summary>
-    /// 入力システムを初期化する Initializer。
+    /// 入力システムを初期化する Initializer。常駐シーンへ置く想定。
     ///
-    /// Root Compositor が <see cref="InputBoard"/> を BlackBoard へ登録済みである前提で、
-    /// そのインスタンスを取り出して <see cref="InputEngineService"/> へ渡し、初期化する。
-    /// InputBoard の切替イベントは、InputEngineService の初期化が済むまで届かない設計のため、
-    /// この Initializer は Application 側が ActionMap を切り替えるよりも前に走る必要がある。
-    /// 常駐シーンへ置く想定で、生成される Root Compositor の InitializeAll から呼ばれる。
+    /// InputState の生成と BlackBoard への登録は <see cref="IInputManager"/> の実装が行い、
+    /// この Initializer は <see cref="InputDispatcher"/> の初期化だけを担当する。
+    /// InputDispatcher は BlackBoard から InputState を取得するため、
+    /// Application の初期化を InputDispatcher より先に行う順序が前提になる。
     ///
-    /// (map, action) 単位のブリッジ生成(<see cref="InputEngineService.Bind{TValue}"/>)は、
-    /// 利用者側の enum に依存するためここでは行わない。ゲームシーン側の Initializer から呼ぶこと。
+    /// (map, action) 単位の橋渡し(<see cref="IInputDispatcher.Bind{TValue}"/>)は利用者側の enum に
+    /// 依存するため、ここでは行わない。BlackBoard から IInputState を取得したシーン側の
+    /// Initializer から、その Dispatcher 越しに呼ぶこと。
     /// </summary>
     public sealed class InputInitializer : InitializerBase
     {
-        [SerializeField] private InputEngineService _inputEngineService;
+        [SerializeField] private InputDispatcher _inputDispatcher;
+
+        [SerializeReference]
+        [SubclassSelector]
+        [Tooltip("InputState を生成して BlackBoard へ登録する Application クラス。")]
+        private IInputManager _inputManager = new InputManager();
 
         /// <summary>
-        /// BlackBoard から <see cref="InputBoard"/> を取得して <see cref="InputEngineService"/> へ接続し、
-        /// エンジンサービスを初期化する。
+        /// Application の初期化で InputState を用意させたうえで、InputDispatcher を初期化する。
         /// </summary>
-        /// <param name="blackBoard">このシーンの BlackBoard</param>
+        /// <param name="blackBoard">InputState の登録先</param>
         public override void Initialize(IBlackBoard blackBoard)
         {
-            if (_inputEngineService == null)
+            if (_inputDispatcher == null)
             {
-                UsefulLogger.LogError("InputEngineService が設定されていない為、入力システムを初期化できません。", this);
+                UsefulLogger.LogError("InputDispatcher が設定されていない為、入力システムを初期化できません。", this);
                 base.Initialize(blackBoard);
                 return;
             }
 
-            if (!blackBoard.TryGetEventBoard<InputBoard>(out var inputBoard))
+            if (_inputManager == null)
             {
-                UsefulLogger.LogError(
-                    "InputBoard が BlackBoard に登録されていません。" +
-                    "常駐シーンの Root Compositor が生成・配置されているか確認してください。", this);
+                UsefulLogger.LogError("IInputManager が設定されていない為、InputState を生成できません。", this);
                 base.Initialize(blackBoard);
                 return;
             }
 
-            _inputEngineService.SetInputBoard(inputBoard);
-            _inputEngineService.Initialize();
+            // --  ここにApplicationの初期化を配置。内部でInputStateを生成してBlackBoardに登録 --
+            _inputManager.Initialize(blackBoard, _inputDispatcher);
+
+            _inputDispatcher.SetBlackBoard(blackBoard);
+            _inputDispatcher.Initialize();
 
             base.Initialize(blackBoard);
         }
