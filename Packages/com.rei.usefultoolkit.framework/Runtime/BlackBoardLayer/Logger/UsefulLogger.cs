@@ -31,11 +31,12 @@ namespace UsefulToolkit.BlackBoard.Logger
         }
 
         /// <summary>
-        /// エラーログを出力する
+        /// エラーログを出力する。エディタに加えて開発ビルドでも出力される。
         /// </summary>
         /// <param name="message">ログに出力するメッセージ</param>
         /// <param name="type">thisを指定</param>
         [Conditional("UNITY_EDITOR")]
+        [Conditional("DEVELOPMENT_BUILD")]
         public static void LogError(string message, object type)
         {
             Debug.LogError($"[{type.GetType()}]  {message}");
@@ -64,11 +65,12 @@ namespace UsefulToolkit.BlackBoard.Logger
         }
 
         /// <summary>
-        /// staticクラスからエラーログを出力する
+        /// staticクラスからエラーログを出力する。エディタに加えて開発ビルドでも出力される。
         /// </summary>
         /// <param name="message">ログに出力するメッセージ</param>
         /// <param name="type">typeof(自身のクラス)を指定</param>
         [Conditional("UNITY_EDITOR")]
+        [Conditional("DEVELOPMENT_BUILD")]
         public static void LogError(string message, Type type)
         {
             Debug.LogError($"[{type}]  {message}");

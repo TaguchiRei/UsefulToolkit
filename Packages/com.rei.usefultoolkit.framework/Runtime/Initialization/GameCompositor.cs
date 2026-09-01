@@ -37,7 +37,7 @@ namespace UsefulToolkit.Initialization
             {
                 UsefulLogger.LogError(
                     "共有 BlackBoard は既に構築されています。Root Compositor を持つシーンが同時に複数存在します。",
-                    null);
+                    typeof(GameCompositor));
                 return false;
             }
 
@@ -74,6 +74,12 @@ namespace UsefulToolkit.Initialization
         private static TSelf _instance;
 
         private InitializePhase _phase = InitializePhase.None;
+
+        /// <summary>
+        /// 現在の初期化フェーズ。派生の Root Compositor が処理を進めてよいかの判定に使う。
+        /// enabled ではなくこちらを見る事で、外部から enabled を戻されても中断状態を保てる。
+        /// </summary>
+        private protected InitializePhase CurrentPhase => _phase;
 
         protected virtual void Awake()
         {
@@ -141,12 +147,18 @@ namespace UsefulToolkit.Initialization
 
         /// <summary>
         /// 誤用を検出した際に、このシーンの初期化を打ち切る。
-        /// フェーズを None に戻す事で Start での Inject / Initialize が走らなくなる。
+        /// フェーズを Aborted にする事で Start での Inject / Initialize が走らなくなる。
         /// </summary>
-        private void AbortInitialize()
+        /// <param name="reason">中断の原因。ログの先頭に出力する</param>
+        private void AbortInitialize(string reason)
         {
-            _phase = InitializePhase.None;
+            _phase = InitializePhase.Aborted;
             enabled = false;
+
+            UsefulLogger.LogError(
+                $"{reason} この為 {typeof(TSelf).Name} の初期化を中断しました。" +
+                "Start 以降の処理 (Inject / Initialize、Root Compositor なら開始シーンへの遷移) は実行されません。",
+                this);
         }
 
         /// <summary>
@@ -166,6 +178,7 @@ namespace UsefulToolkit.Initialization
         /// (例: <c>InGameCompositor.TryRegisterContent&lt;IPauseManager&gt;(pauseManager)</c>)
         /// 公開したい面だけを渡せるよう、T には実装クラスではなくインターフェースを指定するのが基本。
         ///
+        /// instance が null の場合は何も登録せずに false を返す。
         /// 自分のスコープ、または Root スコープに同じ型が既に登録されている場合はエラーログを出し、
         /// このシーンの初期化を中断する。
         /// </summary>
@@ -176,7 +189,25 @@ namespace UsefulToolkit.Initialization
         {
             if (_instance == null)
             {
-                UsefulLogger.LogError($"{typeof(TSelf).Name} がシーンに存在しません : {typeof(T).Name}", null);
+                UsefulLogger.LogError(
+                    $"{typeof(TSelf).Name} がシーンに存在しません : {typeof(T).Name}", typeof(TSelf));
+                return false;
+            }
+
+            // is null は破棄済みの UnityEngine.Object を素通しする為、その場合は == で改めて判定する。
+            if (instance is null || (instance is UnityEngine.Object unityObject && unityObject == null))
+            {
+                UsefulLogger.LogError(
+                    $"null は登録できません : {typeof(T).Name}。" +
+                    "キーだけが埋まり、後から正しい実体を登録し直せなくなります。", _instance);
+                return false;
+            }
+
+            if (_instance._phase == InitializePhase.Aborted)
+            {
+                UsefulLogger.LogError(
+                    $"{typeof(TSelf).Name} の初期化は既に中断されています。登録できません : {typeof(T).Name}",
+                    _instance);
                 return false;
             }
 
@@ -192,16 +223,14 @@ namespace UsefulToolkit.Initialization
 
             if (result != CompositionContainer.AddResult.Success)
             {
-                string reason = result == CompositionContainer.AddResult.DuplicateInRootScope
-                    ? "常駐シーンの Compositor が既に同じ型を登録しています"
-                    : "この Compositor が既に同じ型を登録しています";
+                string owner = result == CompositionContainer.AddResult.DuplicateInRootScope
+                    ? "常駐シーンの Compositor"
+                    : "この Compositor";
 
-                UsefulLogger.LogError(
-                    $"依存の登録が重複しています : {typeof(T).Name} ({reason})。" +
-                    "同じ型の実体が複数の経路で配られると参照が分裂する為、このシーンの初期化を中断します。",
-                    _instance);
+                _instance.AbortInitialize(
+                    $"依存の登録が重複しています : {typeof(T).Name} ({owner} が既に同じ型を登録しています)。" +
+                    "同じ型の実体が複数の経路で配られると参照が分裂します。");
 
-                _instance.AbortInitialize();
                 return false;
             }
 
