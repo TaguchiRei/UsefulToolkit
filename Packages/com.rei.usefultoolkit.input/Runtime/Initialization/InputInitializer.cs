@@ -4,6 +4,7 @@ using UsefulToolkit.Attributes;
 using UsefulToolkit.BlackBoard.BlackBoard;
 using UsefulToolkit.BlackBoard.Logger;
 using UsefulToolkit.EngineService.Input;
+using UsefulToolkit.Utility;
 
 namespace UsefulToolkit.Initialization
 {
@@ -19,6 +20,7 @@ namespace UsefulToolkit.Initialization
     /// 依存するため、ここでは行わない。BlackBoard から IInputState を取得したシーン側の
     /// Initializer から、その Dispatcher 越しに呼ぶこと。
     /// </summary>
+    [InitializeOrder(InitializeOrderConst.InitializerEarly)]
     public sealed class InputInitializer : InitializerBase
     {
         [SerializeField] private InputDispatcher _inputDispatcher;

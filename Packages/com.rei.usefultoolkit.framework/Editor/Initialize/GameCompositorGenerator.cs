@@ -13,6 +13,7 @@ using UsefulToolkit.BlackBoard.Scene;
 using UsefulToolkit.Editor.ProjectSettings;
 using UsefulToolkit.Editor.Reflection;
 using UsefulToolkit.Editor.Utility;
+using UsefulToolkit.Attributes;
 
 namespace UsefulToolkit.Editor.Initialize
 {
@@ -168,12 +169,26 @@ namespace UsefulToolkit.Editor.Initialize
 
             return initializers
                 .GroupBy(initializer => initializer.GetType())
-                .OrderBy(group => group.Key.FullName, StringComparer.Ordinal)
+                // 同順位の並びが実行のたびに変わらないよう、順序値の次はフルネームで固定する
+                .OrderBy(group => GetInitializeOrder(group.Key))
+                .ThenBy(group => group.Key.FullName, StringComparer.Ordinal)
                 .Select(group => new GameCompositorSourceBuilder.InitializerField(
                     group.Key,
                     ToFieldName(group.Key.Name, group.Count() > 1),
-                    group.Count() > 1))
+                    group.Count() > 1,
+                    GetInitializeOrder(group.Key)))
                 .ToArray();
+        }
+
+        /// <summary>
+        /// InitializeOrderAttributeが宣言する初期化順を取得する。付いていない型は0を返す。
+        /// </summary>
+        /// <param name="initializerType">初期化順を調べるInitializerの型</param>
+        private static int GetInitializeOrder(Type initializerType)
+        {
+            var attribute = initializerType.GetCustomAttribute<InitializeOrderAttribute>(true);
+
+            return attribute?.Order ?? 0;
         }
 
         /// <summary>

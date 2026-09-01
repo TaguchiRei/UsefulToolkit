@@ -18,11 +18,15 @@ namespace UsefulToolkit.Editor.Initialize
 
         /// <summary>
         /// 常駐シーンのルート GameObject へコンポーネントを追加する。
-        /// 呼ばれる時点で <see cref="UsefulToolkit.EngineService.SceneLoader"/> と
-        /// <see cref="UsefulToolkit.Initialization.UsefulToolkitRuntimeInitializer"/> は既に付いている。
+        /// 呼ばれる時点で <see cref="UsefulToolkit.EngineService.SceneLoader"/>、
+        /// <see cref="UsefulToolkit.Initialization.UsefulToolkitRuntimeInitializer"/>、および
+        /// <see cref="IInitializerTemplateProvider"/> が提供した Initializer は既に付いている。
         /// Compositor はまだ生成されていないため、ここで追加した
         /// <see cref="UsefulToolkit.Initialization.InitializerBase"/> は
         /// 直後に走る <see cref="GameCompositorGenerator"/> の走査対象になる。
+        ///
+        /// 生成された Initializer の型はパッケージ側から参照できないため、それを結線する場合は
+        /// パッケージが提供している抽象基底型で GetComponent すること。
         /// </summary>
         /// <param name="systemRoot">常駐シーンのルート GameObject</param>
         void Contribute(GameObject systemRoot);

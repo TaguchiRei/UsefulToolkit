@@ -11,7 +11,8 @@
         "UsefulToolkit.Framework.Application.Runtime",
         "UsefulToolkit.Framework.BlackBoard.Runtime",
         "UsefulToolkit.Framework.External.Runtime",
-        "UsefulToolkit.Framework.EngineService.Runtime"
+        "UsefulToolkit.Framework.EngineService.Runtime",
+        "UsefulToolkit.Utility"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

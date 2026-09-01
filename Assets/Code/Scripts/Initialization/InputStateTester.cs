@@ -25,7 +25,6 @@ namespace Sandbox.Initialization
         [Tooltip("OnGUI の表示位置。他のテスト用ハーネスと重ならないようにする。")]
         private Vector2 _guiPosition = new Vector2(10f, 450f);
 
-        private IBlackBoard _blackBoard;
         private IInputState _inputState;
 
         private readonly List<IDisposable> _registrations = new();
@@ -39,28 +38,17 @@ namespace Sandbox.Initialization
         private string _asyncRegisterLog = "未実行";
 
         /// <summary>
-        /// 取得元のBlackBoardを保持する。
+        /// IInputStateを取得し、変更通知の購読・入力ソースの橋渡し・コールバック登録を行う。
+        ///
+        /// InputStateの登録もBindもInputInitializerのInitializeより後である必要がある。
+        /// InputInitializerはInitializeOrderConst.InitializerEarlyを宣言しており、
+        /// このクラスは未宣言(0)なので生成されるInitializeAllでは必ず後になる。
         /// </summary>
         public override void Initialize(IBlackBoard blackBoard)
         {
             base.Initialize(blackBoard);
 
-            _blackBoard = blackBoard;
-        }
-
-        /// <summary>
-        /// IInputStateを取得し、変更通知の購読・入力ソースの橋渡し・コールバック登録を行う。
-        ///
-        /// InputStateの登録もBindもInputInitializerのInitializeより後である必要があるが、
-        /// 生成されたInitializeAllの呼び出し順はこのクラスからは決められない。
-        /// Compositorは[DefaultExecutionOrder(-100)]でこのクラスは既定順の為、
-        /// このStartは全InitializerのInitializeが終わった後に呼ばれる。
-        /// </summary>
-        private void Start()
-        {
-            if (_blackBoard == null) return;
-
-            if (!_blackBoard.TryGetStateBoard<InputBoard>(out var inputBoard))
+            if (!blackBoard.TryGetStateBoard<InputBoard>(out var inputBoard))
             {
                 Debug.LogError("[InputStateTester] InputBoardがBlackBoardに登録されていません。", this);
                 return;
