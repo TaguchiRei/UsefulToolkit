@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System;
+using System.IO;
 using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEngine;
@@ -272,6 +273,10 @@ namespace UsefulToolkit.Editor.Ai
                 { style = { fontSize = 15, unityFontStyleAndWeight = FontStyle.Bold, color = Color.white } });
 
             var headerButtons = new VisualElement { style = { flexDirection = FlexDirection.Row } };
+            var execPlanBtn = new Button(OnExecutePlanClicked) { text = "実装計画を実行" };
+            ApplyHeaderButtonStyle(execPlanBtn);
+            headerButtons.Add(execPlanBtn);
+
             var agentsBtn = new Button(() =>
             {
                 var folder = AssetDatabase.LoadAssetAtPath<DefaultAsset>("Assets/Code/Editor/AiChat/Agents/Data");
@@ -616,6 +621,100 @@ namespace UsefulToolkit.Editor.Ai
         }
 
         private void OnClearClicked() => CurrentSession?.ClearHistory();
+
+        private void OnExecutePlanClicked()
+        {
+            var settings = AiChatSettings.Load();
+            string pathSetting = settings != null ? settings.PlanningDocumentsPath : null;
+            if (string.IsNullOrEmpty(pathSetting))
+            {
+                pathSetting = "LocalAssets/UsefulToolkit/AITool/PlanningDocuments";
+            }
+
+            string fullPath = Path.IsPathRooted(pathSetting)
+                ? pathSetting
+                : Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), pathSetting));
+
+            if (!Directory.Exists(fullPath))
+            {
+                try
+                {
+                    Directory.CreateDirectory(fullPath);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[AiChatWindow] Failed to create planning documents directory: {e.Message}");
+                }
+            }
+
+            if (!Directory.Exists(fullPath))
+            {
+                EditorUtility.DisplayDialog("実装計画の実行", $"ディレクトリが存在しません:\n{fullPath}", "OK");
+                return;
+            }
+
+            string[] mdFiles = Directory.GetFiles(fullPath, "*.md", SearchOption.TopDirectoryOnly);
+            if (mdFiles == null || mdFiles.Length == 0)
+            {
+                EditorUtility.DisplayDialog("実装計画の実行", $"ディレクトリ内に .md ファイルが見つかりません。\nパス: {fullPath}", "OK");
+                return;
+            }
+
+            if (_activeAgents == null || _activeAgents.Count == 0)
+            {
+                EditorUtility.DisplayDialog("実装計画の実行", "アクティブなエージェントが登録されていません。", "OK");
+                return;
+            }
+
+            GenericMenu menu = new GenericMenu();
+            foreach (var mdFile in mdFiles)
+            {
+                string fileName = Path.GetFileName(mdFile);
+                foreach (var agent in _activeAgents)
+                {
+                    if (agent == null) continue;
+                    string menuPath = $"{fileName}/{agent.Name}";
+                    string capturedFile = mdFile;
+                    AgentData capturedAgent = agent;
+                    menu.AddItem(new GUIContent(menuPath), false, () => StartImplementationPlan(capturedFile, capturedAgent));
+                }
+            }
+
+            menu.ShowAsContext();
+        }
+
+        private void StartImplementationPlan(string mdFilePath, AgentData agent)
+        {
+            if (agent == null || string.IsNullOrEmpty(mdFilePath) || !File.Exists(mdFilePath)) return;
+
+            string content;
+            try
+            {
+                content = File.ReadAllText(mdFilePath);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[AiChatWindow] Failed to read markdown file: {e.Message}");
+                return;
+            }
+
+            string fileName = Path.GetFileName(mdFilePath);
+            string promptMessage = $"[Implementation Plan: {fileName}]\n\n{content}\n\n上記の実装計画に従って実装を開始してください。";
+
+            AiChatSessionManager.AddMessage(agent, new ChatMessage { Role = "user", Content = promptMessage });
+
+            int targetIndex = _activeAgents.IndexOf(agent);
+            if (targetIndex >= 0 && _selectedAgentIndex != targetIndex)
+            {
+                UnsubscribeCurrentSession();
+                _selectedAgentIndex = targetIndex;
+                SubscribeToSession(CurrentSession);
+                BuildTabs();
+            }
+
+            RefreshChatUI();
+            UpdateStatusUI();
+        }
 
         private void ScrollToBottom() => _chatHistory.RegisterCallback<GeometryChangedEvent>(OnHistoryGeometryChanged);
 

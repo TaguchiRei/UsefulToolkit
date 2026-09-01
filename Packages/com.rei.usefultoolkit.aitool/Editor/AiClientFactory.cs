@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 
 namespace UsefulToolkit.Editor.Ai
@@ -14,14 +14,17 @@ namespace UsefulToolkit.Editor.Ai
             if (type == null)
                 throw new NotSupportedException($"AI Type {typeFullName} is not found.");
 
-            // IAiClientを実装している型に対してインスタンス化を試みる
-            // コンストラクタ引数が異なる場合への対応が課題だが、
-            // 汎用的なIAiClient生成として、一旦Activatorで生成し、
-            // プロパティへのセットを行う。
-            var client = (IAiClient)Activator.CreateInstance(type, apiKey, modelName, systemPrompt);
-            client.TimeoutSeconds = timeoutSeconds;
-            
-            return client;
+            try
+            {
+                var client = (IAiClient)Activator.CreateInstance(type, apiKey, modelName, systemPrompt);
+                client.TimeoutSeconds = timeoutSeconds;
+                return client;
+            }
+            catch (MissingMethodException ex)
+            {
+                throw new MissingMethodException(
+                    $"Constructor on type '{typeFullName}' with arguments (string, string, string) not found. Please ensure {type.Name} has a constructor accepting (string apiKey, string modelName, string systemPrompt).", ex);
+            }
         }
     }
 }
