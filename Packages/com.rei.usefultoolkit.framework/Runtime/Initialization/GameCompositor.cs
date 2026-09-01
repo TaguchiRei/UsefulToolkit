@@ -96,10 +96,8 @@ namespace UsefulToolkit.Initialization
 
             if (SharedBlackBoard == null)
             {
-                UsefulLogger.LogError(
-                    $"{typeof(TSelf).Name} : 共有 BlackBoard が構築されていません。" +
-                    "Root Compositor を持つ常駐シーンを先に読み込んでください。", this);
-                enabled = false;
+                AbortInitialize(
+                    "共有 BlackBoard が構築されていません。Root Compositor を持つ常駐シーンを先に読み込んでください。");
                 return;
             }
 

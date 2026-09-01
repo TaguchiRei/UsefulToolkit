@@ -125,10 +125,13 @@ namespace UsefulToolkit.Initialization
         /// <summary>
         /// <see cref="_startScene"/> が指定されていれば、そのシーンへ単発で遷移する。
         /// Build 登録済みなら SceneState 経由で上書きロードし、未登録なら Editor 専用ロードで開く。
+        /// 待機中にこの Compositor が破棄された場合は、await 以降の処理へ進まず打ち切る。
         /// </summary>
         private async UniTaskVoid TransitionToStartSceneAsync()
         {
             if (string.IsNullOrEmpty(_startScene)) return;
+
+            var token = destroyCancellationToken;
 
             if (!SharedBlackBoard.GetSceneBoard().TryGetGameState<ISceneState>(out var sceneState))
             {
@@ -140,7 +143,8 @@ namespace UsefulToolkit.Initialization
 
             if (buildIndex >= 0)
             {
-                await sceneState.RequestOverwriteLoadAsync(buildIndex, Array.Empty<int>());
+                await sceneState.RequestOverwriteLoadAsync(buildIndex, Array.Empty<int>())
+                    .AttachExternalCancellation(token);
                 return;
             }
 
@@ -154,7 +158,7 @@ namespace UsefulToolkit.Initialization
 
             if (operation == null) return;
 
-            await operation.ToUniTask();
+            await operation.ToUniTask(cancellationToken: token);
 
             var loaded = SceneManager.GetSceneByPath(_startScene);
             if (loaded.IsValid())
