@@ -27,7 +27,7 @@ namespace UsefulToolkit.EngineService.Input
         /// <summary>
         /// InputStateの取得元となるBlackBoardを渡す。Initializeより前に呼ぶこと。
         /// </summary>
-        /// <param name="blackBoard">InputStateBoardを保持しているBlackBoard</param>
+        /// <param name="blackBoard">InputBoardを保持しているBlackBoard</param>
         public void SetBlackBoard(IBlackBoard blackBoard)
         {
             if (blackBoard == null)
@@ -36,15 +36,15 @@ namespace UsefulToolkit.EngineService.Input
                 return;
             }
 
-            if (!blackBoard.TryGetStateBoard<InputBoard>(out var inputStateBoard))
+            if (!blackBoard.TryGetStateBoard<InputBoard>(out var inputBoard))
             {
                 UsefulLogger.LogError(
-                    "InputStateBoard がBlackBoardに登録されていません。" +
+                    "InputBoard がBlackBoardに登録されていません。" +
                     "常駐シーンのRoot Compositorが生成・配置されているか確認してください。", this);
                 return;
             }
 
-            if (!inputStateBoard.TryGetGameState<IInputState>(out var inputState))
+            if (!inputBoard.TryGetGameState<IInputState>(out var inputState))
             {
                 UsefulLogger.LogError(
                     "InputState が登録されていません。" +
@@ -77,7 +77,6 @@ namespace UsefulToolkit.EngineService.Input
 
             // 生成時点のStateの内容をここで初めてエンジンへ反映する
             ApplyInputEnabled(_inputState.InputEnabled);
-            ApplyActiveActionMaps(_inputState.ActiveActionMaps);
 
             if (_inputState.ActiveActionMaps.Count == 0)
             {
@@ -126,6 +125,7 @@ namespace UsefulToolkit.EngineService.Input
 
         /// <summary>
         /// 指定されたActionMapだけを有効にする。列挙に含まれないActionMapは無効化する。
+        /// 入力が無効な間はどのActionMapも有効にしない。
         /// </summary>
         /// <param name="activeActionMaps">有効にするActionMap名</param>
         public void ApplyActiveActionMaps(IReadOnlyList<string> activeActionMaps)
@@ -138,6 +138,7 @@ namespace UsefulToolkit.EngineService.Input
             }
 
             if (activeActionMaps == null) return;
+            if (_inputState != null && !_inputState.InputEnabled) return;
 
             for (int i = 0; i < activeActionMaps.Count; i++)
             {
@@ -153,18 +154,21 @@ namespace UsefulToolkit.EngineService.Input
             }
         }
 
+        /// <summary>
+        /// 入力全体の有効・無効を反映する。有効化する範囲はInputStateが持つActiveActionMapsに従う。
+        /// </summary>
+        /// <param name="inputEnabled">入力を受け付けるか</param>
         public void ApplyInputEnabled(bool inputEnabled)
         {
             if (_actionAsset == null) return;
 
-            if (inputEnabled)
-            {
-                _actionAsset.Enable();
-            }
-            else
+            if (!inputEnabled)
             {
                 _actionAsset.Disable();
+                return;
             }
+
+            ApplyActiveActionMaps(_inputState?.ActiveActionMaps);
         }
 
         #endregion

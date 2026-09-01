@@ -7,7 +7,7 @@ namespace UsefulToolkit.Application.Input
 {
     /// <summary>
     /// <see cref="IInputManager"/>の既定実装。
-    /// InputStateを生成して所有し、InputStateBoardへ<see cref="IInputState"/>として登録する。
+    /// InputStateを生成して所有し、InputBoardへ<see cref="IInputState"/>として登録する。
     ///
     /// 具象のInputStateを保持するのはこのクラスだけなので、
     /// エンジンとの接続を張り替えられるのもこのクラスに限られる。
@@ -18,8 +18,8 @@ namespace UsefulToolkit.Application.Input
         private InputState _inputState;
 
         /// <summary>
-        /// InputStateを生成してInputStateBoardへ登録し、エンジンとの橋渡しを繋ぐ。
-        /// InputStateBoardが未登録の場合は何も生成せずエラーログを出す。
+        /// InputStateを生成してInputBoardへ登録し、エンジンとの橋渡しを繋ぐ。
+        /// InputBoardが未登録の場合は何も生成せずエラーログを出す。
         /// </summary>
         /// <param name="blackBoard">InputStateの登録先</param>
         /// <param name="engineBridge">InputStateへ繋ぐエンジン側の橋渡し</param>
@@ -31,10 +31,10 @@ namespace UsefulToolkit.Application.Input
                 return;
             }
 
-            if (!blackBoard.TryGetStateBoard<InputBoard>(out var inputStateBoard))
+            if (!blackBoard.TryGetStateBoard<InputBoard>(out var inputBoard))
             {
                 UsefulLogger.LogError(
-                    "InputStateBoard がBlackBoardに登録されていない為、InputStateを登録できません。" +
+                    "InputBoard がBlackBoardに登録されていない為、InputStateを登録できません。" +
                     "常駐シーンのRoot Compositorを再生成してください。", this);
                 return;
             }
@@ -42,7 +42,7 @@ namespace UsefulToolkit.Application.Input
             _inputState = new InputState();
             _inputState.RegisterInputEngine(engineBridge);
 
-            inputStateBoard.RegisterGameState<IInputState>(_inputState);
+            inputBoard.RegisterGameState<IInputState>(_inputState);
         }
     }
 }
