@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 using UsefulToolkit.Attributes;
 using UsefulToolkit.Editor.Setting;
@@ -10,5 +10,7 @@ namespace UsefulToolkit.Editor.Ai
     {
         [SerializeReference, SubclassSelector]
         public IAiSettings ActiveClientSettings;
+
+        public string PlanningDocumentsPath = "LocalAssets/UsefulToolkit/AITool/PlanningDocuments";
     }
 }
