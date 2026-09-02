@@ -23,6 +23,11 @@ namespace UsefulToolkit.EngineService.Input
     {
         [SerializeField] private GraphicRaycaster _rayCaster;
 
+        [SerializeField]
+        [Tooltip("タッチを受け付ける UI に付いているタグ。ここに当たった時だけ入力として扱う。")]
+        private string _touchAreaTag = "TouchArea";
+
+        private IInputState _inputState;
         private IInputController _inputController;
         private Enum _map;
         private Enum _action;
@@ -39,11 +44,14 @@ namespace UsefulToolkit.EngineService.Input
         private readonly List<RaycastResult> _raycastResults = new();
 
         /// <summary>
-        /// 入力ソースの登録先を渡す。Initializeより前に呼ぶこと。
+        /// 入力ソースの登録先と、入力を流してよいかの判定に使う読み取り面を渡す。
+        /// Initializeより前に呼ぶこと。
         /// </summary>
+        /// <param name="inputState">InputStateの読み取り面</param>
         /// <param name="inputController">InputStateの操作面</param>
-        public void SetInputController(IInputController inputController)
+        public void SetInput(IInputState inputState, IInputController inputController)
         {
+            _inputState = inputState;
             _inputController = inputController;
         }
 
@@ -58,11 +66,17 @@ namespace UsefulToolkit.EngineService.Input
         {
             base.Initialize();
 
-            if (_inputController == null || _action == null)
+            if (_inputState == null || _inputController == null || _map == null || _action == null)
             {
                 UsefulLogger.LogError(
-                    "InputController/Bindが設定されていません。Initialize()より前にSetInputController/Bindを呼んでください。",
-                    this);
+                    "InputState/InputController/Bindが設定されていません。" +
+                    "Initialize()より前にSetInput/Bindを呼んでください。", this);
+                return;
+            }
+
+            if (_rayCaster == null)
+            {
+                UsefulLogger.LogError("GraphicRaycasterが設定されていない為、タッチ範囲を判定できません。", this);
                 return;
             }
 
@@ -93,7 +107,20 @@ namespace UsefulToolkit.EngineService.Input
 
         private void Update()
         {
-            if (_inputController == null || _action == null) return;
+            if (_inputState == null || _action == null || _rayCaster == null) return;
+
+            // エンジン側がStateの写しである以上、タッチ入力もStateの可否に従う
+            if (!_inputState.InputEnabled || !_inputState.IsActionMapActive(_map))
+            {
+                // 追跡中に無効化された場合は、離した扱いにして状態を戻す
+                if (_isTracking)
+                {
+                    _isTracking = false;
+                    _trackedTouchId = -1;
+                }
+
+                return;
+            }
 
             var touches = Touch.activeTouches;
 
@@ -148,15 +175,13 @@ namespace UsefulToolkit.EngineService.Input
         /// <summary>入力範囲内にあるか、ボタンなどと被っていないかを調べる。</summary>
         private bool IsInsideTouchArea(Vector2 screenPosition)
         {
-            const string TagName = "TouchArea";
-
             _eventData.position = screenPosition;
             _raycastResults.Clear();
             _rayCaster.Raycast(_eventData, _raycastResults);
 
             if (_raycastResults.Count == 0) return false;
 
-            return _raycastResults[0].gameObject != null && _raycastResults[0].gameObject.CompareTag(TagName);
+            return _raycastResults[0].gameObject != null && _raycastResults[0].gameObject.CompareTag(_touchAreaTag);
         }
     }
 }

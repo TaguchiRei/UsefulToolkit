@@ -17,6 +17,7 @@ namespace UsefulToolkit.BlackBoard.Input
     /// DIコンテナ経由で公開する。
     ///
     /// map / action は公開APIの境界でenumから名前の文字列へ変換し、内部では文字列で扱う。
+    /// nullの扱いは、状態を変える操作は例外、値を読むだけの問い合わせは安全な既定値、で統一している。
     /// </summary>
     [RegisterBoard(typeof(InputBoard))]
     public sealed class InputState : GameStateBase, IInputState
@@ -24,11 +25,15 @@ namespace UsefulToolkit.BlackBoard.Input
         /// <summary> (ActionMap名, Action名)ごとのコールバック。値はActionChannel&lt;InputContext&lt;TValue&gt;&gt; </summary>
         private readonly Dictionary<(string Map, string Action), object> _channels = new();
 
-        /// <summary> 入力ソースが繋がっている(ActionMap名, Action名) </summary>
-        private readonly HashSet<(string Map, string Action)> _boundSources = new();
+        /// <summary>
+        /// 入力ソースが繋がっている(ActionMap名, Action名)と、その本数。
+        /// 同じActionへエンジンとタッチなど複数の入力ソースを繋げるため、
+        /// 1本Disposeしただけで「未接続」に戻らないよう本数で持つ。
+        /// </summary>
+        private readonly Dictionary<(string Map, string Action), int> _boundSourceCounts = new();
 
-        /// <summary> エンジン側の入力ソースを繋いだ際の解除ハンドル </summary>
-        private readonly List<IDisposable> _engineBindings = new();
+        /// <summary> エンジン側の入力ソースを繋いだ(ActionMap名, Action名)と、その解除ハンドル </summary>
+        private readonly Dictionary<(string Map, string Action), IDisposable> _engineBindings = new();
 
         /// <summary> 入力ソースが繋がった際に実行するアクション </summary>
         private readonly KeyedActionEntryList<(string Map, string Action)> _sourceBoundActions = new();
@@ -49,7 +54,7 @@ namespace UsefulToolkit.BlackBoard.Input
             string maps = _activeActionMaps.Count == 0 ? "なし" : string.Join(", ", _activeActionMaps);
 
             return $"InputEnabled : {InputEnabled} / ActiveActionMaps : {maps} / " +
-                   $"チャンネル数 : {_channels.Count} / 入力ソース数 : {_boundSources.Count}";
+                   $"チャンネル数 : {_channels.Count} / 入力ソース数 : {_boundSourceCounts.Count}";
         }
 
         /// <summary>
@@ -107,7 +112,9 @@ namespace UsefulToolkit.BlackBoard.Input
 
             if (handler is null) throw new ArgumentNullException(nameof(handler));
 
-            return GetOrCreateChannel<TValue>(key.Map, key.Action).Register(handler);
+            if (!TryGetOrCreateChannel<TValue>(key, out var channel)) return BoardDispose.Empty;
+
+            return channel.Register(handler);
         }
 
         public async UniTask<IDisposable> RegisterInputAsync<TValue>(Enum map, Enum action,
@@ -118,7 +125,7 @@ namespace UsefulToolkit.BlackBoard.Input
 
             if (handler is null) throw new ArgumentNullException(nameof(handler));
 
-            if (!_boundSources.Contains(key))
+            if (!_boundSourceCounts.ContainsKey(key))
             {
                 var completion = new UniTaskCompletionSource();
 
@@ -149,13 +156,14 @@ namespace UsefulToolkit.BlackBoard.Input
 
         /// <summary>
         /// 指定したActionを、エンジン側の入力ソースとしてチャンネルへ繋ぐ。
+        /// 同じActionへ2回目を呼んだ場合は警告を出して何もしない。
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
         /// <param name="action">Actionを表すenum</param>
         /// <exception cref="ArgumentNullException">map・actionがnullのときに出力</exception>
         public void Bind<TValue>(Enum map, Enum action) where TValue : unmanaged
         {
-            ToKey(map, action);
+            var key = ToKey(map, action);
 
             if (_engine == null)
             {
@@ -163,14 +171,22 @@ namespace UsefulToolkit.BlackBoard.Input
                 return;
             }
 
+            // 2本張るとstarted/performed/canceledが二重に流れ、全ハンドラが2回発火する
+            if (_engineBindings.ContainsKey(key))
+            {
+                UsefulLogger.LogWarning($"[{map}.{action}] は既に橋渡し済みの為、Bindを無視しました。", this);
+                return;
+            }
+
             if (!_engine.TryCreateInputSource<TValue>(map, action, out var source)) return;
 
-            _engineBindings.Add(RegisterExternalInputSource(map, action, source));
+            _engineBindings[key] = RegisterExternalInputSource(map, action, source);
         }
 
         /// <summary>
         /// 指定したActionへ入力ソースを繋ぐ。
         /// 入力ソースはチャンネルへの参照を持たず、値の流し込みはここが張るブリッジだけが行う。
+        /// 同じActionへ複数の入力ソースを繋いでよく、その場合はどれが発火しても同じチャンネルへ流れる。
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
         /// <param name="action">Actionを表すenum</param>
@@ -184,12 +200,12 @@ namespace UsefulToolkit.BlackBoard.Input
 
             if (source is null) throw new ArgumentNullException(nameof(source));
 
-            var channel = GetOrCreateChannel<TValue>(key.Map, key.Action);
+            if (!TryGetOrCreateChannel<TValue>(key, out var channel)) return BoardDispose.Empty;
 
             void Handler(InputContext<TValue> context) => channel.Invoke(context);
 
             source.RegisterAction(Handler);
-            _boundSources.Add(key);
+            IncrementBoundSource(key);
 
             // 待機中のRegisterInputAsyncを再開させる
             _sourceBoundActions.Invoke(key);
@@ -197,7 +213,7 @@ namespace UsefulToolkit.BlackBoard.Input
             return new BoardDispose(() =>
             {
                 source.UnRegisterAction(Handler);
-                _boundSources.Remove(key);
+                DecrementBoundSource(key);
             });
         }
 
@@ -276,6 +292,24 @@ namespace UsefulToolkit.BlackBoard.Input
             _activeActionMapsChangedActions.Invoke();
         }
 
+        private void IncrementBoundSource((string Map, string Action) key)
+        {
+            _boundSourceCounts[key] = _boundSourceCounts.TryGetValue(key, out int count) ? count + 1 : 1;
+        }
+
+        private void DecrementBoundSource((string Map, string Action) key)
+        {
+            if (!_boundSourceCounts.TryGetValue(key, out int count)) return;
+
+            if (count <= 1)
+            {
+                _boundSourceCounts.Remove(key);
+                return;
+            }
+
+            _boundSourceCounts[key] = count - 1;
+        }
+
         /// <summary>
         /// enumの組をチャンネルのキーへ変換する。
         /// </summary>
@@ -290,19 +324,49 @@ namespace UsefulToolkit.BlackBoard.Input
             return (map.ToString(), action.ToString());
         }
 
-        private ActionChannel<InputContext<TValue>> GetOrCreateChannel<TValue>(string map, string action)
+        /// <summary>
+        /// 指定したキーのチャンネルを取得する。無ければ作る。
+        /// 既存のチャンネルと値型が食い違う場合は、エラーログを出してfalseを返す。
+        /// </summary>
+        /// <param name="key">(ActionMap名, Action名)</param>
+        /// <param name="channel">取得したチャンネル。失敗時はnull</param>
+        private bool TryGetOrCreateChannel<TValue>(
+            (string Map, string Action) key, out ActionChannel<InputContext<TValue>> channel)
             where TValue : unmanaged
         {
-            var key = (map, action);
-
-            if (_channels.TryGetValue(key, out var raw) && raw is ActionChannel<InputContext<TValue>> channel)
+            if (_channels.TryGetValue(key, out var raw))
             {
-                return channel;
+                channel = raw as ActionChannel<InputContext<TValue>>;
+
+                if (channel != null) return true;
+
+                // 差し替えると、既存のチャンネルを掴んでいる入力ソースの発火先が失われて
+                // 新しく登録したハンドラが一切呼ばれなくなるため、作り直さずに拒否する
+                UsefulLogger.LogError(
+                    $"[{key.Map}.{key.Action}] は既に {ValueTypeNameOf(raw)} 型として登録されている為、" +
+                    $"{typeof(TValue).Name} 型では扱えません。BindとRegisterInputで同じ型を指定してください。", this);
+
+                return false;
             }
 
-            var created = new ActionChannel<InputContext<TValue>>();
-            _channels[key] = created;
-            return created;
+            channel = new ActionChannel<InputContext<TValue>>();
+            _channels[key] = channel;
+            return true;
+        }
+
+        /// <summary>
+        /// ActionChannel&lt;InputContext&lt;TValue&gt;&gt; から、TValueの型名を取り出す。
+        /// </summary>
+        /// <param name="channel">型名を調べるチャンネル</param>
+        private static string ValueTypeNameOf(object channel)
+        {
+            var channelType = channel.GetType();
+
+            if (!channelType.IsGenericType) return channelType.Name;
+
+            var contextType = channelType.GetGenericArguments()[0];
+
+            return contextType.IsGenericType ? contextType.GetGenericArguments()[0].Name : contextType.Name;
         }
     }
 }

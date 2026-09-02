@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEditor.SceneManagement;
@@ -520,44 +519,6 @@ namespace UsefulToolkit.Editor.Initialize
         }
 
         /// <summary>
-        /// Compositorが持つInitializerのフィールドのうち、未設定のものへルート上の実体を割り当てる。
-        /// 常駐シーンではInitializerの取り付けもこのツールが行うため、その参照までを繋いで完結させる。
-        /// 既に設定されているフィールドは利用者が割り当てたものとみなして触らない。
-        /// </summary>
-        /// <param name="compositor">割り当て先のCompositor</param>
-        /// <param name="root">Initializerが載っているルート GameObject</param>
-        private static void AssignInitializerFields(GameCompositor compositor, GameObject root)
-        {
-            var serializedCompositor = new SerializedObject(compositor);
-            bool assigned = false;
-
-            const BindingFlags fieldFlags =
-                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly;
-
-            foreach (var field in compositor.GetType().GetFields(fieldFlags))
-            {
-                if (!typeof(InitializerBase).IsAssignableFrom(field.FieldType)) continue;
-
-                var property = serializedCompositor.FindProperty(field.Name);
-                if (property == null || property.objectReferenceValue != null) continue;
-
-                var component = root.GetComponent(field.FieldType);
-                if (component == null) continue;
-
-                property.objectReferenceValue = component;
-                assigned = true;
-
-                Debug.Log($"[UsefulToolkit] {compositor.GetType().Name}.{field.Name} へ " +
-                          $"{component.GetType().Name} を割り当てました。");
-            }
-
-            if (assigned)
-            {
-                serializedCompositor.ApplyModifiedPropertiesWithoutUndo();
-            }
-        }
-
-        /// <summary>
         /// 指定したシーンを取得する。既にアクティブなら開き直さない。
         /// </summary>
         /// <param name="scenePath">開くシーンのパス</param>
@@ -606,18 +567,14 @@ namespace UsefulToolkit.Editor.Initialize
                 return;
             }
 
-            var compositor = root.GetComponent<GameCompositor>();
-
-            if (compositor == null)
+            if (root.GetComponent<GameCompositor>() == null)
             {
-                compositor = root.AddComponent(CompositorType) as GameCompositor;
+                var compositor = root.AddComponent(CompositorType) as GameCompositor;
 
                 var serializedCompositor = new SerializedObject(compositor);
                 serializedCompositor.FindProperty("_runtimeInitializer").objectReferenceValue = runtimeInitializer;
                 serializedCompositor.ApplyModifiedPropertiesWithoutUndo();
             }
-
-            AssignInitializerFields(compositor, root);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
