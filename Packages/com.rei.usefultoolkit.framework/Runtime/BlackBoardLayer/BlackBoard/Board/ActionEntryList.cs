@@ -27,10 +27,33 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// <exception cref="InvalidOperationException">同じアクションエントリーが既に登録されているときに出力</exception>
         public IDisposable Register(ActionEntry entry, string paramName)
         {
+            Add(entry, paramName);
+
+            return new BoardDispose(() => _entries.Remove(entry));
+        }
+
+        /// <summary>
+        /// 解除用のハンドルを作らずにActionEntryを登録する。解除は<see cref="Remove"/>で行う。
+        /// </summary>
+        /// <param name="entry">登録するActionEntry</param>
+        /// <param name="paramName">例外に含める引数名</param>
+        /// <exception cref="ArgumentNullException">ActionEntryにActionが設定されていないときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションエントリーが既に登録されているときに出力</exception>
+        internal void Add(ActionEntry entry, string paramName)
+        {
             ThrowIfCannotRegister(entry, paramName);
 
             _entries.Add(entry);
-            return new BoardDispose(() => _entries.Remove(entry));
+        }
+
+        /// <summary>
+        /// 登録されているActionEntryを取り除く。
+        /// </summary>
+        /// <param name="entry">取り除くActionEntry</param>
+        /// <returns>取り除けたか</returns>
+        internal bool Remove(ActionEntry entry)
+        {
+            return _entries.Remove(entry);
         }
 
         /// <summary>

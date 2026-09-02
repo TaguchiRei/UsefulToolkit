@@ -22,7 +22,12 @@ namespace UsefulToolkit.BlackBoard.Input
     [RegisterBoard(typeof(InputBoard))]
     public sealed class InputState : GameStateBase, IInputState
     {
-        /// <summary> (ActionMap名, Action名)ごとのコールバック。値はActionChannel&lt;InputContext&lt;TValue&gt;&gt; </summary>
+        /// <summary>
+        /// (ActionMap名, Action名)ごとのコールバック。値はActionChannel&lt;InputContext&lt;TValue&gt;&gt;
+        ///
+        /// ハンドラが空になっても取り除かない。Bindした入力ソースはこのチャンネルを掴んでおり、
+        /// 作り直すと発火先が失われる為。件数は(map, action)の組み合わせの数で頭打ちになる。
+        /// </summary>
         private readonly Dictionary<(string Map, string Action), object> _channels = new();
 
         /// <summary>

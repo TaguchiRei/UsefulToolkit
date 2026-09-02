@@ -53,6 +53,7 @@ namespace UsefulToolkit.BlackBoard.Input
         /// <summary>
         /// 指定したActionへ入力ソースが登録されるのを待ってから、入力コールバックを登録する。
         /// 入力ソースが既に登録済みならその場で登録する。
+        /// 返したIDisposableの解放が登録側の責任になる点は<see cref="RegisterInput{TValue}"/>と同じ。
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
         /// <param name="action">Actionを表すenum</param>

@@ -5,7 +5,8 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// キーごとにActionEntryを登録し、キーを指定してまとめて実行するリスト。
-    /// キーに対応するリストは、そのキーへ初めてRegisterした時点で作られる。
+    /// キーに対応するリストは、そのキーへ初めてRegisterした時点で作られ、
+    /// 登録が全て無くなった時点で取り除かれる。
     /// </summary>
     /// <typeparam name="TKey">Actionの登録先を指定するキー</typeparam>
     public sealed class KeyedActionEntryList<TKey>
@@ -23,13 +24,24 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// <exception cref="InvalidOperationException">同じアクションエントリーが既に登録されているときに出力</exception>
         public IDisposable Register(TKey key, ActionEntry entry, string paramName)
         {
-            if (!_entryLists.TryGetValue(key, out var entryList))
+            if (_entryLists.TryGetValue(key, out var entryList))
             {
+                entryList.Add(entry, paramName);
+            }
+            else
+            {
+                // Addが例外を投げた場合に空のリストだけが残らないよう、登録が通ってから辞書へ入れる
                 entryList = new ActionEntryList();
+                entryList.Add(entry, paramName);
                 _entryLists[key] = entryList;
             }
 
-            return entryList.Register(entry, paramName);
+            return new BoardDispose(() =>
+            {
+                if (!_entryLists.TryGetValue(key, out var target) || !target.Remove(entry)) return;
+
+                RemoveIfEmpty(key);
+            });
         }
 
         /// <summary>
@@ -58,9 +70,25 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// <param name="key">実行するキー</param>
         public void Invoke(TKey key)
         {
-            if (_entryLists.TryGetValue(key, out var entryList))
+            if (!_entryLists.TryGetValue(key, out var entryList)) return;
+
+            entryList.Invoke();
+
+            // DisposeOnUsedのActionEntryはInvokeの中で取り除かれる為、実行後に空になりうる
+            RemoveIfEmpty(key);
+        }
+
+        /// <summary>
+        /// 指定したキーに対応するリストが空なら、そのキーを辞書から取り除く。
+        /// </summary>
+        /// <param name="key">確認するキー</param>
+        private void RemoveIfEmpty(TKey key)
+        {
+            // 実行や解除の最中に再登録されると辞書には別のリストが入っている為、
+            // 取り出し直した現在のリストの件数で判断する
+            if (_entryLists.TryGetValue(key, out var entryList) && entryList.Count == 0)
             {
-                entryList.Invoke();
+                _entryLists.Remove(key);
             }
         }
     }
