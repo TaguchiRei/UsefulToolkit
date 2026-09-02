@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using UnityEditor;
 using UnityEngine;
 
 namespace UsefulToolkit.Editor.Setting
@@ -29,7 +30,9 @@ namespace UsefulToolkit.Editor.Setting
                 Directory.CreateDirectory(directory);
             }
 
-            var json = JsonUtility.ToJson(this, true);
+            // EditorJsonUtility を使う。JsonUtility は [SerializeReference] フィールドを
+            // 書き出さない/読み戻さないため、ポリモーフィック参照を持つ設定が永続化されない。
+            var json = EditorJsonUtility.ToJson(this, true);
             File.WriteAllText(path, json);
         }
 
@@ -37,13 +40,18 @@ namespace UsefulToolkit.Editor.Setting
         {
             var path = SavePath;
 
+            var result = new T();
+
             if (!File.Exists(path))
             {
-                return new T();
+                return result;
             }
 
             var json = File.ReadAllText(path);
-            return JsonUtility.FromJson<T>(json);
+            // FromJsonOverwrite は既存インスタンスへの上書きのみ対応。JSON に存在しない
+            // フィールドは result の初期値のまま残る。
+            EditorJsonUtility.FromJsonOverwrite(json, result);
+            return result;
         }
     }
 }
