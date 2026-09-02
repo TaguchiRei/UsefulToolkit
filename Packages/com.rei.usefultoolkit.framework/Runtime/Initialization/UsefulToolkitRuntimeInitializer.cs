@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UsefulToolkit.BlackBoard.BlackBoard;
 using UsefulToolkit.BlackBoard.Logger;
@@ -22,8 +22,8 @@ namespace UsefulToolkit.Initialization
 
         /// <summary>
         /// シーンシステムを初期化する。
-        /// SceneLoaderが設定されていない場合は、エラーログを出してSceneStateの登録だけを行う。
-        /// その場合、ロード/アンロードの要求はエラーログを出して失敗する。
+        /// SceneLoaderが設定されていない場合は、エラーログを出してSceneStateの登録だけを行い、
+        /// Initializedは立てないまま抜ける。その場合、ロード/アンロードの要求はエラーログを出して失敗する。
         /// </summary>
         /// <param name="blackBoard">SceneStateの登録先</param>
         public override void Initialize(IBlackBoard blackBoard)
@@ -34,7 +34,6 @@ namespace UsefulToolkit.Initialization
             if (_sceneLoader == null)
             {
                 UsefulLogger.LogError("SceneLoaderが設定されていない為、シーンの操作を行えません。", this);
-                base.Initialize(blackBoard);
                 return;
             }
 

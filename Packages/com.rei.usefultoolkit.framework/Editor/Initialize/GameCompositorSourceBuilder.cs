@@ -31,11 +31,15 @@ namespace UsefulToolkit.Editor.Initialize
             /// <summary>同じ型が複数個体あるならList、1つならそのまま参照する。</summary>
             public readonly bool IsList;
 
-            public InitializerField(Type initializerType, string fieldName, bool isList)
+            /// <summary>InitializeOrderAttributeが宣言する初期化順。未宣言なら0。</summary>
+            public readonly int Order;
+
+            public InitializerField(Type initializerType, string fieldName, bool isList, int order)
             {
                 InitializerType = initializerType;
                 FieldName = fieldName;
                 IsList = isList;
+                Order = order;
             }
         }
 
@@ -235,9 +239,12 @@ namespace UsefulToolkit.Editor.Initialize
 
             foreach (var field in fields)
             {
+                // 既定値のままのものは並びの根拠にならないので出さない
+                string orderComment = field.Order == 0 ? string.Empty : $" // order: {field.Order}";
+
                 if (field.IsList)
                 {
-                    builder.AppendLine($"            foreach (var target in {field.FieldName})");
+                    builder.AppendLine($"            foreach (var target in {field.FieldName}){orderComment}");
                     builder.AppendLine("            {");
                     builder.AppendLine("                if (target != null) target.Initialize(blackBoard);");
                     builder.AppendLine("            }");
@@ -245,7 +252,7 @@ namespace UsefulToolkit.Editor.Initialize
                 else
                 {
                     builder.AppendLine(
-                        $"            if ({field.FieldName} != null) {field.FieldName}.Initialize(blackBoard);");
+                        $"            if ({field.FieldName} != null) {field.FieldName}.Initialize(blackBoard);{orderComment}");
                 }
             }
 

@@ -1,21 +1,18 @@
-using UnityEngine.InputSystem;
-
 namespace UsefulToolkit.BlackBoard.Input
 {
     /// <summary>
-    /// InputBoardのチャンネルを流れるペイロード。InputActionの1コールバック分の
-    /// phaseと値を運ぶ。EventChannel&lt;InputContext&lt;TValue&gt;&gt;を通じてApplicationへ届く。
+    /// 入力のチャンネルを流れるペイロード。1コールバック分のphaseと値を運ぶ。
     /// </summary>
     public readonly struct InputContext<TValue> where TValue : unmanaged
     {
-        public InputActionPhase Phase { get; }
+        public InputPhase Phase { get; }
         public TValue Value { get; }
 
-        public bool IsStarted => Phase == InputActionPhase.Started;
-        public bool IsPerformed => Phase == InputActionPhase.Performed;
-        public bool IsCanceled => Phase == InputActionPhase.Canceled;
+        public bool IsStarted => Phase == InputPhase.Started;
+        public bool IsPerformed => Phase == InputPhase.Performed;
+        public bool IsCanceled => Phase == InputPhase.Canceled;
 
-        public InputContext(InputActionPhase phase, TValue value)
+        public InputContext(InputPhase phase, TValue value)
         {
             Phase = phase;
             Value = value;

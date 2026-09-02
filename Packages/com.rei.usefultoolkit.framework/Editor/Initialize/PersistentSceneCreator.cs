@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -12,8 +13,16 @@ namespace UsefulToolkit.Editor.Initialize
 {
     /// <summary>
     /// UsefulToolkitの初期化を行う常駐シーンを作成する。
-    /// SceneLoaderとUsefulToolkitRuntimeInitializerを配置したシーンを保存し、
-    /// そのシーン用のCompositorを生成したうえで、コンパイル完了後にシーンへ組み込む。
+    /// 処理はドメインリロードを2回挟んだ3段階に分かれる。
+    ///
+    /// 1. シーンの骨組み(SceneLoader / UsefulToolkitRuntimeInitializer)を保存し、
+    ///    <see cref="IInitializerTemplateProvider"/> が提供するInitializerのソースを生成する。
+    /// 2. 生成されたInitializerをルートへ取り付け、<see cref="IPersistentSceneContributor"/> に
+    ///    結線させたうえで、そのシーン用のCompositorを生成する。
+    /// 3. 生成されたCompositorをシーンへ取り付ける。
+    ///
+    /// 段階1・2はソースを書き出した場合のみコンパイルを挟む。書き出しが無かった場合は
+    /// <see cref="DidReloadScriptsAttribute"/> が呼ばれないため、その場で次の段階へ進む。
     /// </summary>
     public static class PersistentSceneCreator
     {
@@ -21,12 +30,24 @@ namespace UsefulToolkit.Editor.Initialize
         private const string DefaultSceneName = "UsefulToolkitPersistent";
 
         // ドメインリロードを挟んで続きを行うため、途中経過をSessionStateへ預ける
+        private const string PendingStageKey = "UsefulToolkit.PersistentSceneCreator.Stage";
         private const string PendingScenePathKey = "UsefulToolkit.PersistentSceneCreator.ScenePath";
+        private const string PendingDirectoryKey = "UsefulToolkit.PersistentSceneCreator.Directory";
+        private const string PendingInitializerNamesKey = "UsefulToolkit.PersistentSceneCreator.InitializerNames";
         private const string PendingClassNameKey = "UsefulToolkit.PersistentSceneCreator.ClassName";
 
+        /// <summary>生成したInitializerの取り付けとCompositor生成を行う段階。</summary>
+        private const string StageAttachInitializers = "AttachInitializers";
+
+        /// <summary>生成したCompositorの取り付けを行う段階。</summary>
+        private const string StageAttachCompositor = "AttachCompositor";
+
+        /// <summary>生成したInitializerのクラス名をSessionStateへ詰める際の区切り。</summary>
+        private const char NameSeparator = ';';
+
         /// <summary>
-        /// 常駐シーンを作成し、Compositorの生成まで行う。
-        /// Compositorコンポーネントの取り付けは、コンパイルが終わってから自動で続行される。
+        /// 常駐シーンを作成し、Initializerとそのシーン用のCompositorの生成まで行う。
+        /// コンポーネントの取り付けは、コンパイルが終わってから自動で続行される。
         /// </summary>
         [MenuItem("UsefulToolkit/Scene/GenerateUsefulPersistentScene", false, 20)]
         public static void CreatePersistentScene()
@@ -55,7 +76,7 @@ namespace UsefulToolkit.Editor.Initialize
                 }
 
                 RegisterToBuildSettings(existingScenePath);
-                ContinueWithGeneration(
+                GenerateInitializers(
                     existingScene,
                     existingScenePath,
                     FindExistingCompositorDirectory(existingScene.name, existingScenePath));
@@ -84,21 +105,124 @@ namespace UsefulToolkit.Editor.Initialize
             }
 
             RegisterToBuildSettings(scenePath);
-            ContinueWithGeneration(scene, scenePath, compositorDirectory);
+            GenerateInitializers(scene, scenePath, compositorDirectory);
         }
 
         /// <summary>
-        /// シーンの保存後に共通で行う、Compositorの生成とコンパイル完了後の取り付け予約。
+        /// 段階1。<see cref="IInitializerTemplateProvider"/> が提供するInitializerのソースを生成し、
+        /// コンパイル完了後の取り付けを予約する。
         /// </summary>
         /// <param name="scene">保存済みの常駐シーン</param>
         /// <param name="scenePath">常駐シーンのパス</param>
-        /// <param name="compositorDirectory">Compositorスクリプトを生成するAssets配下のディレクトリ</param>
-        private static void ContinueWithGeneration(
-            UnityEngine.SceneManagement.Scene scene, string scenePath, string compositorDirectory)
+        /// <param name="saveDirectory">スクリプトを生成するAssets配下のディレクトリ</param>
+        private static void GenerateInitializers(
+            UnityEngine.SceneManagement.Scene scene, string scenePath, string saveDirectory)
         {
-            var result = GameCompositorGenerator.GenerateTo(scene, compositorDirectory);
+            string compositorClassName = GameCompositorGenerator.ToCompositorClassName(scene.name);
+            var result = InitializerTemplateGenerator.Generate(saveDirectory, compositorClassName, scene.name);
+
+            // 1件も書き出していなければコンパイルが走らず[DidReloadScripts]も呼ばれないので、その場で続ける
+            if (result.WrittenCount == 0)
+            {
+                AttachInitializersTo(scenePath, saveDirectory, result.ClassNames);
+                return;
+            }
+
+            SessionState.SetString(PendingStageKey, StageAttachInitializers);
+            SessionState.SetString(PendingScenePathKey, scenePath);
+            SessionState.SetString(PendingDirectoryKey, saveDirectory);
+            SessionState.SetString(
+                PendingInitializerNamesKey, string.Join(NameSeparator.ToString(), result.ClassNames));
+
+            AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// 段階2。生成されたInitializerを常駐シーンのルートへ取り付け、Contributorに結線させたうえで
+        /// Compositorを生成する。
+        /// </summary>
+        /// <param name="scenePath">常駐シーンのパス</param>
+        /// <param name="saveDirectory">スクリプトを生成するAssets配下のディレクトリ</param>
+        /// <param name="classNames">生成対象として宣言されたInitializerのクラス名</param>
+        private static void AttachInitializersTo(
+            string scenePath, string saveDirectory, IReadOnlyList<string> classNames)
+        {
+            var scene = OpenOrGetScene(scenePath);
+            if (!scene.IsValid())
+            {
+                Debug.LogWarning($"[UsefulToolkit] {scenePath} を開けなかった為、Initializerの取り付けを中止しました。");
+                return;
+            }
+
+            var root = scene.GetRootGameObjects().FirstOrDefault(target => target.name == RootObjectName);
+            if (root == null)
+            {
+                Debug.LogWarning($"[UsefulToolkit] {scenePath} に {RootObjectName} が見つからなかった為、" +
+                                 "Initializerの取り付けを中止しました。");
+                return;
+            }
+
+            foreach (var className in classNames)
+            {
+                var initializerType = TypeCache.GetTypesDerivedFrom<InitializerBase>()
+                    .FirstOrDefault(type => !type.IsAbstract && type.Name == className);
+
+                if (initializerType == null)
+                {
+                    Debug.LogWarning(
+                        $"[UsefulToolkit] 生成したInitializer [{className}] が見つかりませんでした。" +
+                        "コンパイルエラーを解消してから再実行してください。");
+                    continue;
+                }
+
+                if (root.GetComponent(initializerType) == null)
+                {
+                    root.AddComponent(initializerType);
+                }
+            }
+
+            // 生成したInitializerが載った状態でContributorを呼ぶ。Contributorは生成型を参照できない為、
+            // 抽象基底型でGetComponentして結線する前提になっている。
+            InvokeContributors(root);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            if (!EditorSceneManager.SaveScene(scene, scenePath))
+            {
+                Debug.LogWarning($"[UsefulToolkit] {scenePath} を保存できなかった為、Compositorの生成を中止しました。");
+                return;
+            }
+
+            GenerateCompositor(scene, scenePath, saveDirectory);
+        }
+
+        /// <summary>
+        /// 段階3の準備。Compositorを生成し、コンパイル完了後の取り付けを予約する。
+        /// </summary>
+        /// <param name="scene">保存済みの常駐シーン</param>
+        /// <param name="scenePath">常駐シーンのパス</param>
+        /// <param name="saveDirectory">Compositorスクリプトを生成するAssets配下のディレクトリ</param>
+        private static void GenerateCompositor(
+            UnityEngine.SceneManagement.Scene scene, string scenePath, string saveDirectory)
+        {
+            string filePath = Path
+                .Combine(saveDirectory, GameCompositorGenerator.ToCompositorClassName(scene.name) + ".cs")
+                .Replace('\\', '/');
+
+            string before = File.Exists(filePath) ? File.ReadAllText(filePath) : null;
+
+            var result = GameCompositorGenerator.GenerateTo(scene, saveDirectory);
             string className = Path.GetFileNameWithoutExtension(result.FilePath);
 
+            // 内容が変わっていなければコンパイルが走らず[DidReloadScripts]も呼ばれないので、その場で続ける
+            bool changed = before == null || before != File.ReadAllText(result.FilePath);
+
+            if (!changed)
+            {
+                AttachCompositorTo(scenePath, className);
+                return;
+            }
+
+            SessionState.SetString(PendingStageKey, StageAttachCompositor);
             SessionState.SetString(PendingScenePathKey, scenePath);
             SessionState.SetString(PendingClassNameKey, className);
 
@@ -232,8 +356,6 @@ namespace UsefulToolkit.Editor.Initialize
             serializedInitializer.FindProperty("_sceneLoader").objectReferenceValue = sceneLoader;
             serializedInitializer.ApplyModifiedPropertiesWithoutUndo();
 
-            InvokeContributors(root);
-
             EditorSceneManager.MarkSceneDirty(scene);
             if (EditorSceneManager.SaveScene(scene, scenePath))
             {
@@ -260,8 +382,6 @@ namespace UsefulToolkit.Editor.Initialize
             var serializedInitializer = new SerializedObject(runtimeInitializer);
             serializedInitializer.FindProperty("_sceneLoader").objectReferenceValue = sceneLoader;
             serializedInitializer.ApplyModifiedPropertiesWithoutUndo();
-
-            InvokeContributors(root);
 
             if (EditorSceneManager.SaveScene(scene, scenePath))
             {
@@ -350,25 +470,65 @@ namespace UsefulToolkit.Editor.Initialize
         }
 
         /// <summary>
-        /// コンパイル完了後に、生成されたCompositorを常駐シーンへ取り付ける。
+        /// コンパイル完了後に、中断していた段階の続きを実行する。
         /// 作成が進行中でない場合は何もしない。
         /// </summary>
         [DidReloadScripts]
-        private static void AttachGeneratedCompositor()
+        private static void ContinuePendingCreation()
         {
-            string scenePath = SessionState.GetString(PendingScenePathKey, string.Empty);
-            string className = SessionState.GetString(PendingClassNameKey, string.Empty);
-
-            if (string.IsNullOrEmpty(scenePath) || string.IsNullOrEmpty(className))
+            string stage = SessionState.GetString(PendingStageKey, string.Empty);
+            if (string.IsNullOrEmpty(stage))
             {
                 return;
             }
 
+            string scenePath = SessionState.GetString(PendingScenePathKey, string.Empty);
+            string saveDirectory = SessionState.GetString(PendingDirectoryKey, string.Empty);
+            string initializerNames = SessionState.GetString(PendingInitializerNamesKey, string.Empty);
+            string className = SessionState.GetString(PendingClassNameKey, string.Empty);
+
             // 処理の成否に関わらず、SessionStateのキーを先に消す
+            SessionState.EraseString(PendingStageKey);
             SessionState.EraseString(PendingScenePathKey);
+            SessionState.EraseString(PendingDirectoryKey);
+            SessionState.EraseString(PendingInitializerNamesKey);
             SessionState.EraseString(PendingClassNameKey);
 
-            EditorApplication.delayCall += () => AttachCompositorTo(scenePath, className);
+            if (string.IsNullOrEmpty(scenePath))
+            {
+                return;
+            }
+
+            switch (stage)
+            {
+                case StageAttachInitializers:
+                    var classNames = initializerNames.Split(
+                        new[] { NameSeparator }, StringSplitOptions.RemoveEmptyEntries);
+                    EditorApplication.delayCall +=
+                        () => AttachInitializersTo(scenePath, saveDirectory, classNames);
+                    break;
+
+                case StageAttachCompositor:
+                    if (!string.IsNullOrEmpty(className))
+                    {
+                        EditorApplication.delayCall += () => AttachCompositorTo(scenePath, className);
+                    }
+
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 指定したシーンを取得する。既にアクティブなら開き直さない。
+        /// </summary>
+        /// <param name="scenePath">開くシーンのパス</param>
+        private static UnityEngine.SceneManagement.Scene OpenOrGetScene(string scenePath)
+        {
+            var activeScene = EditorSceneManager.GetActiveScene();
+
+            return activeScene.path == scenePath
+                ? activeScene
+                : EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
         }
 
         /// <summary>
@@ -389,10 +549,7 @@ namespace UsefulToolkit.Editor.Initialize
                 return;
             }
 
-            var activeScene = EditorSceneManager.GetActiveScene();
-            var scene = activeScene.path == scenePath
-                ? activeScene
-                : EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            var scene = OpenOrGetScene(scenePath);
 
             if (!scene.IsValid())
             {
@@ -412,9 +569,9 @@ namespace UsefulToolkit.Editor.Initialize
 
             if (root.GetComponent<GameCompositor>() == null)
             {
-                var Compositor = root.AddComponent(CompositorType) as GameCompositor;
+                var compositor = root.AddComponent(CompositorType) as GameCompositor;
 
-                var serializedCompositor = new SerializedObject(Compositor);
+                var serializedCompositor = new SerializedObject(compositor);
                 serializedCompositor.FindProperty("_runtimeInitializer").objectReferenceValue = runtimeInitializer;
                 serializedCompositor.ApplyModifiedPropertiesWithoutUndo();
             }
