@@ -13,6 +13,12 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
     {
         private readonly List<Action<TPayload>> _handlers = new();
 
+        /// <summary> Invokeで走査する配列。登録内容が変わるまで使い回す </summary>
+        private Action<TPayload>[] _snapshot = Array.Empty<Action<TPayload>>();
+
+        /// <summary> 登録内容が変わり、スナップショットの作り直しが必要か </summary>
+        private bool _snapshotDirty;
+
         /// <summary>
         /// ハンドラを登録する。返り値のIDisposableをDisposeすることで解除する。
         /// </summary>
@@ -31,7 +37,12 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
             }
 
             _handlers.Add(handler);
-            return new BoardDispose(() => _handlers.Remove(handler));
+            _snapshotDirty = true;
+
+            return new BoardDispose(() =>
+            {
+                if (_handlers.Remove(handler)) _snapshotDirty = true;
+            });
         }
 
         /// <summary>
@@ -40,8 +51,15 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
         /// <param name="payload">ハンドラへ渡す値</param>
         public void Invoke(TPayload payload)
         {
-            // Invoke中にハンドラ側がRegister/Unregisterしてもこの走査には影響しないようスナップショットする
-            var snapshot = _handlers.ToArray();
+            if (_snapshotDirty)
+            {
+                _snapshot = _handlers.ToArray();
+                _snapshotDirty = false;
+            }
+
+            // 走査中にハンドラ側がRegister/Unregisterしても、作り直されるのは次回のInvokeからになる。
+            // ローカルへ退避しておくことで、入れ子のInvokeが作り直してもこの回の走査対象は変わらない
+            var snapshot = _snapshot;
             foreach (var handler in snapshot)
             {
                 handler.Invoke(payload);

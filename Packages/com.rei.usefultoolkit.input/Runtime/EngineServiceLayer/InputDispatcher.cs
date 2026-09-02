@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -18,6 +18,9 @@ namespace UsefulToolkit.EngineService.Input
     public sealed class InputDispatcher : InitializableMonoBehaviour, IInputEngineBridge
     {
         [SerializeField] private InputActionAsset _actionAsset;
+
+        /// <summary> 見つからなかった旨を既に警告した(map, action)の組み合わせ </summary>
+        private readonly HashSet<(string Map, string Action)> _warnedMissingActions = new();
 
         /// <summary>
         /// InputActionAssetが設定されているか確認する。
@@ -97,7 +100,8 @@ namespace UsefulToolkit.EngineService.Input
         #endregion
 
         /// <summary>
-        /// InputActionAssetから指定されたActionを取得する。見つからない場合は警告を出してnullを返す。
+        /// InputActionAssetから指定されたActionを取得する。
+        /// 見つからない場合はnullを返し、同じ組み合わせにつき一度だけ警告を出す。
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
         /// <param name="action">Actionを表すenum</param>
@@ -105,11 +109,14 @@ namespace UsefulToolkit.EngineService.Input
         {
             if (_actionAsset == null || map == null || action == null) return null;
 
-            var inputAction = _actionAsset.FindActionMap(map.ToString())?.FindAction(action.ToString());
+            string mapName = map.ToString();
+            string actionName = action.ToString();
+            var inputAction = _actionAsset.FindActionMap(mapName)?.FindAction(actionName);
 
-            if (inputAction == null)
+            // ReadValueは毎フレーム呼ばれうる経路のため、同じ組み合わせの警告は最初の一度だけ出す
+            if (inputAction == null && _warnedMissingActions.Add((mapName, actionName)))
             {
-                UsefulLogger.LogWarning($"[{map}.{action}] が見つかりませんでした。", this);
+                UsefulLogger.LogWarning($"[{mapName}.{actionName}] が見つかりませんでした。", this);
             }
 
             return inputAction;
@@ -144,7 +151,14 @@ namespace UsefulToolkit.EngineService.Input
 
             public void RegisterAction(Action<InputContext<TValue>> handler)
             {
-                _handler = handler;
+                if (handler == null) return;
+
+                bool wasEmpty = _handler == null;
+                _handler += handler;
+
+                // ハンドラが1つも無い間はInputActionを購読しない
+                if (!wasEmpty) return;
+
                 _action.started += OnCallback;
                 _action.performed += OnCallback;
                 _action.canceled += OnCallback;
@@ -152,10 +166,14 @@ namespace UsefulToolkit.EngineService.Input
 
             public void UnRegisterAction(Action<InputContext<TValue>> handler)
             {
+                if (handler == null || _handler == null) return;
+
+                _handler -= handler;
+                if (_handler != null) return;
+
                 _action.started -= OnCallback;
                 _action.performed -= OnCallback;
                 _action.canceled -= OnCallback;
-                _handler = null;
             }
 
             private void OnCallback(InputAction.CallbackContext ctx) =>

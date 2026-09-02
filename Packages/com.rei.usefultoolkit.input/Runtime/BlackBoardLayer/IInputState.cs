@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -71,6 +71,8 @@ namespace UsefulToolkit.BlackBoard.Input
         /// </summary>
         /// <param name="changedAction">変化時に実行するアクション。引数に変更前後の値が入る</param>
         /// <returns>Disposeすると登録を解除できる</returns>
+        /// <exception cref="ArgumentNullException">changedActionにActionが設定されていないときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションが既に登録されているときに出力</exception>
         IDisposable RegisterEventOnInputEnabledChanged(ActionEntry<StateContext<bool>> changedAction);
 
         /// <summary>
@@ -78,6 +80,8 @@ namespace UsefulToolkit.BlackBoard.Input
         /// </summary>
         /// <param name="changedAction">変化時に実行するアクション</param>
         /// <returns>Disposeすると登録を解除できる</returns>
+        /// <exception cref="ArgumentNullException">changedActionにActionが設定されていないときに出力</exception>
+        /// <exception cref="InvalidOperationException">同じアクションが既に登録されているときに出力</exception>
         IDisposable RegisterEventOnActiveActionMapsChanged(ActionEntry changedAction);
     }
 }
