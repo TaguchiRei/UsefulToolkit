@@ -21,6 +21,7 @@ namespace UsefulToolkit.Application.Input
         /// </summary>
         /// <param name="blackBoard">InputStateの登録先</param>
         /// <param name="engineBridge">InputStateへ繋ぐエンジン側の橋渡し</param>
-        void Initialize(IBlackBoard blackBoard, IInputEngineBridge engineBridge);
+        /// <returns>生成と登録に成功した場合はtrue。失敗した場合はfalseで、InputStateは生成されない</returns>
+        bool Initialize(IBlackBoard blackBoard, IInputEngineBridge engineBridge);
     }
 }

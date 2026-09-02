@@ -112,11 +112,12 @@ namespace UsefulToolkit.EngineService.Input
             // エンジン側がStateの写しである以上、タッチ入力もStateの可否に従う
             if (!_inputState.InputEnabled || !_inputState.IsActionMapActive(_map))
             {
-                // 追跡中に無効化された場合は、離した扱いにして状態を戻す
+                // 追跡中に無効化された場合は、指を離した時と同じく打ち切りを通知して状態を戻す
                 if (_isTracking)
                 {
                     _isTracking = false;
                     _trackedTouchId = -1;
+                    RaiseInput(InputPhase.Canceled, Vector2.zero);
                 }
 
                 return;

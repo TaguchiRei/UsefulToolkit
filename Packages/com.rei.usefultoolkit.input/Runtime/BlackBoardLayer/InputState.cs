@@ -72,8 +72,9 @@ namespace UsefulToolkit.BlackBoard.Input
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
 
-            // エンジンをStateの写しに保つ責務はState側にあるため、接続の時点で押し込む
-            _engine.Apply(InputEnabled, _activeActionMaps);
+            // エンジンをStateの写しに保つ責務はState側にあるため、接続の時点で押し込む。
+            // 接続前のエンジンのActionMapの有効状態は不定なので、全リセットしてから反映する
+            _engine.ApplyExclusive(InputEnabled, _activeActionMaps);
         }
 
         #region IInputState実装 : 状態の確認
@@ -190,6 +191,11 @@ namespace UsefulToolkit.BlackBoard.Input
 
             if (!_engine.TryCreateInputSource<TValue>(map, action, out var source)) return;
 
+            // 型が食い違う等でチャンネルを確保できない場合は、RegisterExternalInputSourceが
+            // 何も解除しないハンドルを返す。それを_engineBindingsへ入れると以降の正しい型での
+            // Bindが「既に橋渡し済み」で弾かれ続けるため、先に確保できるか確かめる
+            if (!TryGetOrCreateChannel<TValue>(key, out _)) return;
+
             _engineBindings[key] = RegisterExternalInputSource(map, action, source);
         }
 
@@ -236,13 +242,13 @@ namespace UsefulToolkit.BlackBoard.Input
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
 
-            string name = map.ToString();
+            string name = EnumNameCache.GetName(map);
 
             if (_activeActionMaps.Count == 1 && _activeActionMaps[0] == name) return;
 
             _activeActionMaps.Clear();
             _activeActionMaps.Add(name);
-            OnActiveActionMapsChanged();
+            OnActiveActionMapSwitched();
         }
 
         /// <summary>
@@ -254,7 +260,7 @@ namespace UsefulToolkit.BlackBoard.Input
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
 
-            string name = map.ToString();
+            string name = EnumNameCache.GetName(map);
 
             if (_activeActionMaps.Contains(name)) return;
 
@@ -271,7 +277,7 @@ namespace UsefulToolkit.BlackBoard.Input
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
 
-            if (!_activeActionMaps.Remove(map.ToString())) return;
+            if (!_activeActionMaps.Remove(EnumNameCache.GetName(map))) return;
 
             OnActiveActionMapsChanged();
         }
@@ -299,6 +305,16 @@ namespace UsefulToolkit.BlackBoard.Input
         private void OnActiveActionMapsChanged()
         {
             _engine?.Apply(InputEnabled, _activeActionMaps);
+            _activeActionMapsChangedActions.Invoke();
+        }
+
+        /// <summary>
+        /// ActionMapを作り直す形の変更をエンジンへ反映し、変更通知を実行する。
+        /// 進行中の入力を打ち切りたいSwitchActionMap専用。追加・削除は<see cref="OnActiveActionMapsChanged"/>。
+        /// </summary>
+        private void OnActiveActionMapSwitched()
+        {
+            _engine?.ApplyExclusive(InputEnabled, _activeActionMaps);
             _activeActionMapsChangedActions.Invoke();
         }
 

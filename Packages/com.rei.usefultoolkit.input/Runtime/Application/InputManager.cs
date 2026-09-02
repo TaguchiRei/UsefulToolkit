@@ -24,12 +24,13 @@ namespace UsefulToolkit.Application.Input
         /// </summary>
         /// <param name="blackBoard">InputStateの登録先</param>
         /// <param name="engineBridge">InputStateへ繋ぐエンジン側の橋渡し</param>
-        public virtual void Initialize(IBlackBoard blackBoard, IInputEngineBridge engineBridge)
+        /// <returns>生成と登録に成功した場合はtrue。失敗した場合はfalseで、InputStateは生成されない</returns>
+        public virtual bool Initialize(IBlackBoard blackBoard, IInputEngineBridge engineBridge)
         {
             if (engineBridge == null)
             {
                 UsefulLogger.LogError("エンジンとの橋渡しが渡されていない為、InputStateを生成できません。", this);
-                return;
+                return false;
             }
 
             if (!blackBoard.TryGetStateBoard<InputBoard>(out var inputBoard))
@@ -37,13 +38,14 @@ namespace UsefulToolkit.Application.Input
                 UsefulLogger.LogError(
                     "InputBoard がBlackBoardに登録されていない為、InputStateを登録できません。" +
                     "常駐シーンのRoot Compositorを再生成してください。", this);
-                return;
+                return false;
             }
 
             _inputState = new InputState();
             _inputState.RegisterInputEngine(engineBridge);
 
             inputBoard.RegisterGameState<IInputState>(_inputState);
+            return true;
         }
 
         #region IInputController実装 : 所有しているInputStateへの委譲

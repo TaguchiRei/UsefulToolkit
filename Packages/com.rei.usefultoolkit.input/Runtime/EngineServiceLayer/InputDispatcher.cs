@@ -72,11 +72,38 @@ namespace UsefulToolkit.EngineService.Input
 
         /// <summary>
         /// 指定されたActionMapだけを有効にする。列挙に含まれないActionMapは無効化する。
+        /// 既に有効なActionMapには触れないため、進行中の入力は中断されない。
         /// 入力が無効な間はどのActionMapも有効にしない。
         /// </summary>
         /// <param name="inputEnabled">入力を受け付けるか</param>
         /// <param name="activeActionMaps">有効にするActionMap名</param>
         public void Apply(bool inputEnabled, IReadOnlyList<string> activeActionMaps)
+        {
+            if (_actionAsset == null) return;
+
+            var targets = inputEnabled ? activeActionMaps : null;
+
+            foreach (var actionMap in _actionAsset.actionMaps)
+            {
+                bool shouldEnable = targets != null && Contains(targets, actionMap.name);
+
+                if (shouldEnable == actionMap.enabled) continue;
+
+                if (shouldEnable) actionMap.Enable();
+                else actionMap.Disable();
+            }
+
+            WarnUnknownActionMaps(targets);
+        }
+
+        /// <summary>
+        /// 全ActionMapを一度無効化してから、指定されたActionMapだけを有効にする。
+        /// 有効なままになるActionMapも張り直すため、進行中の入力は打ち切られる。
+        /// 入力が無効な間はどのActionMapも有効にしない。
+        /// </summary>
+        /// <param name="inputEnabled">入力を受け付けるか</param>
+        /// <param name="activeActionMaps">有効にするActionMap名</param>
+        public void ApplyExclusive(bool inputEnabled, IReadOnlyList<string> activeActionMaps)
         {
             if (_actionAsset == null) return;
 
@@ -102,6 +129,39 @@ namespace UsefulToolkit.EngineService.Input
         }
 
         #endregion
+
+        /// <summary>
+        /// 要求されたActionMap名のうち、InputActionAssetに存在しないものを警告する。
+        /// 差分適用ではFindActionMapを通らないため、ここで別途調べる。
+        /// </summary>
+        /// <param name="actionMapNames">要求されたActionMap名。nullなら何もしない</param>
+        private void WarnUnknownActionMaps(IReadOnlyList<string> actionMapNames)
+        {
+            if (actionMapNames == null) return;
+
+            for (int i = 0; i < actionMapNames.Count; i++)
+            {
+                if (_actionAsset.FindActionMap(actionMapNames[i]) == null)
+                {
+                    UsefulLogger.LogWarning($"ActionMap [{actionMapNames[i]}] が見つかりませんでした。", this);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 名前の一覧に指定の名前が含まれるか。LINQを避けて確保を起こさない。
+        /// </summary>
+        /// <param name="names">調べる一覧</param>
+        /// <param name="name">探す名前</param>
+        private static bool Contains(IReadOnlyList<string> names, string name)
+        {
+            for (int i = 0; i < names.Count; i++)
+            {
+                if (names[i] == name) return true;
+            }
+
+            return false;
+        }
 
         /// <summary>
         /// InputActionAssetから指定されたActionを取得する。

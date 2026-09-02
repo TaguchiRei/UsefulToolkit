@@ -62,7 +62,11 @@ namespace UsefulToolkit.Initialization
             _inputDispatcher.Initialize();
 
             // --  ここにApplicationの初期化を配置。内部でInputStateを生成してBlackBoardに登録 --
-            _inputManager.Initialize(blackBoard, _inputDispatcher);
+            // 生成に失敗した場合は Initialized を立てずに抜ける
+            if (!_inputManager.Initialize(blackBoard, _inputDispatcher))
+            {
+                return;
+            }
 
             base.Initialize(blackBoard);
         }

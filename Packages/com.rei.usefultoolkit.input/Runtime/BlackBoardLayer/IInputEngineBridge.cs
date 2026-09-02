@@ -33,11 +33,23 @@ namespace UsefulToolkit.BlackBoard.Input
             where TValue : unmanaged;
 
         /// <summary>
-        /// Stateの現在の内容をエンジンへ反映する。
+        /// Stateの現在の内容をエンジンへ差分で反映する。
+        /// 目標に含まれないActionMapだけを無効化し、まだ有効でないActionMapだけを有効化する。
+        /// 既に有効なActionMapには触れないため、進行中の入力は中断されない。
         /// 入力が無効な間はどのActionMapも有効にしないこと。
         /// </summary>
         /// <param name="inputEnabled">入力を受け付けるか</param>
         /// <param name="activeActionMaps">有効にするActionMap名</param>
         void Apply(bool inputEnabled, IReadOnlyList<string> activeActionMaps);
+
+        /// <summary>
+        /// Stateの現在の内容をエンジンへ反映する。全ActionMapを一度無効化してから対象だけ有効化する。
+        /// 有効なままになるActionMapも張り直すため、進行中の入力は打ち切られる。
+        /// ActionMapを1つへ切り替える操作など、状態を作り直したい場合に使う。
+        /// 入力が無効な間はどのActionMapも有効にしないこと。
+        /// </summary>
+        /// <param name="inputEnabled">入力を受け付けるか</param>
+        /// <param name="activeActionMaps">有効にするActionMap名</param>
+        void ApplyExclusive(bool inputEnabled, IReadOnlyList<string> activeActionMaps);
     }
 }
