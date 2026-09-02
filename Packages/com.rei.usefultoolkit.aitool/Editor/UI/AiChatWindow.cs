@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 using System.IO;
+using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEngine;
@@ -542,17 +543,37 @@ namespace UsefulToolkit.Editor.Ai
             var agent = _activeAgents[_selectedAgentIndex];
             object cmdInstance = null;
             if (agent.GetCommands != null)
-                cmdInstance = agent.GetCommands.FirstOrDefault(c => c.GetType().Name == info.name);
+                cmdInstance = agent.GetCommands.FirstOrDefault(c => c != null && c.GetType().Name == info.name);
             if (cmdInstance == null && agent.SetCommands != null)
-                cmdInstance = agent.SetCommands.FirstOrDefault(c => c.GetType().Name == info.name);
+                cmdInstance = agent.SetCommands.FirstOrDefault(c => c != null && c.GetType().Name == info.name);
+            if (cmdInstance == null && agent.ContactCommands != null)
+                cmdInstance = agent.ContactCommands.FirstOrDefault(c => c != null && c.GetType().Name == info.name);
 
             if (cmdInstance != null)
             {
                 try
                 {
-                    string arg = (info.arguments != null && info.arguments.Length > 0) ? info.arguments[0] : "";
-                    if (cmdInstance is IGetCommand gc) info.executionResult = gc.Execute(arg);
-                    else if (cmdInstance is ISetCommand sc) info.executionResult = sc.Execute(arg);
+                    // AI が返す arguments(string[]) を JSON 配列文字列にしてから渡す。
+                    // 各コマンドの Execute は引数を JsonConvert.DeserializeObject<string[]> でパースする前提。
+                    // ExecuteCommandSilent と同じ渡し方に揃えている。
+                    if (cmdInstance is IGetCommand gc)
+                    {
+                        string arg = JsonConvert.SerializeObject(info.arguments ?? new string[0]);
+                        info.executionResult = gc.Execute(arg);
+                    }
+                    else if (cmdInstance is ISetCommand sc)
+                    {
+                        string arg = (info.arguments != null && info.arguments.Length > 0)
+                            ? JsonConvert.SerializeObject(info.arguments)
+                            : "";
+                        info.executionResult = sc.Execute(arg);
+                    }
+                    else if (cmdInstance is IContactCommand cc)
+                    {
+                        string arg1 = (info.arguments != null && info.arguments.Length > 0) ? info.arguments[0] : "";
+                        string arg2 = (info.arguments != null && info.arguments.Length > 1) ? info.arguments[1] : "";
+                        info.executionResult = cc.Execute(arg1, arg2);
+                    }
                 }
                 catch (Exception e)
                 {
