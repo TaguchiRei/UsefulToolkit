@@ -23,14 +23,31 @@ namespace UsefulToolkit.BlackBoard.Input
 
         /// <summary>
         /// 指定したActionMapが有効か。mapがnullの場合はfalseを返す。
+        /// enum値を直接渡した場合はボックス化しない方のオーバーロードが選ばれる。
         /// </summary>
         /// <param name="map">確認するActionMapを表すenum</param>
         bool IsActionMapActive(Enum map);
 
         /// <summary>
+        /// 指定したActionMapが有効か。enumの型が静的に決まる為、確保が起きない。
+        /// </summary>
+        /// <param name="map">確認するActionMapを表すenum</param>
+        bool IsActionMapActive<TMap>(TMap map) where TMap : struct, Enum;
+
+        /// <summary>
         /// 指定したActionの現在値を読み出す。
         /// 入力ソースが繋がっていない場合はPhaseがDisabledのInputContextを返す。
         /// 毎フレーム呼ばれうる経路のため、map・actionがnullでも例外は投げずDisabledを返す。
+        ///
+        /// 内部では確保を行わないが、enum値をEnum型の引数へ渡す時点でボックス化による確保が起きる。
+        /// 毎フレーム呼ぶ場合は、呼び出し側でstatic readonly Enumとして保持しておくと確保を避けられる。
+        /// <code>
+        /// private static readonly Enum PlayerMap = ActionMaps.Player;
+        /// private static readonly Enum MoveAction = PlayerActions.Move;
+        ///
+        /// // Update内
+        /// var context = inputState.ReadValue&lt;Vector2&gt;(PlayerMap, MoveAction);
+        /// </code>
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
         /// <param name="action">Actionを表すenum</param>

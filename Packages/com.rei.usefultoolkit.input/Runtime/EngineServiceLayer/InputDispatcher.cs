@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 using UsefulToolkit.BlackBoard.Input;
 using UsefulToolkit.BlackBoard.Logger;
 using UsefulToolkit.Initialization;
+using UsefulToolkit.Utility;
 
 namespace UsefulToolkit.EngineService.Input
 {
@@ -19,8 +20,11 @@ namespace UsefulToolkit.EngineService.Input
     {
         [SerializeField] private InputActionAsset _actionAsset;
 
-        /// <summary> 見つからなかった旨を既に警告した(map, action)の組み合わせ </summary>
-        private readonly HashSet<(string Map, string Action)> _warnedMissingActions = new();
+        /// <summary>
+        /// 解決済みのInputAction。見つからなかった組み合わせはnullを入れて覚える。
+        /// InputActionAssetの中身は実行中に変わらない前提でキャッシュしている。
+        /// </summary>
+        private readonly Dictionary<(Enum Map, Enum Action), InputAction> _actionCache = new();
 
         /// <summary>
         /// InputActionAssetが設定されているか確認する。
@@ -101,6 +105,7 @@ namespace UsefulToolkit.EngineService.Input
 
         /// <summary>
         /// InputActionAssetから指定されたActionを取得する。
+        /// 一度調べた組み合わせはキャッシュから返す。
         /// 見つからない場合はnullを返し、同じ組み合わせにつき一度だけ警告を出す。
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
@@ -109,12 +114,16 @@ namespace UsefulToolkit.EngineService.Input
         {
             if (_actionAsset == null || map == null || action == null) return null;
 
-            string mapName = map.ToString();
-            string actionName = action.ToString();
+            // ReadValueは毎フレーム呼ばれうる経路のため、名前の解決と探索、警告は組み合わせごとに一度だけ行う
+            if (_actionCache.TryGetValue((map, action), out var cached)) return cached;
+
+            string mapName = EnumNameCache.GetName(map);
+            string actionName = EnumNameCache.GetName(action);
             var inputAction = _actionAsset.FindActionMap(mapName)?.FindAction(actionName);
 
-            // ReadValueは毎フレーム呼ばれうる経路のため、同じ組み合わせの警告は最初の一度だけ出す
-            if (inputAction == null && _warnedMissingActions.Add((mapName, actionName)))
+            _actionCache[(map, action)] = inputAction;
+
+            if (inputAction == null)
             {
                 UsefulLogger.LogWarning($"[{mapName}.{actionName}] が見つかりませんでした。", this);
             }

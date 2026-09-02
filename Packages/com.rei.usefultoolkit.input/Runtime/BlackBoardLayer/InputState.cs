@@ -80,7 +80,12 @@ namespace UsefulToolkit.BlackBoard.Input
 
         public bool IsActionMapActive(Enum map)
         {
-            return map != null && _activeActionMaps.Contains(map.ToString());
+            return map != null && _activeActionMaps.Contains(EnumNameCache.GetName(map));
+        }
+
+        public bool IsActionMapActive<TMap>(TMap map) where TMap : struct, Enum
+        {
+            return _activeActionMaps.Contains(EnumNameCache<TMap>.GetName(map));
         }
 
         public InputContext<TValue> ReadValue<TValue>(Enum map, Enum action) where TValue : unmanaged
@@ -326,7 +331,7 @@ namespace UsefulToolkit.BlackBoard.Input
             if (map == null) throw new ArgumentNullException(nameof(map));
             if (action == null) throw new ArgumentNullException(nameof(action));
 
-            return (map.ToString(), action.ToString());
+            return (EnumNameCache.GetName(map), EnumNameCache.GetName(action));
         }
 
         /// <summary>
