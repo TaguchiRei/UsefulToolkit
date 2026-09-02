@@ -647,9 +647,9 @@ namespace UsefulToolkit.Editor.Ai
                     Debug.LogError($"[AiChatWindow] Failed to create planning documents directory: {e.Message}");
                 }
             }
-            
+
             // ProjectWindowでディレクトリを選択状態にする
-            string projectRelativePath = "Assets" + fullPath.Replace(Directory.GetCurrentDirectory(), "").Replace("\\", "/");
+            string projectRelativePath = fullPath.Replace(Directory.GetCurrentDirectory(), "").Replace("\\", "/").TrimStart('/');
             var folder = AssetDatabase.LoadAssetAtPath<DefaultAsset>(projectRelativePath);
             if (folder != null)
             {

@@ -11,6 +11,7 @@ namespace UsefulToolkit.Editor.Ai
         [MenuItem("UsefulToolkit/AI/Generate Default Agents", false, 12)]
         public static void Generate()
         {
+            CreateAllInOne();
             CreateReviewer();
             CreateWorker();
             CreateDesigner();
@@ -18,6 +19,56 @@ namespace UsefulToolkit.Editor.Ai
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("Default Agents generated successfully.");
+        }
+
+        /// <summary>
+        /// 設計者・作業者・レビュアーの分担を使わず、1体で調査・編集・検証まで行うエージェント。
+        /// 委譲用の ContactCommand は持たせず、実作業コマンドを全種類割り当てる。
+        /// </summary>
+        private static void CreateAllInOne()
+        {
+            var data = FileGenerator.AutoGenerateAsset<AgentData>("AllInOneAgent", GenerateType.Editor, "Agents/Data");
+            data.Name = "オールインワン";
+            data.Role = "1体で調査・実装・シーン編集・検証まで行います。";
+            data.SystemPrompt =
+                "あなたは単独で作業する熟練エンジニアです。他のエージェントへ委譲せず、与えられた実装計画に従って自分で調査・編集・確認まで行ってください。\n" +
+                "作業手順:\n" +
+                "1. 実装計画の『対象ファイル』『前提・現状』を読み、必要なら ReadFileCommand 等で現状を確認する。\n" +
+                "2. 『変更内容（手順）』に書かれたコマンドを順に実行する。ファイル書き換えは ChangeFileCommand、新規作成は CreateFileCommand を使う。\n" +
+                "3. 『受け入れ条件』『触ってはいけない範囲』を必ず守る。対象外のファイルには触れない。\n" +
+                "4. 完了したら『完了報告フォーマット』に従って報告する。コンパイル確認と再生確認はユーザーが行うため、AI 側では実行しない。";
+
+            var getCommands = new List<IGetCommand>
+            {
+                new ReadFileCommand(),
+                new ReadFolderCommand(),
+                new GetFilePathCommand(),
+                new GetFolderPathCommand(),
+                new GetComponentDataCommand(),
+                new GetSceneStructureCommand(),
+                new GetChildrenCommand(),
+                new GetSceneObjectCommand(),
+                new GetAssetDataCommand(),
+                new GetConsoleLogsCommand(),
+                new AnalyzeAssetCommand(),
+                new FindReferencesCommand()
+            };
+
+            var setCommands = new List<ISetCommand>
+            {
+                new CreateFileCommand(),
+                new CreateFolderCommand(),
+                new ChangeFileCommand(),
+                new ChangeInspectorCommand(),
+                new ModifyAssetCommand(),
+                new CreateScriptableObjectCommand(),
+                new CreatePrefabCommand(),
+                new ApplyPrefabOverridesCommand(),
+                new ExecuteGeneratorCommand()
+            };
+
+            SetPrivateFields(data, getCommands.ToArray(), setCommands.ToArray(), new IContactCommand[0]);
+            EditorUtility.SetDirty(data);
         }
 
         private static void CreateReviewer()
