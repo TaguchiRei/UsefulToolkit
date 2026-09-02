@@ -640,17 +640,21 @@ namespace UsefulToolkit.Editor.Ai
                 try
                 {
                     Directory.CreateDirectory(fullPath);
+                    AssetDatabase.Refresh();
                 }
                 catch (Exception e)
                 {
                     Debug.LogError($"[AiChatWindow] Failed to create planning documents directory: {e.Message}");
                 }
             }
-
-            if (!Directory.Exists(fullPath))
+            
+            // ProjectWindowでディレクトリを選択状態にする
+            string projectRelativePath = "Assets" + fullPath.Replace(Directory.GetCurrentDirectory(), "").Replace("\\", "/");
+            var folder = AssetDatabase.LoadAssetAtPath<DefaultAsset>(projectRelativePath);
+            if (folder != null)
             {
-                EditorUtility.DisplayDialog("実装計画の実行", $"ディレクトリが存在しません:\n{fullPath}", "OK");
-                return;
+                Selection.activeObject = folder;
+                EditorUtility.FocusProjectWindow();
             }
 
             string[] mdFiles = Directory.GetFiles(fullPath, "*.md", SearchOption.TopDirectoryOnly);
