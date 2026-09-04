@@ -1,11 +1,11 @@
 ﻿{
-    "name": "UsefulToolkit.SoundArtTools.EngineService.Runtime",
-    "rootNamespace": "UsefulToolkit.EngineService",
+    "name": "UsefulToolkit.Networking.EngineAdapter.Runtime",
+    "rootNamespace": "UsefulToolkit.EngineAdapter",
     "references": [
-        "UsefulToolkit.SoundArtTools.BlackBoard.Runtime",
+        "UsefulToolkit.Networking.BlackBoard.Runtime",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.BlackBoard.Runtime",
-        "UsefulToolkit.Framework.EngineService.Runtime"
+        "UsefulToolkit.Framework.EngineAdapter.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

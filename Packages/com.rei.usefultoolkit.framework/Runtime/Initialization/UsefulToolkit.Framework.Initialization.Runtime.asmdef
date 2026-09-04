@@ -6,7 +6,7 @@
         "UsefulToolkit.Framework.Application.Runtime",
         "UsefulToolkit.Framework.BlackBoard.Runtime",
         "UsefulToolkit.Framework.External.Runtime",
-        "UsefulToolkit.Framework.EngineService.Runtime",
+        "UsefulToolkit.Framework.EngineAdapter.Runtime",
         "UsefulToolkit.Utility",
         "GUID:f51ebe6a0ceec4240a699833d6309b23"
     ],

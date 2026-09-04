@@ -5,12 +5,12 @@
         "UsefulToolkit.Networking.Application.Runtime",
         "UsefulToolkit.Networking.BlackBoard.Runtime",
         "UsefulToolkit.Networking.External.Runtime",
-        "UsefulToolkit.Networking.EngineService.Runtime",
+        "UsefulToolkit.Networking.EngineAdapter.Runtime",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.Application.Runtime",
         "UsefulToolkit.Framework.BlackBoard.Runtime",
         "UsefulToolkit.Framework.External.Runtime",
-        "UsefulToolkit.Framework.EngineService.Runtime"
+        "UsefulToolkit.Framework.EngineAdapter.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

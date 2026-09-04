@@ -168,7 +168,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6a0f94ba05426234fa9046051236222d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UsefulToolkit.Framework.EngineService.Runtime::UsefulToolkit.EngineService.SceneLoader
+  m_EditorClassIdentifier: UsefulToolkit.Framework.EngineAdapter.Runtime::UsefulToolkit.EngineAdapter.SceneLoader
 --- !u!4 &2035801661
 Transform:
   m_ObjectHideFlags: 0
@@ -250,7 +250,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6ed583c795a18ff4fa875be2be2529c9, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UsefulToolkit.Input.EngineService.Runtime::UsefulToolkit.EngineService.Input.InputDispatcher
+  m_EditorClassIdentifier: UsefulToolkit.Input.EngineAdapter.Runtime::UsefulToolkit.EngineAdapter.Input.InputDispatcher
   _actionAsset: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
 --- !u!114 &2035801668
 MonoBehaviour:

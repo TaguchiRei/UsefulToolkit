@@ -6,7 +6,7 @@
         "UsefulToolkit.VisualArtTools.Application.Runtime",
         "UsefulToolkit.VisualArtTools.BlackBoard.Runtime",
         "UsefulToolkit.VisualArtTools.External.Runtime",
-        "UsefulToolkit.VisualArtTools.EngineService.Runtime",
+        "UsefulToolkit.VisualArtTools.EngineAdapter.Runtime",
         "UsefulToolkit.VisualArtTools.Initialization.Runtime"
     ],
     "includePlatforms": [],

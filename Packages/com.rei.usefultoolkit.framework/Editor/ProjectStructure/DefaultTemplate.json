@@ -23,7 +23,7 @@
         "Assets/Code/Scripts/Application",
         "Assets/Code/Scripts/BlackBoardLayer",
         "Assets/Code/Scripts/ExternalLayer",
-        "Assets/Code/Scripts/EngineServiceLayer",
+        "Assets/Code/Scripts/EngineAdapterLayer",
         "Assets/Data",
         "Assets/Data/Settings",
         "Assets/Docs",

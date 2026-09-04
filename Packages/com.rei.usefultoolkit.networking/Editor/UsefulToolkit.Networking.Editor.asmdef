@@ -6,7 +6,7 @@
         "UsefulToolkit.Networking.Application.Runtime",
         "UsefulToolkit.Networking.BlackBoard.Runtime",
         "UsefulToolkit.Networking.External.Runtime",
-        "UsefulToolkit.Networking.EngineService.Runtime",
+        "UsefulToolkit.Networking.EngineAdapter.Runtime",
         "UsefulToolkit.Networking.Initialization.Runtime"
     ],
     "includePlatforms": [],

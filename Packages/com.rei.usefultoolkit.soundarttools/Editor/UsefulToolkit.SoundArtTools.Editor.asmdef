@@ -6,7 +6,7 @@
         "UsefulToolkit.SoundArtTools.Application.Runtime",
         "UsefulToolkit.SoundArtTools.BlackBoard.Runtime",
         "UsefulToolkit.SoundArtTools.External.Runtime",
-        "UsefulToolkit.SoundArtTools.EngineService.Runtime",
+        "UsefulToolkit.SoundArtTools.EngineAdapter.Runtime",
         "UsefulToolkit.SoundArtTools.Initialization.Runtime"
     ],
     "includePlatforms": [],

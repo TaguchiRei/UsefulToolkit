@@ -6,7 +6,7 @@
         "UsefulToolkit.QualityControlTools.Application.Runtime",
         "UsefulToolkit.QualityControlTools.BlackBoard.Runtime",
         "UsefulToolkit.QualityControlTools.External.Runtime",
-        "UsefulToolkit.QualityControlTools.EngineService.Runtime",
+        "UsefulToolkit.QualityControlTools.EngineAdapter.Runtime",
         "UsefulToolkit.QualityControlTools.Initialization.Runtime"
     ],
     "includePlatforms": [],

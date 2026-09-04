@@ -6,10 +6,10 @@
         "UsefulToolkit.Input.Application.Runtime",
         "UsefulToolkit.Input.BlackBoard.Runtime",
         "UsefulToolkit.Input.External.Runtime",
-        "UsefulToolkit.Input.EngineService.Runtime",
+        "UsefulToolkit.Input.EngineAdapter.Runtime",
         "UsefulToolkit.Input.Initialization.Runtime",
         "UsefulToolkit.Framework.Runtime",
-        "UsefulToolkit.Framework.EngineService.Runtime",
+        "UsefulToolkit.Framework.EngineAdapter.Runtime",
         "UsefulToolkit.Framework.Initialization.Runtime",
         "UsefulToolkit.Framework.Editor",
         "Unity.InputSystem"

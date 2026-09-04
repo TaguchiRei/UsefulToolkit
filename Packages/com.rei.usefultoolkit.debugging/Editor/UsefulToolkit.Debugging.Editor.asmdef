@@ -6,7 +6,7 @@
         "UsefulToolkit.Debugging.Application.Runtime",
         "UsefulToolkit.Debugging.BlackBoard.Runtime",
         "UsefulToolkit.Debugging.External.Runtime",
-        "UsefulToolkit.Debugging.EngineService.Runtime",
+        "UsefulToolkit.Debugging.EngineAdapter.Runtime",
         "UsefulToolkit.Debugging.Initialization.Runtime",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.Editor"

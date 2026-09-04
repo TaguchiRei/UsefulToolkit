@@ -5,12 +5,12 @@
         "UsefulToolkit.GitSupport.Application.Runtime",
         "UsefulToolkit.GitSupport.BlackBoard.Runtime",
         "UsefulToolkit.GitSupport.External.Runtime",
-        "UsefulToolkit.GitSupport.EngineService.Runtime",
+        "UsefulToolkit.GitSupport.EngineAdapter.Runtime",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.Application.Runtime",
         "UsefulToolkit.Framework.BlackBoard.Runtime",
         "UsefulToolkit.Framework.External.Runtime",
-        "UsefulToolkit.Framework.EngineService.Runtime"
+        "UsefulToolkit.Framework.EngineAdapter.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

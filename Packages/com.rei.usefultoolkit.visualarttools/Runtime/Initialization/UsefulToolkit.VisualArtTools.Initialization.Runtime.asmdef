@@ -5,12 +5,12 @@
         "UsefulToolkit.VisualArtTools.Application.Runtime",
         "UsefulToolkit.VisualArtTools.BlackBoard.Runtime",
         "UsefulToolkit.VisualArtTools.External.Runtime",
-        "UsefulToolkit.VisualArtTools.EngineService.Runtime",
+        "UsefulToolkit.VisualArtTools.EngineAdapter.Runtime",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.Application.Runtime",
         "UsefulToolkit.Framework.BlackBoard.Runtime",
         "UsefulToolkit.Framework.External.Runtime",
-        "UsefulToolkit.Framework.EngineService.Runtime"
+        "UsefulToolkit.Framework.EngineAdapter.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

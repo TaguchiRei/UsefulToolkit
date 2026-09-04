@@ -1,11 +1,9 @@
 ﻿{
-    "name": "UsefulToolkit.VisualArtTools.EngineService.Runtime",
-    "rootNamespace": "UsefulToolkit.EngineService",
+    "name": "UsefulToolkit.Framework.EngineAdapter.Runtime",
+    "rootNamespace": "UsefulToolkit.EngineAdapter",
     "references": [
-        "UsefulToolkit.VisualArtTools.BlackBoard.Runtime",
-        "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.BlackBoard.Runtime",
-        "UsefulToolkit.Framework.EngineService.Runtime"
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
