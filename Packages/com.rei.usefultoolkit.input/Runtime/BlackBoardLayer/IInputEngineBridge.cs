@@ -5,7 +5,7 @@ namespace UsefulToolkit.BlackBoard.Input
 {
     /// <summary>
     /// <see cref="InputState"/>の内容をゲームエンジン側へ反映し、現在の入力値を読み出すための橋渡し。
-    /// EngineServiceLayerのクラスが実装し、Stateを生成したクラスが
+    /// EngineAdapterLayerのクラスが実装し、Stateを生成したクラスが
     /// <see cref="InputState.RegisterInputEngine"/>で繋ぐ。
     ///
     /// エンジンはStateの写しであって二つ目の正本ではないため、この橋渡しは

@@ -1,6 +1,6 @@
 ﻿using UnityEditor;
 using UnityEngine;
-using UsefulToolkit.EngineService.Debugging;
+using UsefulToolkit.EngineAdapter.Debugging;
 
 namespace UsefulToolkit.Editor.Debugging
 {

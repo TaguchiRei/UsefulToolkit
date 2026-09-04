@@ -7,10 +7,10 @@ using UsefulToolkit.BlackBoard.Logger;
 using UsefulToolkit.Initialization;
 using UsefulToolkit.Utility;
 
-namespace UsefulToolkit.EngineService.Input
+namespace UsefulToolkit.EngineAdapter.Input
 {
     /// <summary>
-    /// InputActionAssetを直接扱うEngineServiceLayer。
+    /// InputActionAssetを直接扱うEngineAdapterLayer。
     /// InputStateの内容をInputActionAssetへ反映し、InputActionを入力ソースとして提供する。
     ///
     /// このクラスはInputStateを参照しない。反映すべき内容は<see cref="Apply"/>の引数として

@@ -91,7 +91,7 @@ namespace UsefulToolkit.Editor.Setting
             new PackageInfo("Program Tools", "com.rei.usefultoolkit.programtools", "汎用的な最適化・コードヘルパー・ロジック集"),
             new PackageInfo("Ai Agent Tools", "com.rei.usefultoolkit.aitool", "AIやステートマシン、エージェント作成の支援機能"),
             new PackageInfo("Input", "com.rei.usefultoolkit.input",
-                "InputSystemをState-Centrism ArchitectureへつなぐBlackBoard/EngineServiceLayer実装"),
+                "InputSystemをState-Centrism ArchitectureへつなぐBlackBoard/EngineAdapterLayer実装"),
             new PackageInfo("Networking", "com.rei.usefultoolkit.networking", "通信処理やオンライン周りのラッパー・拡張"),
             new PackageInfo("Quality Control Tools", "com.rei.usefultoolkit.qualitycontroltools",
                 "テストや静的解析、品質管理をサポートする機能"),

@@ -5,7 +5,7 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// IActionChannelの実装。戻り値を持たない「通知して終わり」のイベント経路。
-    /// Invokeはこのチャンネルを所有するクラス(EngineServiceLayerや
+    /// Invokeはこのチャンネルを所有するクラス(EngineAdapterLayerや
     /// Applicationのうち、そのイベントの発生源となるクラス)だけが呼ぶこと。
     /// IActionChannel&lt;TPayload&gt;としてしか公開しなければ、外部からInvokeされる事故は型で防げる。
     /// </summary>

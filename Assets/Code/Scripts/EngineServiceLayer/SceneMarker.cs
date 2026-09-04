@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Sandbox.EngineService
+namespace Sandbox.EngineAdapter
 {
     /// <summary>
     /// シーン遷移テスト用の目印。各シーンに1つずつ置いておくと、

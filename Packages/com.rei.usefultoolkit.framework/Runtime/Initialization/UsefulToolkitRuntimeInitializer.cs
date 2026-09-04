@@ -3,7 +3,7 @@ using UnityEngine;
 using UsefulToolkit.BlackBoard.BlackBoard;
 using UsefulToolkit.BlackBoard.Logger;
 using UsefulToolkit.BlackBoard.Scene;
-using UsefulToolkit.EngineService;
+using UsefulToolkit.EngineAdapter;
 
 namespace UsefulToolkit.Initialization
 {

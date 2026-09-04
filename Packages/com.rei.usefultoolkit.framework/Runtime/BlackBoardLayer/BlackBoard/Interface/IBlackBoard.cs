@@ -5,7 +5,7 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
 {
     /// <summary>
     /// ChildBoardを型ごとに登録・取得する最上位のBlackBoard本体のインターフェース。
-    /// ApplicationとEngineServiceLayerはこのインターフェース経由でのみChildBoardへ到達する。
+    /// ApplicationとEngineAdapterLayerはこのインターフェース経由でのみChildBoardへ到達する。
     /// </summary>
     public interface IBlackBoard
     {

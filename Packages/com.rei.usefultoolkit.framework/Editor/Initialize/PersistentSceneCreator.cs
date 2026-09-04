@@ -6,7 +6,7 @@ using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UsefulToolkit.EngineService;
+using UsefulToolkit.EngineAdapter;
 using UsefulToolkit.Initialization;
 
 namespace UsefulToolkit.Editor.Initialize

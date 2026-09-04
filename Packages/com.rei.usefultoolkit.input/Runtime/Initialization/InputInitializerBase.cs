@@ -4,7 +4,7 @@ using UsefulToolkit.Attributes;
 using UsefulToolkit.BlackBoard.BlackBoard;
 using UsefulToolkit.BlackBoard.Input;
 using UsefulToolkit.BlackBoard.Logger;
-using UsefulToolkit.EngineService.Input;
+using UsefulToolkit.EngineAdapter.Input;
 using UsefulToolkit.Utility;
 
 namespace UsefulToolkit.Initialization

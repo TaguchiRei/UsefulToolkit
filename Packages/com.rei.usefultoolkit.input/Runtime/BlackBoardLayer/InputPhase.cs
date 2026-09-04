@@ -5,7 +5,7 @@ namespace UsefulToolkit.BlackBoard.Input
     ///
     /// エンジン側のphase型をそのままペイロードに載せるとBlackBoardLayerが
     /// InputSystemへ依存してしまうため、この層独自の型として定義している。
-    /// EngineServiceLayerがエンジンの型からこの型へ変換する。
+    /// EngineAdapterLayerがエンジンの型からこの型へ変換する。
     /// </summary>
     public enum InputPhase
     {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
-namespace UsefulToolkit.EngineService.Debugging
+namespace UsefulToolkit.EngineAdapter.Debugging
 {
     using Debug = UnityEngine.Debug;
 
