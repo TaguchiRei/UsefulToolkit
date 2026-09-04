@@ -6,7 +6,7 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
     /// <summary>
     /// IFuncChainChannelの実装。登録された全ハンドラを数珠つなぎに呼び出し、
     /// 前のハンドラの戻り値を次のハンドラの引数へ渡して値を加工していくイベント経路。
-    /// Invokeはこのチャンネルを所有するクラス(EngineServiceLayerや
+    /// Invokeはこのチャンネルを所有するクラス(EngineAdapterLayerや
     /// Applicationのうち、その加工の起点となるクラス)だけが呼ぶこと。
     /// IFuncChainChannel&lt;TPayload&gt;としてしか公開しなければ、外部からInvokeされる事故は型で防げる。
     /// </summary>

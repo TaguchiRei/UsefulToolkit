@@ -10,7 +10,7 @@ namespace UsefulToolkit.BlackBoard.Input
     /// その操作面は Compositor の DI コンテナ経由で <c>IInjectable&lt;IInputController&gt;</c> として配る。
     /// BlackBoard から取得できるのは読み取り面の <see cref="IInputState"/> のみ。
     ///
-    /// 型定義がこの層にあるのは、Application と EngineService の双方から参照できる位置が
+    /// 型定義がこの層にあるのは、Application と EngineAdapter の双方から参照できる位置が
     /// BlackBoardLayer だけであるため(<see cref="IInputEngineBridge"/> と同じ理由)。
     ///
     /// map / action の指定にはInputActionEnumGeneratorが生成したActionMaps・XxxActionsのenumを渡す。

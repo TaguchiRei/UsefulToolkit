@@ -1,11 +1,15 @@
-﻿{
-    "name": "UsefulToolkit.GitSupport.EngineService.Runtime",
-    "rootNamespace": "UsefulToolkit.EngineService",
+{
+    "name": "UsefulToolkit.Input.EngineAdapter.Runtime",
+    "rootNamespace": "UsefulToolkit.EngineAdapter",
     "references": [
-        "UsefulToolkit.GitSupport.BlackBoard.Runtime",
+        "UsefulToolkit.Input.BlackBoard.Runtime",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.BlackBoard.Runtime",
-        "UsefulToolkit.Framework.EngineService.Runtime"
+        "UsefulToolkit.Framework.EngineAdapter.Runtime",
+        "UsefulToolkit.Utility",
+        "Unity.InputSystem",
+        "UnityEngine.UI",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

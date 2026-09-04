@@ -1,15 +1,11 @@
-{
-    "name": "UsefulToolkit.Input.EngineService.Runtime",
-    "rootNamespace": "UsefulToolkit.EngineService",
+﻿{
+    "name": "UsefulToolkit.Debugging.EngineAdapter.Runtime",
+    "rootNamespace": "UsefulToolkit.EngineAdapter",
     "references": [
-        "UsefulToolkit.Input.BlackBoard.Runtime",
+        "UsefulToolkit.Debugging.BlackBoard.Runtime",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.BlackBoard.Runtime",
-        "UsefulToolkit.Framework.EngineService.Runtime",
-        "UsefulToolkit.Utility",
-        "Unity.InputSystem",
-        "UnityEngine.UI",
-        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+        "UsefulToolkit.Framework.EngineAdapter.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

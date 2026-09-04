@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 using UsefulToolkit.Initialization;
 using UsefulToolkit.BlackBoard.Logger;
 
-namespace UsefulToolkit.EngineService
+namespace UsefulToolkit.EngineAdapter
 {
     /// <summary>
     /// SceneManagerを使って、渡されたシーンIDのロード/アンロードを行う。

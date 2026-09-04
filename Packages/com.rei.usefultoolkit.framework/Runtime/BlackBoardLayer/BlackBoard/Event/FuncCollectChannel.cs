@@ -6,7 +6,7 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
     /// <summary>
     /// IFuncCollectChannelの実装。登録された全ハンドラへ同じ引数を渡して呼び出し、
     /// それぞれの戻り値をまとめて受け取る「全員に問い合わせる」イベント経路。
-    /// Invokeはこのチャンネルを所有するクラス(EngineServiceLayerや
+    /// Invokeはこのチャンネルを所有するクラス(EngineAdapterLayerや
     /// Applicationのうち、その問い合わせの発生源となるクラス)だけが呼ぶこと。
     /// IFuncCollectChannel&lt;TArgument, TReturnValue&gt;としてしか公開しなければ、
     /// 外部からInvokeされる事故は型で防げる。

@@ -1,11 +1,11 @@
 ﻿{
-    "name": "UsefulToolkit.StaticDataTools.EngineService.Runtime",
-    "rootNamespace": "UsefulToolkit.EngineService",
+    "name": "UsefulToolkit.StaticDataTools.EngineAdapter.Runtime",
+    "rootNamespace": "UsefulToolkit.EngineAdapter",
     "references": [
         "UsefulToolkit.StaticDataTools.BlackBoard.Runtime",
         "UsefulToolkit.Framework.Runtime",
         "UsefulToolkit.Framework.BlackBoard.Runtime",
-        "UsefulToolkit.Framework.EngineService.Runtime"
+        "UsefulToolkit.Framework.EngineAdapter.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

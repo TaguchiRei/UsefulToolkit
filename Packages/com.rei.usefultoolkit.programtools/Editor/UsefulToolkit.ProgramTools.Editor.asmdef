@@ -6,7 +6,7 @@
         "UsefulToolkit.ProgramTools.Application.Runtime",
         "UsefulToolkit.ProgramTools.BlackBoard.Runtime",
         "UsefulToolkit.ProgramTools.External.Runtime",
-        "UsefulToolkit.ProgramTools.EngineService.Runtime",
+        "UsefulToolkit.ProgramTools.EngineAdapter.Runtime",
         "UsefulToolkit.ProgramTools.Initialization.Runtime"
     ],
     "includePlatforms": [],

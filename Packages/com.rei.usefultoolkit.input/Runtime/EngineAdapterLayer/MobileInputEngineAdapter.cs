@@ -10,16 +10,16 @@ using UsefulToolkit.BlackBoard.Input;
 using UsefulToolkit.BlackBoard.Logger;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
-namespace UsefulToolkit.EngineService.Input
+namespace UsefulToolkit.EngineAdapter.Input
 {
     /// <summary>
     /// タッチ入力(スクリーンドラッグ)をInputDispatcherと同じInputStateへ橋渡しする
-    /// EngineServiceLayer。IExternalInputSource&lt;Vector2&gt;を自ら実装し、
+    /// EngineAdapterLayer。IExternalInputSource&lt;Vector2&gt;を自ら実装し、
     /// IInputController.RegisterExternalInputSourceでInputDispatcherと同じ(map, action)
     /// チャンネルへ登録するだけで済む——Application側から見ればどちらの入力ソースが
     /// 発火したかは区別されない。
     /// </summary>
-    public sealed class MobileInputEngineService : InitializableMonoBehaviour, IExternalInputSource<Vector2>
+    public sealed class MobileInputEngineAdapter : InitializableMonoBehaviour, IExternalInputSource<Vector2>
     {
         [SerializeField] private GraphicRaycaster _rayCaster;
 

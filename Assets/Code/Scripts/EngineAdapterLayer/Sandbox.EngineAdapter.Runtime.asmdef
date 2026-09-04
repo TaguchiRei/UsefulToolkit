@@ -1,6 +1,6 @@
 {
-    "name": "Sandbox.EngineService.Runtime",
-    "rootNamespace": "Sandbox.EngineService",
+    "name": "Sandbox.EngineAdapter.Runtime",
+    "rootNamespace": "Sandbox.EngineAdapter",
     "references": [
         "GUID:b7937238e736e2e46a05c1ade2ecca7e",
         "GUID:edd6f2b15622ff02ef022f09aecb0ae2",

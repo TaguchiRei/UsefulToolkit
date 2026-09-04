@@ -6,7 +6,7 @@
         "UsefulToolkit.StaticDataTools.Application.Runtime",
         "UsefulToolkit.StaticDataTools.BlackBoard.Runtime",
         "UsefulToolkit.StaticDataTools.External.Runtime",
-        "UsefulToolkit.StaticDataTools.EngineService.Runtime",
+        "UsefulToolkit.StaticDataTools.EngineAdapter.Runtime",
         "UsefulToolkit.StaticDataTools.Initialization.Runtime"
     ],
     "includePlatforms": [],

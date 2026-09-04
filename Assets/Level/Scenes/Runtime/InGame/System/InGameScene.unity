@@ -150,7 +150,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 818b8a7cfce5c004cb1aeac284b76cb3, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Sandbox.Runtime.EngineService::Sandbox.EngineService.SceneMarker
+  m_EditorClassIdentifier: Sandbox.Runtime.EngineAdapter::Sandbox.EngineAdapter.SceneMarker
   _color: {r: 0.39999998, g: 0.742857, b: 1, a: 1}
 --- !u!23 &593349445
 MeshRenderer:
