@@ -57,6 +57,9 @@ namespace UsefulToolkit.BlackBoard.Input
         /// 指定したActionの入力コールバックを登録する。
         /// started / performed / canceled は1本のコールバックへまとめて届くため、
         /// 区別が必要な場合は<see cref="InputContext{TValue}.Phase"/>で判定する。
+        ///
+        /// エンジン側の入力ソースがまだ繋がっていない場合はここで繋ぐため、
+        /// <see cref="IInputController.Bind{TValue}"/>を事前に呼ぶ必要は無い。
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
         /// <param name="action">Actionを表すenum</param>
@@ -70,6 +73,8 @@ namespace UsefulToolkit.BlackBoard.Input
         /// <summary>
         /// 指定したActionへ入力ソースが登録されるのを待ってから、入力コールバックを登録する。
         /// 入力ソースが既に登録済みならその場で登録する。
+        /// エンジン側の入力ソースは<see cref="RegisterInput{TValue}"/>と同様その場で繋ぐため、
+        /// 実際に待機が起きるのはタッチ操作などエンジン外の入力ソースを待つ場合に限られる。
         /// 返したIDisposableの解放が登録側の責任になる点は<see cref="RegisterInput{TValue}"/>と同じ。
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
