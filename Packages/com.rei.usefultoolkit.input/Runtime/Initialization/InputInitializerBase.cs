@@ -20,8 +20,8 @@ namespace UsefulToolkit.Initialization
     /// 派生クラスを生成し、そこから <see cref="Controller"/> を登録する。生成は
     /// <c>UsefulToolkit/Scene/GenerateUsefulPersistentScene</c> が行う。
     ///
-    /// (map, action) 単位の橋渡し(<see cref="IInputController.Bind{TValue}"/>)は利用者側の enum に
-    /// 依存するため、ここでは行わない。生成された派生クラスの Initialize に書くこと。
+    /// 開始時に有効にする ActionMap の指定(<see cref="IInputController.SwitchActionMap"/>)は
+    /// 利用者側の enum に依存するため、ここでは行わない。生成された派生クラスの Initialize に書くこと。
     /// </summary>
     [InitializeOrder(InitializeOrderConst.InitializerEarly)]
     public abstract class InputInitializerBase : InitializerBase

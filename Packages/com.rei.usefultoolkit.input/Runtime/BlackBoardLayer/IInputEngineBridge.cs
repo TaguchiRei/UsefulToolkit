@@ -9,9 +9,9 @@ namespace UsefulToolkit.BlackBoard.Input
     /// <see cref="InputState.RegisterInputEngine"/>で繋ぐ。
     ///
     /// エンジンはStateの写しであって二つ目の正本ではないため、この橋渡しは
-    /// エンジンからStateへ値を押し込む経路を持たない。入力ソースの接続も
-    /// <see cref="TryCreateInputSource{TValue}"/>で生成物を渡すだけで、
-    /// チャンネルへの接続はInputState自身が行う。
+    /// エンジンからStateへ値を押し込む経路を持たない。コールバックの登録も
+    /// <see cref="Subscribe{TValue}"/>でエンジン側の発火元へ直接繋ぐだけで、
+    /// Stateは登録簿を持たない。
     /// </summary>
     public interface IInputEngineBridge
     {
@@ -23,13 +23,14 @@ namespace UsefulToolkit.BlackBoard.Input
         InputContext<TValue> ReadValue<TValue>(Enum map, Enum action) where TValue : unmanaged;
 
         /// <summary>
-        /// 指定したActionに対応するエンジン側の入力ソースを作る。
-        /// 対応するActionが存在しない場合はfalseを返す。
+        /// 指定したActionの発火(started / performed / canceled)へハンドラを繋ぐ。
+        /// 対応するActionが存在しない場合は、何も解除しないハンドルを返す。
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
         /// <param name="action">Actionを表すenum</param>
-        /// <param name="source">作られた入力ソース</param>
-        bool TryCreateInputSource<TValue>(Enum map, Enum action, out IExternalInputSource<TValue> source)
+        /// <param name="handler">入力時に実行するハンドラ</param>
+        /// <returns>Disposeすると登録を解除できる</returns>
+        IDisposable Subscribe<TValue>(Enum map, Enum action, Action<InputContext<TValue>> handler)
             where TValue : unmanaged;
 
         /// <summary>

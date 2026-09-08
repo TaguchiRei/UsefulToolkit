@@ -7,12 +7,17 @@ using UsefulToolkit.Utility;
 namespace UsefulToolkit.BlackBoard.Input
 {
     /// <summary>
-    /// 入力の状態そのもの。有効なActionMap、入力の有効・無効、Actionごとのコールバックを保持する。
+    /// 入力の状態そのもの。有効なActionMapと、入力の有効・無効を保持する。
     ///
     /// BlackBoardへは<see cref="IInputState"/>(読み取り面)としてのみ登録する。
     /// 状態を変更する操作はこの具象型にしか無く、その具象型を保持するのはStateを生成した
     /// Applicationのクラスだけになる。外部へはそのクラスが<see cref="IInputController"/>として
     /// DIコンテナ経由で公開する。
+    ///
+    /// 入力コールバックの登録簿はこのクラスでは持たず、<see cref="IInputEngineBridge.Subscribe{TValue}"/>
+    /// への転送だけを行う。発火元(エンジン側のAction)が既に多重登録の受け口である為、
+    /// ここで抱え直すと二重管理になる。Stateが登録簿を持たないので、読み取り面であるという
+    /// 性質もハンドラ登録によって崩れない。
     ///
     /// map / action は公開APIの境界でenumから名前の文字列へ変換し、内部では文字列で扱う。
     /// nullの扱いは、状態を変える操作は例外、値を読むだけの問い合わせは安全な既定値、で統一している。
@@ -20,24 +25,6 @@ namespace UsefulToolkit.BlackBoard.Input
     [RegisterBoard(typeof(InputBoard))]
     public sealed class InputState : GameStateBase, IInputState
     {
-        /// <summary>
-        /// (ActionMap名, Action名)ごとのコールバック。値はActionChannel&lt;InputContext&lt;TValue&gt;&gt;
-        ///
-        /// ハンドラが空になっても取り除かない。Bindした入力ソースはこのチャンネルを掴んでおり、
-        /// 作り直すと発火先が失われる為。件数は(map, action)の組み合わせの数で頭打ちになる。
-        /// </summary>
-        private readonly Dictionary<(string Map, string Action), object> _channels = new();
-
-        /// <summary>
-        /// 入力ソースが繋がっている(ActionMap名, Action名)と、その本数。
-        /// 同じActionへエンジンとタッチなど複数の入力ソースを繋げるため、
-        /// 1本Disposeしただけで「未接続」に戻らないよう本数で持つ。
-        /// </summary>
-        private readonly Dictionary<(string Map, string Action), int> _boundSourceCounts = new();
-
-        /// <summary> エンジン側の入力ソースを繋いだ(ActionMap名, Action名)と、その解除ハンドル </summary>
-        private readonly Dictionary<(string Map, string Action), IDisposable> _engineBindings = new();
-
         private readonly List<string> _activeActionMaps = new();
 
         private readonly ActionEntryList<StateContext<bool>> _inputEnabledChangedActions = new();
@@ -54,7 +41,7 @@ namespace UsefulToolkit.BlackBoard.Input
             string maps = _activeActionMaps.Count == 0 ? "なし" : string.Join(", ", _activeActionMaps);
 
             return $"InputEnabled : {InputEnabled} / ActiveActionMaps : {maps} / " +
-                   $"チャンネル数 : {_channels.Count} / 入力ソース数 : {_boundSourceCounts.Count}";
+                   $"エンジン接続 : {(_engine != null ? "あり" : "なし")}";
         }
 
         /// <summary>
@@ -114,36 +101,24 @@ namespace UsefulToolkit.BlackBoard.Input
         public IDisposable RegisterInput<TValue>(Enum map, Enum action, Action<InputContext<TValue>> handler)
             where TValue : unmanaged
         {
-            var key = ToKey(map, action);
-
+            if (map == null) throw new ArgumentNullException(nameof(map));
+            if (action == null) throw new ArgumentNullException(nameof(action));
             if (handler is null) throw new ArgumentNullException(nameof(handler));
 
-            if (!TryGetOrCreateChannel<TValue>(key, out var channel)) return BoardDispose.Empty;
+            if (_engine == null)
+            {
+                UsefulLogger.LogWarning(
+                    $"入力ソースが繋がっていない為、[{map}.{action}] のコールバックを登録できません。", this);
 
-            // エンジン側にActionがあれば、この時点で入力ソースを繋ぐ。既に繋がっている場合は何もしない
-            TryBindEngineSource<TValue>(map, action, key, false);
+                return BoardDispose.Empty;
+            }
 
-            return channel.Register(handler);
+            return _engine.Subscribe(map, action, handler);
         }
 
         #endregion
 
         #region 操作面 : 具象型を保持しているクラスだけが呼べる
-
-        /// <summary>
-        /// 指定したActionを、エンジン側の入力ソースとしてチャンネルへ繋ぐ。
-        /// 同じActionへ2回目を呼んだ場合は警告を出して何もしない。
-        ///
-        /// <see cref="RegisterInput{TValue}"/>が同じ橋渡しを自動で行う為、通常は呼ぶ必要が無い。
-        /// エンジン側の入力ソースだけを先に繋いでおきたい場合に使う。
-        /// </summary>
-        /// <param name="map">ActionMapを表すenum</param>
-        /// <param name="action">Actionを表すenum</param>
-        /// <exception cref="ArgumentNullException">map・actionがnullのときに出力</exception>
-        public void Bind<TValue>(Enum map, Enum action) where TValue : unmanaged
-        {
-            TryBindEngineSource<TValue>(map, action, ToKey(map, action), true);
-        }
 
         /// <summary>
         /// 指定したActionMapだけを有効にする。他の有効なActionMapは全て無効になる。
@@ -202,72 +177,6 @@ namespace UsefulToolkit.BlackBoard.Input
 
         #endregion
 
-        /// <summary>
-        /// 指定したActionへエンジン側の入力ソースを繋ぐ。
-        /// エンジンが未接続、既に橋渡し済み、エンジン側に対応するActionが無い場合は何もしない。
-        /// </summary>
-        /// <param name="map">ActionMapを表すenum</param>
-        /// <param name="action">Actionを表すenum</param>
-        /// <param name="key">(ActionMap名, Action名)</param>
-        /// <param name="warnOnSkip">エンジン未接続・橋渡し済みで見送った場合に警告を出すか</param>
-        private void TryBindEngineSource<TValue>(Enum map, Enum action, (string Map, string Action) key,
-            bool warnOnSkip) where TValue : unmanaged
-        {
-            if (_engine == null)
-            {
-                if (warnOnSkip)
-                {
-                    UsefulLogger.LogWarning($"入力ソースが繋がっていない為、[{map}.{action}] を橋渡しできません。", this);
-                }
-
-                return;
-            }
-
-            // 2本張るとstarted/performed/canceledが二重に流れ、全ハンドラが2回発火する
-            if (_engineBindings.ContainsKey(key))
-            {
-                if (warnOnSkip)
-                {
-                    UsefulLogger.LogWarning($"[{map}.{action}] は既に橋渡し済みの為、Bindを無視しました。", this);
-                }
-
-                return;
-            }
-
-            if (!_engine.TryCreateInputSource<TValue>(map, action, out var source)) return;
-
-            // 型が食い違う等でチャンネルを確保できない場合は、BindSourceToChannelが
-            // 何も解除しないハンドルを返す。それを_engineBindingsへ入れると以降の正しい型での
-            // Bindが「既に橋渡し済み」で弾かれ続けるため、先に確保できるか確かめる
-            if (!TryGetOrCreateChannel<TValue>(key, out _)) return;
-
-            _engineBindings[key] = BindSourceToChannel(key, source);
-        }
-
-        /// <summary>
-        /// 入力ソースをそのActionのチャンネルへ繋ぐ。
-        /// 入力ソースはチャンネルへの参照を持たず、値の流し込みはここが張るブリッジだけが行う。
-        /// </summary>
-        /// <param name="key">(ActionMap名, Action名)</param>
-        /// <param name="source">繋ぐ入力ソース</param>
-        /// <returns>Disposeすると繋ぎを解除できる</returns>
-        private IDisposable BindSourceToChannel<TValue>((string Map, string Action) key,
-            IExternalInputSource<TValue> source) where TValue : unmanaged
-        {
-            if (!TryGetOrCreateChannel<TValue>(key, out var channel)) return BoardDispose.Empty;
-
-            void Handler(InputContext<TValue> context) => channel.Invoke(context);
-
-            source.RegisterAction(Handler);
-            IncrementBoundSource(key);
-
-            return new BoardDispose(() =>
-            {
-                source.UnRegisterAction(Handler);
-                DecrementBoundSource(key);
-            });
-        }
-
         private void SetInputEnabled(bool enabled)
         {
             if (InputEnabled == enabled) return;
@@ -294,83 +203,6 @@ namespace UsefulToolkit.BlackBoard.Input
         {
             _engine?.ApplyExclusive(InputEnabled, _activeActionMaps);
             _activeActionMapsChangedActions.Invoke();
-        }
-
-        private void IncrementBoundSource((string Map, string Action) key)
-        {
-            _boundSourceCounts[key] = _boundSourceCounts.TryGetValue(key, out int count) ? count + 1 : 1;
-        }
-
-        private void DecrementBoundSource((string Map, string Action) key)
-        {
-            if (!_boundSourceCounts.TryGetValue(key, out int count)) return;
-
-            if (count <= 1)
-            {
-                _boundSourceCounts.Remove(key);
-                return;
-            }
-
-            _boundSourceCounts[key] = count - 1;
-        }
-
-        /// <summary>
-        /// enumの組をチャンネルのキーへ変換する。
-        /// </summary>
-        /// <param name="map">ActionMapを表すenum</param>
-        /// <param name="action">Actionを表すenum</param>
-        /// <exception cref="ArgumentNullException">map・actionがnullのときに出力</exception>
-        private static (string Map, string Action) ToKey(Enum map, Enum action)
-        {
-            if (map == null) throw new ArgumentNullException(nameof(map));
-            if (action == null) throw new ArgumentNullException(nameof(action));
-
-            return (EnumNameCache.GetName(map), EnumNameCache.GetName(action));
-        }
-
-        /// <summary>
-        /// 指定したキーのチャンネルを取得する。無ければ作る。
-        /// 既存のチャンネルと値型が食い違う場合は、エラーログを出してfalseを返す。
-        /// </summary>
-        /// <param name="key">(ActionMap名, Action名)</param>
-        /// <param name="channel">取得したチャンネル。失敗時はnull</param>
-        private bool TryGetOrCreateChannel<TValue>(
-            (string Map, string Action) key, out ActionChannel<InputContext<TValue>> channel)
-            where TValue : unmanaged
-        {
-            if (_channels.TryGetValue(key, out var raw))
-            {
-                channel = raw as ActionChannel<InputContext<TValue>>;
-
-                if (channel != null) return true;
-
-                // 差し替えると、既存のチャンネルを掴んでいる入力ソースの発火先が失われて
-                // 新しく登録したハンドラが一切呼ばれなくなるため、作り直さずに拒否する
-                UsefulLogger.LogError(
-                    $"[{key.Map}.{key.Action}] は既に {ValueTypeNameOf(raw)} 型として登録されている為、" +
-                    $"{typeof(TValue).Name} 型では扱えません。BindとRegisterInputで同じ型を指定してください。", this);
-
-                return false;
-            }
-
-            channel = new ActionChannel<InputContext<TValue>>();
-            _channels[key] = channel;
-            return true;
-        }
-
-        /// <summary>
-        /// ActionChannel&lt;InputContext&lt;TValue&gt;&gt; から、TValueの型名を取り出す。
-        /// </summary>
-        /// <param name="channel">型名を調べるチャンネル</param>
-        private static string ValueTypeNameOf(object channel)
-        {
-            var channelType = channel.GetType();
-
-            if (!channelType.IsGenericType) return channelType.Name;
-
-            var contextType = channelType.GetGenericArguments()[0];
-
-            return contextType.IsGenericType ? contextType.GetGenericArguments()[0].Name : contextType.Name;
         }
     }
 }

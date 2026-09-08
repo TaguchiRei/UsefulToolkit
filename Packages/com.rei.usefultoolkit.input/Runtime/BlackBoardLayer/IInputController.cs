@@ -44,18 +44,5 @@ namespace UsefulToolkit.BlackBoard.Input
 
         /// <summary> 入力全体を無効にする。有効なActionMapの内容は保持される。 </summary>
         void DisableInput();
-
-        /// <summary>
-        /// 指定したActionを、エンジン側の入力ソースとしてチャンネルへ繋ぐ。
-        /// 生成されたActionMaps・XxxActionsのenumに依存するため、利用側のInitializerから呼ぶ。
-        ///
-        /// <see cref="IInputState.RegisterInput{TValue}"/>が同じ橋渡しを自動で行う為、通常は呼ぶ必要が無い。
-        /// チャンネルの値型を先に確定させたい場合や、
-        /// エンジン側の入力ソースだけを先に繋いでおきたい場合に使う。
-        /// </summary>
-        /// <param name="map">ActionMapを表すenum</param>
-        /// <param name="action">Actionを表すenum</param>
-        /// <exception cref="ArgumentNullException">map・actionがnullのときに出力</exception>
-        void Bind<TValue>(Enum map, Enum action) where TValue : unmanaged;
     }
 }

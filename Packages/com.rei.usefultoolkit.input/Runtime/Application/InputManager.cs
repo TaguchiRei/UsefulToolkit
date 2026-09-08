@@ -85,13 +85,6 @@ namespace UsefulToolkit.Application.Input
             _inputState.DisableInput();
         }
 
-        public void Bind<TValue>(Enum map, Enum action) where TValue : unmanaged
-        {
-            if (!TryGetState(nameof(Bind))) return;
-
-            _inputState.Bind<TValue>(map, action);
-        }
-
         #endregion
 
         /// <summary>

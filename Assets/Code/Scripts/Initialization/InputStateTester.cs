@@ -48,9 +48,9 @@ namespace Sandbox.Initialization
         }
 
         /// <summary>
-        /// IInputStateを取得し、変更通知の購読・入力ソースの橋渡し・コールバック登録を行う。
+        /// IInputStateを取得し、変更通知の購読とコールバック登録を行う。
         ///
-        /// InputStateの登録もBindもInputInitializerのInitializeより後である必要がある。
+        /// InputStateの登録がInputInitializerのInitializeより後である必要がある。
         /// InputInitializerBaseはInitializeOrderConst.InitializerEarlyを宣言しており、
         /// このクラスは未宣言(0)なので生成されるInitializeAllでは必ず後になる。
         /// </summary>
@@ -81,9 +81,6 @@ namespace Sandbox.Initialization
 
             _registrations.Add(_inputState.RegisterEventOnActiveActionMapsChanged(
                 new ActionEntry(false, OnActiveActionMapsChanged)));
-
-            _inputController.Bind<Vector2>(ActionMaps.Player, PlayerActions.Move);
-            _inputController.Bind<float>(ActionMaps.Player, PlayerActions.Attack);
 
             _registrations.Add(_inputState.RegisterInput<Vector2>(
                 ActionMaps.Player, PlayerActions.Move, OnMove));
