@@ -92,14 +92,6 @@ namespace UsefulToolkit.Application.Input
             _inputState.Bind<TValue>(map, action);
         }
 
-        public IDisposable RegisterExternalInputSource<TValue>(Enum map, Enum action,
-            IExternalInputSource<TValue> source) where TValue : unmanaged
-        {
-            if (!TryGetState(nameof(RegisterExternalInputSource))) return BoardDispose.Empty;
-
-            return _inputState.RegisterExternalInputSource(map, action, source);
-        }
-
         #endregion
 
         /// <summary>

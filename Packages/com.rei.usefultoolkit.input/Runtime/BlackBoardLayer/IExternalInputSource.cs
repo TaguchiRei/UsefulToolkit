@@ -3,10 +3,9 @@
 namespace UsefulToolkit.BlackBoard.Input
 {
     /// <summary>
-    /// InputStateへ入力を橋渡しする入力ソースの契約。EngineAdapterLayerに属するクラス
-    /// (InputDispatcher/MobileInputEngineAdapterおよび利用者が追加する外部入力ソース)が実装し、
-    /// IInputController.RegisterExternalInputSourceで登録する。チャンネルへの値の流し込みは
-    /// InputState自身のブリッジだけが行うため、このインターフェースを実装するだけでは発行権限を持たない。
+    /// InputStateへ入力を橋渡しする入力ソースの契約。EngineAdapterLayerの<see cref="IInputEngineBridge"/>
+    /// 実装が生成し、InputState自身がチャンネルへ繋ぐ。値の流し込みはInputStateが張るブリッジだけが行うため、
+    /// このインターフェースを実装するだけでは発行権限を持たない。
     ///
     /// 1つの入力ソースは複数の(map, action)へ登録されうるため、ハンドラは多重に保持できること。
     /// 実装は次を満たすこと。

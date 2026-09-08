@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UsefulToolkit.Editor.Initialize;
@@ -16,8 +16,6 @@ namespace UsefulToolkit.Editor.Input
     /// 生成された派生クラスの型はこのアセンブリから参照できないため、
     /// 抽象基底の <see cref="InputInitializerBase"/> で取得する。
     /// InputActionAsset の割り当ては Inspector での手作業とする。
-    /// タッチ入力用の MobileInputEngineAdapter は GraphicRaycaster を要し用途も限られるため、
-    /// ここでは追加せず利用者が手動で載せる。
     /// </summary>
     internal sealed class InputPersistentSceneContributor : IPersistentSceneContributor
     {

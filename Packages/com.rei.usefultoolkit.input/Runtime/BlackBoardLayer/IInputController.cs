@@ -57,17 +57,5 @@ namespace UsefulToolkit.BlackBoard.Input
         /// <param name="action">Actionを表すenum</param>
         /// <exception cref="ArgumentNullException">map・actionがnullのときに出力</exception>
         void Bind<TValue>(Enum map, Enum action) where TValue : unmanaged;
-
-        /// <summary>
-        /// 指定したActionへ、エンジン以外の入力ソースを繋ぐ。
-        /// 入力ソースはチャンネルへの参照を持たず、値の流し込みはこのメソッドが張るブリッジだけが行う。
-        /// </summary>
-        /// <param name="map">ActionMapを表すenum</param>
-        /// <param name="action">Actionを表すenum</param>
-        /// <param name="source">登録する入力ソース</param>
-        /// <returns>Disposeすると登録を解除できる</returns>
-        /// <exception cref="ArgumentNullException">map・action・sourceがnullのときに出力</exception>
-        IDisposable RegisterExternalInputSource<TValue>(Enum map, Enum action,
-            IExternalInputSource<TValue> source) where TValue : unmanaged;
     }
 }

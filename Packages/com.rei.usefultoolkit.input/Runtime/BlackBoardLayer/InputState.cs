@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
-using Cysharp.Threading.Tasks;
 using UsefulToolkit.BlackBoard.BlackBoard;
 using UsefulToolkit.BlackBoard.Logger;
 using UsefulToolkit.Utility;
@@ -39,9 +37,6 @@ namespace UsefulToolkit.BlackBoard.Input
 
         /// <summary> エンジン側の入力ソースを繋いだ(ActionMap名, Action名)と、その解除ハンドル </summary>
         private readonly Dictionary<(string Map, string Action), IDisposable> _engineBindings = new();
-
-        /// <summary> 入力ソースが繋がった際に実行するアクション </summary>
-        private readonly KeyedActionEntryList<(string Map, string Action)> _sourceBoundActions = new();
 
         private readonly List<string> _activeActionMaps = new();
 
@@ -131,42 +126,6 @@ namespace UsefulToolkit.BlackBoard.Input
             return channel.Register(handler);
         }
 
-        public async UniTask<IDisposable> RegisterInputAsync<TValue>(Enum map, Enum action,
-            Action<InputContext<TValue>> handler, float? timeoutSeconds = null,
-            CancellationToken cancellationToken = default) where TValue : unmanaged
-        {
-            var key = ToKey(map, action);
-
-            if (handler is null) throw new ArgumentNullException(nameof(handler));
-
-            // 先に遅延Bindを試す。エンジン側にActionがあればここで繋がり、待機せずに済む
-            TryBindEngineSource<TValue>(map, action, key, false);
-
-            if (!_boundSourceCounts.ContainsKey(key))
-            {
-                var completion = new UniTaskCompletionSource();
-
-                // 一度繋がれば用済みなのでDisposeOnUsedで登録する
-                using var waiting = _sourceBoundActions.Register(
-                    key, new ActionEntry(true, () => completion.TrySetResult()), nameof(handler));
-
-                float seconds = timeoutSeconds ?? UsefulToolkitConst.DefaultTimeoutSeconds;
-
-                int winIndex = await UniTask.WhenAny(
-                    completion.Task,
-                    UniTask.Delay(TimeSpan.FromSeconds(seconds), cancellationToken: cancellationToken));
-
-                if (winIndex != 0)
-                {
-                    UsefulLogger.LogWarning(
-                        $"[{map}.{action}] へ入力ソースが繋がらないまま {seconds} 秒が経過した為、登録を打ち切りました。", this);
-                    return BoardDispose.Empty;
-                }
-            }
-
-            return RegisterInput(map, action, handler);
-        }
-
         #endregion
 
         #region 操作面 : 具象型を保持しているクラスだけが呼べる
@@ -184,40 +143,6 @@ namespace UsefulToolkit.BlackBoard.Input
         public void Bind<TValue>(Enum map, Enum action) where TValue : unmanaged
         {
             TryBindEngineSource<TValue>(map, action, ToKey(map, action), true);
-        }
-
-        /// <summary>
-        /// 指定したActionへ入力ソースを繋ぐ。
-        /// 入力ソースはチャンネルへの参照を持たず、値の流し込みはここが張るブリッジだけが行う。
-        /// 同じActionへ複数の入力ソースを繋いでよく、その場合はどれが発火しても同じチャンネルへ流れる。
-        /// </summary>
-        /// <param name="map">ActionMapを表すenum</param>
-        /// <param name="action">Actionを表すenum</param>
-        /// <param name="source">登録する入力ソース</param>
-        /// <returns>Disposeすると登録を解除できる</returns>
-        /// <exception cref="ArgumentNullException">map・action・sourceがnullのときに出力</exception>
-        public IDisposable RegisterExternalInputSource<TValue>(Enum map, Enum action,
-            IExternalInputSource<TValue> source) where TValue : unmanaged
-        {
-            var key = ToKey(map, action);
-
-            if (source is null) throw new ArgumentNullException(nameof(source));
-
-            if (!TryGetOrCreateChannel<TValue>(key, out var channel)) return BoardDispose.Empty;
-
-            void Handler(InputContext<TValue> context) => channel.Invoke(context);
-
-            source.RegisterAction(Handler);
-            IncrementBoundSource(key);
-
-            // 待機中のRegisterInputAsyncを再開させる
-            _sourceBoundActions.Invoke(key);
-
-            return new BoardDispose(() =>
-            {
-                source.UnRegisterAction(Handler);
-                DecrementBoundSource(key);
-            });
         }
 
         /// <summary>
@@ -311,12 +236,36 @@ namespace UsefulToolkit.BlackBoard.Input
 
             if (!_engine.TryCreateInputSource<TValue>(map, action, out var source)) return;
 
-            // 型が食い違う等でチャンネルを確保できない場合は、RegisterExternalInputSourceが
+            // 型が食い違う等でチャンネルを確保できない場合は、BindSourceToChannelが
             // 何も解除しないハンドルを返す。それを_engineBindingsへ入れると以降の正しい型での
             // Bindが「既に橋渡し済み」で弾かれ続けるため、先に確保できるか確かめる
             if (!TryGetOrCreateChannel<TValue>(key, out _)) return;
 
-            _engineBindings[key] = RegisterExternalInputSource(map, action, source);
+            _engineBindings[key] = BindSourceToChannel(key, source);
+        }
+
+        /// <summary>
+        /// 入力ソースをそのActionのチャンネルへ繋ぐ。
+        /// 入力ソースはチャンネルへの参照を持たず、値の流し込みはここが張るブリッジだけが行う。
+        /// </summary>
+        /// <param name="key">(ActionMap名, Action名)</param>
+        /// <param name="source">繋ぐ入力ソース</param>
+        /// <returns>Disposeすると繋ぎを解除できる</returns>
+        private IDisposable BindSourceToChannel<TValue>((string Map, string Action) key,
+            IExternalInputSource<TValue> source) where TValue : unmanaged
+        {
+            if (!TryGetOrCreateChannel<TValue>(key, out var channel)) return BoardDispose.Empty;
+
+            void Handler(InputContext<TValue> context) => channel.Invoke(context);
+
+            source.RegisterAction(Handler);
+            IncrementBoundSource(key);
+
+            return new BoardDispose(() =>
+            {
+                source.UnRegisterAction(Handler);
+                DecrementBoundSource(key);
+            });
         }
 
         private void SetInputEnabled(bool enabled)

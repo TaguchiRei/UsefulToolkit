@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
-using Cysharp.Threading.Tasks;
 using UsefulToolkit.BlackBoard.BlackBoard;
 
 namespace UsefulToolkit.BlackBoard.Input
@@ -69,25 +67,6 @@ namespace UsefulToolkit.BlackBoard.Input
         /// <exception cref="InvalidOperationException">同じハンドラが既に登録されているときに出力</exception>
         IDisposable RegisterInput<TValue>(Enum map, Enum action, Action<InputContext<TValue>> handler)
             where TValue : unmanaged;
-
-        /// <summary>
-        /// 指定したActionへ入力ソースが登録されるのを待ってから、入力コールバックを登録する。
-        /// 入力ソースが既に登録済みならその場で登録する。
-        /// エンジン側の入力ソースは<see cref="RegisterInput{TValue}"/>と同様その場で繋ぐため、
-        /// 実際に待機が起きるのはタッチ操作などエンジン外の入力ソースを待つ場合に限られる。
-        /// 返したIDisposableの解放が登録側の責任になる点は<see cref="RegisterInput{TValue}"/>と同じ。
-        /// </summary>
-        /// <param name="map">ActionMapを表すenum</param>
-        /// <param name="action">Actionを表すenum</param>
-        /// <param name="handler">入力時に実行するハンドラ</param>
-        /// <param name="timeoutSeconds">待機の打ち切り秒数。nullならUsefulToolkitConst.DefaultTimeoutSeconds</param>
-        /// <param name="cancellationToken">待機の中断に使う</param>
-        /// <returns>Disposeすると登録を解除できる。タイムアウトした場合は何も解除しないハンドル</returns>
-        /// <exception cref="ArgumentNullException">map・action・handlerがnullのときに出力</exception>
-        /// <exception cref="InvalidOperationException">同じハンドラが既に登録されているときに出力</exception>
-        UniTask<IDisposable> RegisterInputAsync<TValue>(Enum map, Enum action,
-            Action<InputContext<TValue>> handler, float? timeoutSeconds = null,
-            CancellationToken cancellationToken = default) where TValue : unmanaged;
 
         /// <summary>
         /// 入力の有効・無効が変わった際に実行するアクションを登録する。
