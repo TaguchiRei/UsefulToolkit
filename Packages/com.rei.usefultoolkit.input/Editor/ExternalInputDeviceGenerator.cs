@@ -62,15 +62,31 @@ namespace UsefulToolkit.Editor.Input
 
         /// <summary>
         /// 宣言から仮想デバイス一式を生成する。
-        /// 名前の検証を全て通してから書き出すため、弾かれた場合は何も書き換わらない。
+        /// 前回の生成からスロットがリネームされていれば、プロジェクト内の .inputactions のバインディングも追従させる。
+        /// 名前の検証と書き換えの計画を全て通してから書き出すため、弾かれた場合は何も書き換わらない。
         /// </summary>
         /// <param name="definition">生成元の宣言</param>
+        /// <param name="interactive">バインディングを書き換える前に確認ダイアログを出すか。falseなら確認せずに書き換える</param>
         /// <returns>生成できた場合はtrue</returns>
-        public static bool Generate(ExternalInputDefinition definition)
+        public static bool Generate(ExternalInputDefinition definition, bool interactive = true)
         {
             if (definition == null) return false;
 
             if (!TryCollectSlots(definition, out var slots)) return false;
+
+            if (!ExternalInputManifest.TryLoad(out var previousNames)) return false;
+
+            if (!ExternalInputBindingPatcher.TryBuildPlan(LayoutName, previousNames, slots, out var plan)) return false;
+
+            if (!ConfirmBindingRewrite(plan, interactive)) return false;
+
+            foreach (var dangling in plan.DanglingBindings)
+            {
+                Debug.LogWarning(
+                    $"[UsefulToolkit.Input] 削除されたスロットを指すバインディングが残っています : {dangling}");
+            }
+
+            if (plan.Patches.Count > 0 && !ExternalInputBindingPatcher.Apply(plan)) return false;
 
             var ns = UsefulToolkitSettingsScriptable.instance.CodeGenerationSectionSettings.Namespace;
             string deviceAssemblyName = $"{ns}.{DeviceFolderName}.Runtime";
@@ -97,12 +113,64 @@ namespace UsefulToolkit.Editor.Input
 
             WarnIfInitializerCannotSeeDevice(deviceAssemblyName);
 
+            ExternalInputManifest.Save(slots);
+
+            foreach (var rename in plan.Renames)
+            {
+                int count = plan.RewriteCounts.TryGetValue(rename.Key, out int rewrites) ? rewrites : 0;
+
+                Debug.Log($"[UsefulToolkit.Input] スロットのリネームを検出しました : " +
+                          $"{rename.Key} → {rename.Value}(バインディング {count}件を書き換え)");
+            }
+
             Debug.Log(
                 $"[UsefulToolkit.Input] 外部入力デバイスを生成しました({slots.Count}スロット): " +
                 $"{OutputDirectory(DeviceFolderName)}\n" +
                 $"InputActionAsset で <{LayoutName}>/スロット名 にバインドしてください。");
 
             return true;
+        }
+
+        /// <summary>
+        /// バインディングを書き換えてよいか確かめる。書き換えが無ければ何もせずtrue。
+        /// Input Actions の編集ウィンドウが開いている場合は、確認せずにfalseを返す。
+        /// </summary>
+        /// <param name="plan">書き換えの計画</param>
+        /// <param name="interactive">確認ダイアログを出すか</param>
+        /// <returns>書き換えを進めてよい場合はtrue</returns>
+        private static bool ConfirmBindingRewrite(ExternalInputBindingPatcher.Plan plan, bool interactive)
+        {
+            if (plan.TotalRewrites == 0) return true;
+
+            const string title = "外部入力デバイスの生成";
+
+            if (ExternalInputBindingPatcher.IsInputActionsEditorOpen())
+            {
+                const string openMessage =
+                    "Input Actions の編集ウィンドウが開いている為、バインディングを書き換えられません。\n" +
+                    "開いたままだと、書き換え後に古い内容で上書きされる恐れがあります。閉じてから再度生成してください。";
+
+                if (interactive) EditorUtility.DisplayDialog(title, openMessage, "OK");
+                else Debug.LogError($"[UsefulToolkit.Input] {openMessage}");
+
+                return false;
+            }
+
+            if (!interactive) return true;
+
+            var renameLines = plan.Renames.Select(rename =>
+                $"・{rename.Key} → {rename.Value}" +
+                $"({(plan.RewriteCounts.TryGetValue(rename.Key, out int count) ? count : 0)}件)");
+
+            string message =
+                "外部入力スロットのリネームに合わせて、InputActionAsset のバインディングを書き換えます。\n\n" +
+                $"{string.Join("\n", renameLines)}\n\n" +
+                $"対象 : {plan.Patches.Count}ファイル / 計{plan.TotalRewrites}件\n\n" +
+                "実行時に保存されたキーバインドの上書き設定(SaveBindingOverridesAsJson の出力)は追従できない為、" +
+                "該当するコントロールのリバインド設定は失われます。\n" +
+                "Project Settings の Input System Package 画面を開いている場合は、閉じてから実行してください。";
+
+            return EditorUtility.DisplayDialog(title, message, "書き換えて生成", "中止");
         }
 
         /// <summary>
@@ -148,11 +216,22 @@ namespace UsefulToolkit.Editor.Input
             slots = new List<ExternalInputSlot>();
 
             bool valid = true;
-            var seen = new HashSet<string>();
+
+            // InputSystem はコントロール名の大文字小文字を区別しない為、大文字小文字違いも重複として扱う
+            var seen = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
 
             foreach (var slot in definition.Slots)
             {
                 if (slot == null) continue;
+
+                if (string.IsNullOrEmpty(slot.Id))
+                {
+                    Debug.LogError(
+                        $"[UsefulToolkit.Input] スロット '{slot.Name}' にIdが振られていません。" +
+                        "宣言アセットを保存し直してから生成してください。", definition);
+                    valid = false;
+                    continue;
+                }
 
                 if (string.IsNullOrWhiteSpace(slot.Name))
                 {
@@ -173,7 +252,8 @@ namespace UsefulToolkit.Editor.Input
                 if (!seen.Add(slot.Name))
                 {
                     Debug.LogError(
-                        $"[UsefulToolkit.Input] スロット名 '{slot.Name}' が重複しています。", definition);
+                        $"[UsefulToolkit.Input] スロット名 '{slot.Name}' が重複しています" +
+                        "(大文字小文字の違いだけの名前も同じ名前として扱われます)。", definition);
                     valid = false;
                     continue;
                 }
