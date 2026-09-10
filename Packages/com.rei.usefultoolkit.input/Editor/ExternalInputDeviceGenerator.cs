@@ -15,8 +15,9 @@ namespace UsefulToolkit.Editor.Input
     /// <see cref="ExternalInputDefinition"/>から、外部入力を受ける仮想InputDeviceを生成する。
     ///
     /// 生成するのは state 構造体・InputDevice派生・登録コード・スロットのenum・
-    /// IExternalInputDeviceBridgeの実装の5つ。出力先フォルダと名前空間は
-    /// UsefulToolkit/Settings のコード生成設定に従う。
+    /// IExternalInputDeviceBridgeの実装と、それらを収めるアセンブリ定義。
+    /// スロットのenumは他の入力用enumと同じ Input フォルダへ、それ以外は InputDevice フォルダへ出力する。
+    /// 出力先のルートと名前空間は UsefulToolkit/Settings のコード生成設定に従う。
     ///
     /// 生成後、InputActionAssetで <c>&lt;UsefulInput&gt;/スロット名</c> にバインドすると、
     /// 外部入力が通常のActionとして扱えるようになる。バインドしたActionは
@@ -24,7 +25,16 @@ namespace UsefulToolkit.Editor.Input
     /// </summary>
     public static class ExternalInputDeviceGenerator
     {
+        /// <summary> スロットのenumの出力先。他の入力用enumと同じフォルダ </summary>
         private const string FolderName = "Input";
+
+        /// <summary>
+        /// 仮想デバイス一式の出力先。専用のasmdefを置き、InputSystemへの依存を
+        /// enumだけのアセンブリへ持ち込まない
+        /// </summary>
+        private const string DeviceFolderName = "InputDevice";
+
+        private const string InitializerClassName = "InputInitializer";
         private const string DeviceClassName = "UsefulInputDevice";
         private const string StateStructName = "UsefulInputState";
         private const string RegistrationClassName = "UsefulInputDeviceRegistration";
@@ -63,27 +73,68 @@ namespace UsefulToolkit.Editor.Input
             if (!TryCollectSlots(definition, out var slots)) return false;
 
             var ns = UsefulToolkitSettingsScriptable.instance.CodeGenerationSectionSettings.Namespace;
+            string deviceAssemblyName = $"{ns}.{DeviceFolderName}.Runtime";
 
-            FileGenerator.AutoGenerateFile($"{StateStructName}.cs", BuildStateSource(slots, ns),
-                GenerateType.Runtime, FolderName);
-            FileGenerator.AutoGenerateFile($"{DeviceClassName}.cs", BuildDeviceSource(slots, ns),
-                GenerateType.Runtime, FolderName);
-            FileGenerator.AutoGenerateFile($"{RegistrationClassName}.cs", BuildRegistrationSource(ns),
-                GenerateType.Runtime, FolderName);
+            // スロットのenumは他のenumと同じアセンブリに置き、どの層からも参照できるようにする。
+            // そのアセンブリが無い(Assembly-CSharpになる)場合はasmdefから参照できない為、デバイス側へ置く
+            string enumAssemblyName = FindCoveringAssemblyName(OutputDirectory(FolderName));
+            string enumFolder = enumAssemblyName != null ? FolderName : DeviceFolderName;
+
             FileGenerator.AutoGenerateFile($"{SlotEnumName}.cs",
                 EnumGenerator.BuildSource(SlotEnumName, slots.Select(slot => slot.Name).ToArray(), ns),
-                GenerateType.Runtime, FolderName);
+                GenerateType.Runtime, enumFolder);
+            FileGenerator.AutoGenerateFile($"{deviceAssemblyName}.asmdef",
+                BuildAssemblyDefinition(deviceAssemblyName, ns, enumAssemblyName),
+                GenerateType.Runtime, DeviceFolderName);
+            FileGenerator.AutoGenerateFile($"{StateStructName}.cs", BuildStateSource(slots, ns),
+                GenerateType.Runtime, DeviceFolderName);
+            FileGenerator.AutoGenerateFile($"{DeviceClassName}.cs", BuildDeviceSource(slots, ns),
+                GenerateType.Runtime, DeviceFolderName);
+            FileGenerator.AutoGenerateFile($"{RegistrationClassName}.cs", BuildRegistrationSource(ns),
+                GenerateType.Runtime, DeviceFolderName);
             FileGenerator.AutoGenerateFile($"{BridgeClassName}.cs", BuildBridgeSource(slots, ns),
-                GenerateType.Runtime, FolderName);
+                GenerateType.Runtime, DeviceFolderName);
 
-            WarnIfInputSystemNotReferenced();
+            WarnIfInitializerCannotSeeDevice(deviceAssemblyName);
 
             Debug.Log(
                 $"[UsefulToolkit.Input] 外部入力デバイスを生成しました({slots.Count}スロット): " +
-                $"{FileGenerator.GenerateRuntimeRootPath}/{GenerateType.Runtime}/{FolderName}\n" +
+                $"{OutputDirectory(DeviceFolderName)}\n" +
                 $"InputActionAsset で <{LayoutName}>/スロット名 にバインドしてください。");
 
             return true;
+        }
+
+        /// <summary>
+        /// 仮想デバイス用アセンブリ定義のJSONを組み立てる。
+        /// </summary>
+        /// <param name="assemblyName">アセンブリ名</param>
+        /// <param name="ns">ルート名前空間</param>
+        /// <param name="enumAssemblyName">スロットのenumを持つアセンブリ名。デバイス側に置く場合はnull</param>
+        private static string BuildAssemblyDefinition(string assemblyName, string ns, string enumAssemblyName)
+        {
+            var references = new List<string> { "Unity.InputSystem", "UsefulToolkit.Input.BlackBoard.Runtime" };
+
+            if (enumAssemblyName != null) references.Add(enumAssemblyName);
+
+            string referenceList = string.Join(",\n", references.Select(reference => $"        \"{reference}\""));
+
+            return "{\n" +
+                   $"    \"name\": \"{assemblyName}\",\n" +
+                   $"    \"rootNamespace\": \"{ns}\",\n" +
+                   "    \"references\": [\n" +
+                   $"{referenceList}\n" +
+                   "    ],\n" +
+                   "    \"includePlatforms\": [],\n" +
+                   "    \"excludePlatforms\": [],\n" +
+                   "    \"allowUnsafeCode\": false,\n" +
+                   "    \"overrideReferences\": false,\n" +
+                   "    \"precompiledReferences\": [],\n" +
+                   "    \"autoReferenced\": true,\n" +
+                   "    \"defineConstraints\": [],\n" +
+                   "    \"versionDefines\": [],\n" +
+                   "    \"noEngineReferences\": false\n" +
+                   "}\n";
         }
 
         /// <summary>
@@ -332,14 +383,20 @@ namespace UsefulToolkit.Editor.Input
 
             foreach (var slot in slots)
             {
-                string valueType = FieldTypeOf(slot.ValueType);
+                string writeType = WriteTypeOf(slot.ValueType);
+                string readValue = $"UnsafeUtility.As<TValue, {writeType}>(ref value)";
+
+                // Buttonはboolで受け取り、state構造体のfloatへ 1 / 0 として書き込む
+                string deltaValue = slot.ValueType == ExternalInputValueType.Button
+                    ? $"{readValue} ? 1f : 0f"
+                    : readValue;
 
                 builder.AppendLine($"                case {SlotEnumName}.{slot.Name}:");
-                builder.AppendLine($"                    if (typeof(TValue) != typeof({valueType}))");
-                builder.AppendLine($"                        return TypeMismatch(target, typeof({valueType}), " +
+                builder.AppendLine($"                    if (typeof(TValue) != typeof({writeType}))");
+                builder.AppendLine($"                        return TypeMismatch(target, typeof({writeType}), " +
                                    "typeof(TValue));");
                 builder.AppendLine($"                    InputSystem.QueueDeltaStateEvent(device.{slot.Name}, " +
-                                   $"UnsafeUtility.As<TValue, {valueType}>(ref value));");
+                                   $"{deltaValue});");
                 builder.AppendLine("                    return true;");
                 builder.AppendLine();
             }
@@ -384,6 +441,15 @@ namespace UsefulToolkit.Editor.Input
                 ExternalInputValueType.Integer => "int",
                 _ => "float",
             };
+        }
+
+        /// <summary>
+        /// スロットの値型に対応する、WriteExternalInput で受け付ける型。
+        /// Buttonだけはstate構造体のフィールド型(float)と異なりboolで受け付ける。
+        /// </summary>
+        private static string WriteTypeOf(ExternalInputValueType valueType)
+        {
+            return valueType == ExternalInputValueType.Button ? "bool" : FieldTypeOf(valueType);
         }
 
         /// <summary> スロットの値型に対応する、InputSystemのコントロールレイアウト名 </summary>
@@ -444,23 +510,77 @@ namespace UsefulToolkit.Editor.Input
         }
 
         /// <summary>
-        /// 生成先フォルダのasmdefがInputSystemを参照していない場合に警告する。
-        /// 生成物はInputSystemの型を使う為、参照が無いとコンパイルが通らない。
-        /// asmdefの自動編集は行わない。
+        /// 生成された InputInitializer のアセンブリが仮想デバイスのアセンブリを参照していない場合に警告する。
+        /// InputInitializer はブリッジを生成して渡す為、参照が無いと override を有効にできない。
+        /// 利用者のasmdefの自動編集は行わない。
         /// </summary>
-        private static void WarnIfInputSystemNotReferenced()
+        /// <param name="deviceAssemblyName">仮想デバイスのアセンブリ名</param>
+        private static void WarnIfInitializerCannotSeeDevice(string deviceAssemblyName)
         {
-            string root = FileGenerator.GenerateRuntimeRootPath;
+            string initializerPath = AssetDatabase.FindAssets($"{InitializerClassName} t:MonoScript")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .FirstOrDefault(path => Path.GetFileNameWithoutExtension(path) == InitializerClassName);
 
-            if (string.IsNullOrEmpty(root)) return;
+            // InputInitializer がまだ生成されていなければ、参照を確かめる相手がいない
+            if (initializerPath == null) return;
 
-            string targetDirectory = NormalizeDirectory(
-                Path.Combine(root, GenerateType.Runtime.ToString(), FolderName));
+            string asmdefPath = FindCoveringAsmdefPath(Path.GetDirectoryName(initializerPath));
 
+            if (asmdefPath == null)
+            {
+                Debug.LogWarning(
+                    $"[UsefulToolkit.Input] {InitializerClassName} が Assembly-CSharp にある為、" +
+                    $"アセンブリ定義 '{deviceAssemblyName}' を参照できません。" +
+                    $"{InitializerClassName} をアセンブリ定義のあるフォルダへ移してください。");
+                return;
+            }
+
+            if (File.ReadAllText(asmdefPath).Contains($"\"{deviceAssemblyName}\"")) return;
+
+            Debug.LogWarning(
+                $"[UsefulToolkit.Input] '{asmdefPath}' が '{deviceAssemblyName}' を参照していない為、" +
+                $"{InitializerClassName} から {BridgeClassName} を生成できません。参照へ追加してください。");
+        }
+
+        /// <summary>
+        /// 生成物の出力先フォルダのパスを返す。
+        /// </summary>
+        /// <param name="folderName">GenerateType.Runtime 配下のサブフォルダ名</param>
+        private static string OutputDirectory(string folderName)
+        {
+            return Path.Combine(FileGenerator.GenerateRuntimeRootPath, GenerateType.Runtime.ToString(), folderName)
+                .Replace('\\', '/');
+        }
+
+        /// <summary>
+        /// 指定したフォルダのコードを受け持つアセンブリ名を返す。
+        /// アセンブリ定義が無い(Assembly-CSharpになる)場合はnull。
+        /// </summary>
+        /// <param name="directory">調べるフォルダ</param>
+        private static string FindCoveringAssemblyName(string directory)
+        {
+            string asmdefPath = FindCoveringAsmdefPath(directory);
+
+            if (asmdefPath == null) return null;
+
+            var definition = JsonUtility.FromJson<AssemblyDefinitionName>(File.ReadAllText(asmdefPath));
+
+            return string.IsNullOrEmpty(definition?.name) ? null : definition.name;
+        }
+
+        /// <summary>
+        /// 指定したフォルダを含むアセンブリ定義のうち、最も近い(パスが最も長い)もののパスを返す。
+        /// コードを受け持つのはそのアセンブリ定義になる。見つからなければnull。
+        /// </summary>
+        /// <param name="directory">調べるフォルダ</param>
+        private static string FindCoveringAsmdefPath(string directory)
+        {
+            if (string.IsNullOrEmpty(directory)) return null;
+
+            string targetDirectory = NormalizeDirectory(directory);
             string closestAsmdefPath = null;
             int closestLength = -1;
 
-            // 生成先を含むasmdefのうち、最も近い(パスが最も長い)ものがそのコードを受け持つ
             foreach (var guid in AssetDatabase.FindAssets("t:AssemblyDefinitionAsset"))
             {
                 string assetPath = AssetDatabase.GUIDToAssetPath(guid);
@@ -474,19 +594,14 @@ namespace UsefulToolkit.Editor.Input
                 closestAsmdefPath = assetPath;
             }
 
-            if (closestAsmdefPath == null)
-            {
-                Debug.LogWarning(
-                    "[UsefulToolkit.Input] 生成先を含むアセンブリ定義が見つかりません。" +
-                    "生成したコードは Assembly-CSharp に入る為、InputSystem が参照できているか確認してください。");
-                return;
-            }
+            return closestAsmdefPath;
+        }
 
-            if (File.ReadAllText(closestAsmdefPath).Contains("Unity.InputSystem")) return;
-
-            Debug.LogWarning(
-                $"[UsefulToolkit.Input] 生成先のアセンブリ定義 '{closestAsmdefPath}' が Unity.InputSystem を" +
-                "参照していない為、生成したコードはコンパイルできません。参照へ追加してください。");
+        /// <summary> アセンブリ定義のJSONから name だけを読むための器 </summary>
+        [System.Serializable]
+        private sealed class AssemblyDefinitionName
+        {
+            public string name;
         }
 
         /// <summary>
