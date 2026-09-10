@@ -32,6 +32,8 @@ namespace UsefulToolkit.BlackBoard.Input
 
         private IInputEngineBridge _engine;
 
+        private IExternalInputDeviceBridge _externalInputDevice;
+
         public bool InputEnabled { get; private set; } = true;
 
         public IReadOnlyList<string> ActiveActionMaps => _activeActionMaps;
@@ -57,6 +59,21 @@ namespace UsefulToolkit.BlackBoard.Input
             // エンジンをStateの写しに保つ責務はState側にあるため、接続の時点で押し込む。
             // 接続前のエンジンのActionMapの有効状態は不定なので、全リセットしてから反映する
             _engine.ApplyExclusive(InputEnabled, _activeActionMaps);
+        }
+
+        /// <summary>
+        /// 外部入力を仮想デバイスへ書き込む橋渡しを繋ぐ。
+        /// このメソッドは<see cref="IInputState"/>には無いため、具象型を保持する生成元だけが呼べる。
+        ///
+        /// 外部入力を使わない場合は繋がなくてよい。その場合
+        /// <see cref="WriteExternalInput{TValue}"/>は警告を出して何もしない。
+        /// </summary>
+        /// <param name="externalInputDevice">繋ぐ橋渡し</param>
+        /// <exception cref="ArgumentNullException">externalInputDeviceがnullのときに出力</exception>
+        public void RegisterExternalInputDevice(IExternalInputDeviceBridge externalInputDevice)
+        {
+            _externalInputDevice = externalInputDevice
+                                   ?? throw new ArgumentNullException(nameof(externalInputDevice));
         }
 
         #region IInputState実装 : 状態の確認
@@ -174,6 +191,28 @@ namespace UsefulToolkit.BlackBoard.Input
 
         /// <summary> 入力全体を無効にする。有効なActionMapの内容は保持される。 </summary>
         public void DisableInput() => SetInputEnabled(false);
+
+        /// <summary>
+        /// 外部入力スロットへ値を書き込む。実際の書き込みと型の検査は橋渡しの実装が行う。
+        /// </summary>
+        /// <param name="slot">書き込み先のスロットを表すenum</param>
+        /// <param name="value">書き込む値</param>
+        /// <exception cref="ArgumentNullException">slotがnullのときに出力</exception>
+        public void WriteExternalInput<TValue>(Enum slot, TValue value) where TValue : unmanaged
+        {
+            if (slot == null) throw new ArgumentNullException(nameof(slot));
+
+            if (_externalInputDevice == null)
+            {
+                UsefulLogger.LogWarning(
+                    $"外部入力デバイスが繋がっていない為、[{slot}] へ書き込めません。" +
+                    "UsefulToolkit/Input/Generate External Input Device で生成してください。", this);
+
+                return;
+            }
+
+            _externalInputDevice.TryWrite(slot, value);
+        }
 
         #endregion
 

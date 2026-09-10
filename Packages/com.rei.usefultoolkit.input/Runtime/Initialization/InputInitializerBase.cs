@@ -40,6 +40,16 @@ namespace UsefulToolkit.Initialization
         protected IInputController Controller => _inputManager;
 
         /// <summary>
+        /// 外部入力を仮想デバイスへ書き込む橋渡しを作る。既定では外部入力を使わない。
+        ///
+        /// 仮想デバイスの型は生成されて利用者のアセンブリに置かれるため、このパッケージからは
+        /// 参照できない。<c>UsefulToolkit/Input/Generate External Input Device</c> が生成した
+        /// 派生クラスがこれを override して、生成されたブリッジを返す。
+        /// </summary>
+        /// <returns>橋渡し。外部入力を使わない場合はnull</returns>
+        protected virtual IExternalInputDeviceBridge CreateExternalInputBridge() => null;
+
+        /// <summary>
         /// InputDispatcher を初期化したうえで、Application に InputState を用意させる。
         /// </summary>
         /// <param name="blackBoard">InputState の登録先</param>
@@ -63,7 +73,7 @@ namespace UsefulToolkit.Initialization
 
             // --  ここにApplicationの初期化を配置。内部でInputStateを生成してBlackBoardに登録 --
             // 生成に失敗した場合は Initialized を立てずに抜ける
-            if (!_inputManager.Initialize(blackBoard, _inputDispatcher))
+            if (!_inputManager.Initialize(blackBoard, _inputDispatcher, CreateExternalInputBridge()))
             {
                 return;
             }

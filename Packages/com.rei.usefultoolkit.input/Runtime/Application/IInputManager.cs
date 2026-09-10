@@ -21,7 +21,9 @@ namespace UsefulToolkit.Application.Input
         /// </summary>
         /// <param name="blackBoard">InputStateの登録先</param>
         /// <param name="engineBridge">InputStateへ繋ぐエンジン側の橋渡し</param>
+        /// <param name="externalInputDevice">外部入力を仮想デバイスへ書き込む橋渡し。使わない場合はnull</param>
         /// <returns>生成と登録に成功した場合はtrue。失敗した場合はfalseで、InputStateは生成されない</returns>
-        bool Initialize(IBlackBoard blackBoard, IInputEngineBridge engineBridge);
+        bool Initialize(IBlackBoard blackBoard, IInputEngineBridge engineBridge,
+            IExternalInputDeviceBridge externalInputDevice);
     }
 }

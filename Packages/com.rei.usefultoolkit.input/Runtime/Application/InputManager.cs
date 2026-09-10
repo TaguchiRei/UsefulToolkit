@@ -24,8 +24,10 @@ namespace UsefulToolkit.Application.Input
         /// </summary>
         /// <param name="blackBoard">InputStateの登録先</param>
         /// <param name="engineBridge">InputStateへ繋ぐエンジン側の橋渡し</param>
+        /// <param name="externalInputDevice">外部入力を仮想デバイスへ書き込む橋渡し。使わない場合はnull</param>
         /// <returns>生成と登録に成功した場合はtrue。失敗した場合はfalseで、InputStateは生成されない</returns>
-        public virtual bool Initialize(IBlackBoard blackBoard, IInputEngineBridge engineBridge)
+        public virtual bool Initialize(IBlackBoard blackBoard, IInputEngineBridge engineBridge,
+            IExternalInputDeviceBridge externalInputDevice)
         {
             if (engineBridge == null)
             {
@@ -43,6 +45,9 @@ namespace UsefulToolkit.Application.Input
 
             _inputState = new InputState();
             _inputState.RegisterInputEngine(engineBridge);
+
+            // 外部入力は任意機能なので、渡されなかった場合は繋がずに続行する
+            if (externalInputDevice != null) _inputState.RegisterExternalInputDevice(externalInputDevice);
 
             inputBoard.RegisterGameState<IInputState>(_inputState);
             return true;
@@ -83,6 +88,13 @@ namespace UsefulToolkit.Application.Input
             if (!TryGetState(nameof(DisableInput))) return;
 
             _inputState.DisableInput();
+        }
+
+        public void WriteExternalInput<TValue>(Enum slot, TValue value) where TValue : unmanaged
+        {
+            if (!TryGetState(nameof(WriteExternalInput))) return;
+
+            _inputState.WriteExternalInput(slot, value);
         }
 
         #endregion

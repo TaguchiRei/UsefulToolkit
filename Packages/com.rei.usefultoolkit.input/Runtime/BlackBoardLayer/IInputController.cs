@@ -44,5 +44,17 @@ namespace UsefulToolkit.BlackBoard.Input
 
         /// <summary> 入力全体を無効にする。有効なActionMapの内容は保持される。 </summary>
         void DisableInput();
+
+        /// <summary>
+        /// 外部入力スロットへ値を書き込む。書き込まれた値は仮想デバイスを経由して
+        /// 通常の InputAction として発火するため、受け取る側は入力源を区別しない。
+        ///
+        /// タッチの意味づけやAIの入力など、InputSystem の外で作った値を入力として流す経路。
+        /// slot には <c>UsefulToolkit/Input/Generate External Input Device</c> が生成した
+        /// ExternalInputs のenumを渡す。
+        /// </summary>
+        /// <param name="slot">書き込み先のスロットを表すenum</param>
+        /// <param name="value">書き込む値。スロットの宣言と型が一致していること</param>
+        void WriteExternalInput<TValue>(Enum slot, TValue value) where TValue : unmanaged;
     }
 }

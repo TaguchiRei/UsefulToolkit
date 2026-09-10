@@ -50,6 +50,14 @@ namespace UsefulToolkit.Editor.Input
             builder.AppendLine($"            {context.CompositorClassName}.TryRegisterContent(Controller);");
             builder.AppendLine("        }");
             builder.AppendLine();
+            builder.AppendLine("        /// <summary>");
+            builder.AppendLine("        /// 外部入力を仮想デバイスへ書き込む橋渡しを返す。");
+            builder.AppendLine("        /// 外部入力を使う場合は、UsefulToolkit/Input/Generate External Input Device で");
+            builder.AppendLine("        /// 生成した UsefulInputDeviceBridge を返すよう次の行を有効にする。");
+            builder.AppendLine("        /// </summary>");
+            builder.AppendLine("        // protected override UsefulToolkit.BlackBoard.Input.IExternalInputDeviceBridge");
+            builder.AppendLine("        //     CreateExternalInputBridge() => new UsefulInputDeviceBridge();");
+            builder.AppendLine();
             builder.AppendLine("        /// <param name=\"blackBoard\">InputStateの登録先</param>");
             builder.AppendLine("        public override void Initialize(IBlackBoard blackBoard)");
             builder.AppendLine("        {");
