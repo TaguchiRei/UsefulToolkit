@@ -20,8 +20,8 @@ namespace UsefulToolkit.Initialization
     /// 派生クラスを生成し、そこから <see cref="Controller"/> を登録する。生成は
     /// <c>UsefulToolkit/Scene/GenerateUsefulPersistentScene</c> が行う。
     ///
-    /// (map, action) 単位の橋渡し(<see cref="IInputController.Bind{TValue}"/>)は利用者側の enum に
-    /// 依存するため、ここでは行わない。生成された派生クラスの Initialize に書くこと。
+    /// 開始時に有効にする ActionMap の指定(<see cref="IInputController.SwitchActionMap"/>)は
+    /// 利用者側の enum に依存するため、ここでは行わない。生成された派生クラスの Initialize に書くこと。
     /// </summary>
     [InitializeOrder(InitializeOrderConst.InitializerEarly)]
     public abstract class InputInitializerBase : InitializerBase
@@ -38,6 +38,16 @@ namespace UsefulToolkit.Initialization
         /// Initialize より前でも参照できるが、実際に操作できるのは Initialize 以降になる。
         /// </summary>
         protected IInputController Controller => _inputManager;
+
+        /// <summary>
+        /// 外部入力を仮想デバイスへ書き込む橋渡しを作る。既定では外部入力を使わない。
+        ///
+        /// 仮想デバイスの型は生成されて利用者のアセンブリに置かれるため、このパッケージからは
+        /// 参照できない。<c>UsefulToolkit/Input/Generate External Input Device</c> が生成した
+        /// 派生クラスがこれを override して、生成されたブリッジを返す。
+        /// </summary>
+        /// <returns>橋渡し。外部入力を使わない場合はnull</returns>
+        protected virtual IExternalInputDeviceBridge CreateExternalInputBridge() => null;
 
         /// <summary>
         /// InputDispatcher を初期化したうえで、Application に InputState を用意させる。
@@ -63,7 +73,7 @@ namespace UsefulToolkit.Initialization
 
             // --  ここにApplicationの初期化を配置。内部でInputStateを生成してBlackBoardに登録 --
             // 生成に失敗した場合は Initialized を立てずに抜ける
-            if (!_inputManager.Initialize(blackBoard, _inputDispatcher))
+            if (!_inputManager.Initialize(blackBoard, _inputDispatcher, CreateExternalInputBridge()))
             {
                 return;
             }

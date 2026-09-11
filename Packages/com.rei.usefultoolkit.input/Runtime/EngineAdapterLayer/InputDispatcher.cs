@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UsefulToolkit.BlackBoard.BlackBoard;
 using UsefulToolkit.BlackBoard.Input;
 using UsefulToolkit.BlackBoard.Logger;
 using UsefulToolkit.Initialization;
@@ -11,7 +12,7 @@ namespace UsefulToolkit.EngineAdapter.Input
 {
     /// <summary>
     /// InputActionAssetを直接扱うEngineAdapterLayer。
-    /// InputStateの内容をInputActionAssetへ反映し、InputActionを入力ソースとして提供する。
+    /// InputStateの内容をInputActionAssetへ反映し、InputActionへのコールバック登録を仲介する。
     ///
     /// このクラスはInputStateを参照しない。反映すべき内容は<see cref="Apply"/>の引数として
     /// 渡されるものが全てであり、エンジンがStateとは別に状態を持つことはない。
@@ -58,16 +59,26 @@ namespace UsefulToolkit.EngineAdapter.Input
             return new InputContext<TValue>(ToInputPhase(inputAction.phase), inputAction.ReadValue<TValue>());
         }
 
-        public bool TryCreateInputSource<TValue>(Enum map, Enum action, out IExternalInputSource<TValue> source)
+        public IDisposable Subscribe<TValue>(Enum map, Enum action, Action<InputContext<TValue>> handler)
             where TValue : unmanaged
         {
-            source = null;
-
             var inputAction = FindAction(map, action);
-            if (inputAction == null) return false;
 
-            source = new InputActionSource<TValue>(inputAction);
-            return true;
+            if (inputAction == null) return BoardDispose.Empty;
+
+            void OnCallback(InputAction.CallbackContext context) =>
+                handler(new InputContext<TValue>(ToInputPhase(context.phase), context.ReadValue<TValue>()));
+
+            inputAction.started += OnCallback;
+            inputAction.performed += OnCallback;
+            inputAction.canceled += OnCallback;
+
+            return new BoardDispose(() =>
+            {
+                inputAction.started -= OnCallback;
+                inputAction.performed -= OnCallback;
+                inputAction.canceled -= OnCallback;
+            });
         }
 
         /// <summary>
@@ -207,46 +218,5 @@ namespace UsefulToolkit.EngineAdapter.Input
             };
         }
 
-        /// <summary>InputActionのstarted/performed/canceledをIExternalInputSourceとして橋渡しするアダプタ。</summary>
-        private sealed class InputActionSource<TValue> : IExternalInputSource<TValue> where TValue : unmanaged
-        {
-            private readonly InputAction _action;
-            private Action<InputContext<TValue>> _handler;
-
-            public InputActionSource(InputAction action)
-            {
-                _action = action;
-            }
-
-            public void RegisterAction(Action<InputContext<TValue>> handler)
-            {
-                if (handler == null) return;
-
-                bool wasEmpty = _handler == null;
-                _handler += handler;
-
-                // ハンドラが1つも無い間はInputActionを購読しない
-                if (!wasEmpty) return;
-
-                _action.started += OnCallback;
-                _action.performed += OnCallback;
-                _action.canceled += OnCallback;
-            }
-
-            public void UnRegisterAction(Action<InputContext<TValue>> handler)
-            {
-                if (handler == null || _handler == null) return;
-
-                _handler -= handler;
-                if (_handler != null) return;
-
-                _action.started -= OnCallback;
-                _action.performed -= OnCallback;
-                _action.canceled -= OnCallback;
-            }
-
-            private void OnCallback(InputAction.CallbackContext ctx) =>
-                _handler?.Invoke(new InputContext<TValue>(ToInputPhase(ctx.phase), ctx.ReadValue<TValue>()));
-        }
     }
 }

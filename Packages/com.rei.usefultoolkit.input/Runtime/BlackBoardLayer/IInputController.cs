@@ -46,24 +46,15 @@ namespace UsefulToolkit.BlackBoard.Input
         void DisableInput();
 
         /// <summary>
-        /// 指定したActionを、エンジン側の入力ソースとしてチャンネルへ繋ぐ。
-        /// 生成されたActionMaps・XxxActionsのenumに依存するため、利用側のInitializerから呼ぶ。
+        /// 外部入力スロットへ値を書き込む。書き込まれた値は仮想デバイスを経由して
+        /// 通常の InputAction として発火するため、受け取る側は入力源を区別しない。
+        ///
+        /// タッチの意味づけやAIの入力など、InputSystem の外で作った値を入力として流す経路。
+        /// slot には <c>UsefulToolkit/Input/Generate External Input Device</c> が生成した
+        /// ExternalInputs のenumを渡す。
         /// </summary>
-        /// <param name="map">ActionMapを表すenum</param>
-        /// <param name="action">Actionを表すenum</param>
-        /// <exception cref="ArgumentNullException">map・actionがnullのときに出力</exception>
-        void Bind<TValue>(Enum map, Enum action) where TValue : unmanaged;
-
-        /// <summary>
-        /// 指定したActionへ、エンジン以外の入力ソースを繋ぐ。
-        /// 入力ソースはチャンネルへの参照を持たず、値の流し込みはこのメソッドが張るブリッジだけが行う。
-        /// </summary>
-        /// <param name="map">ActionMapを表すenum</param>
-        /// <param name="action">Actionを表すenum</param>
-        /// <param name="source">登録する入力ソース</param>
-        /// <returns>Disposeすると登録を解除できる</returns>
-        /// <exception cref="ArgumentNullException">map・action・sourceがnullのときに出力</exception>
-        IDisposable RegisterExternalInputSource<TValue>(Enum map, Enum action,
-            IExternalInputSource<TValue> source) where TValue : unmanaged;
+        /// <param name="slot">書き込み先のスロットを表すenum</param>
+        /// <param name="value">書き込む値。スロットの宣言と型が一致していること</param>
+        void WriteExternalInput<TValue>(Enum slot, TValue value) where TValue : unmanaged;
     }
 }

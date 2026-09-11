@@ -10,7 +10,7 @@ namespace UsefulToolkit.Editor.Input
     ///
     /// 入力の操作面を DI コンテナへ登録するには生成された Compositor の具象型が要るため、
     /// パッケージ側の <c>InputInitializerBase</c> を継承したクラスを利用者側に置く。
-    /// (map, action) の Bind も利用者の enum に依存するため、その置き場を兼ねている。
+    /// 開始時に有効にする ActionMap の指定も利用者の enum に依存するため、その置き場を兼ねている。
     /// </summary>
     internal sealed class InputInitializerTemplateProvider : IInitializerTemplateProvider
     {
@@ -50,17 +50,23 @@ namespace UsefulToolkit.Editor.Input
             builder.AppendLine($"            {context.CompositorClassName}.TryRegisterContent(Controller);");
             builder.AppendLine("        }");
             builder.AppendLine();
+            builder.AppendLine("        /// <summary>");
+            builder.AppendLine("        /// 外部入力を仮想デバイスへ書き込む橋渡しを返す。");
+            builder.AppendLine("        /// 外部入力を使う場合は、UsefulToolkit/Input/Generate External Input Device で");
+            builder.AppendLine("        /// 生成した UsefulInputDeviceBridge を返すよう次の行を有効にする。");
+            builder.AppendLine("        /// </summary>");
+            builder.AppendLine("        // protected override UsefulToolkit.BlackBoard.Input.IExternalInputDeviceBridge");
+            builder.AppendLine("        //     CreateExternalInputBridge() => new UsefulInputDeviceBridge();");
+            builder.AppendLine();
             builder.AppendLine("        /// <param name=\"blackBoard\">InputStateの登録先</param>");
             builder.AppendLine("        public override void Initialize(IBlackBoard blackBoard)");
             builder.AppendLine("        {");
             builder.AppendLine("            base.Initialize(blackBoard);");
             builder.AppendLine();
-            builder.AppendLine("            // ここに (map, action) の Bind と、有効にする ActionMap の指定を書く。");
-            builder.AppendLine("            // Bind は InputActionAsset の Action を入力ソースとしてチャンネルへ繋ぐ操作で、");
-            builder.AppendLine("            // UsefulToolkit/Input/Generate Action Enums が生成した enum を使う。");
+            builder.AppendLine("            // ここに、開始時に有効にする ActionMap の指定を書く。");
+            builder.AppendLine("            // map には UsefulToolkit/Input/Generate Action Enums が生成した enum を使う。");
             builder.AppendLine("            //");
             builder.AppendLine("            // 例:");
-            builder.AppendLine("            // Controller.Bind<UnityEngine.Vector2>(ActionMaps.Player, PlayerActions.Move);");
             builder.AppendLine("            // Controller.SwitchActionMap(ActionMaps.Player);");
             builder.AppendLine("        }");
             builder.AppendLine("    }");
