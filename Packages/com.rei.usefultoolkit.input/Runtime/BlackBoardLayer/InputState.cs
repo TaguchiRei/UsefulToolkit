@@ -94,7 +94,7 @@ namespace UsefulToolkit.BlackBoard.Input
 
             if (_engine == null)
             {
-                UsefulLogger.LogWarning($"入力ソースが繋がっていない為、[{map}.{action}] の値を読み出せません。", this);
+                UsefulLogger.LogWarning($"エンジンが繋がっていない為、[{map}.{action}] の値を読み出せません。", this);
                 return new InputContext<TValue>(InputPhase.Disabled, default);
             }
 
@@ -125,7 +125,7 @@ namespace UsefulToolkit.BlackBoard.Input
             if (_engine == null)
             {
                 UsefulLogger.LogWarning(
-                    $"入力ソースが繋がっていない為、[{map}.{action}] のコールバックを登録できません。", this);
+                    $"エンジンが繋がっていない為、[{map}.{action}] のコールバックを登録できません。", this);
 
                 return BoardDispose.Empty;
             }
