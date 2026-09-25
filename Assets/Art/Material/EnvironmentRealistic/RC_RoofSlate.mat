@@ -1,0 +1,88 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: RC_RoofSlate
+  m_Shader: {fileID: 4800000, guid: e6d505031b4141746b9f353f9205dd9e, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _MASKMAP
+  - _NORMALMAP
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: e135cdaa9c3128e44acf1dd78d4a4409, type: 3}
+        m_Scale: {x: 0.5, y: 0.5}
+        m_Offset: {x: 0, y: 0}
+    - _BumpMap:
+        m_Texture: {fileID: 2800000, guid: d7ba9f8e08c02b8498f3233f296caa17, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _EmissionMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MaskMap:
+        m_Texture: {fileID: 2800000, guid: 410896a183bda9a40a9a68c7f6bfa622, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AmbientFlatten: 0.6
+    - _AmbientStrength: 0.85
+    - _BumpScale: 1
+    - _Cull: 2
+    - _EnvironmentReflectionStrength: 0.9
+    - _LitGradient: 0.3
+    - _Metallic: 1
+    - _OcclusionStrength: 1
+    - _OutlineBaseColorBlend: 0.85
+    - _OutlineEnabled: 1
+    - _OutlineFadeEnd: 35
+    - _OutlineFadeStart: 8
+    - _OutlineWidth: 1
+    - _OutlineZOffset: 0.002
+    - _RimLightSideMask: 0.8
+    - _RimSoftness: 0.02
+    - _RimThreshold: 0.72
+    - _SSAOStrength: 0.8
+    - _ShadeSoftness: 0.06
+    - _ShadeThreshold: 0
+    - _ShadowSaturation: 0.5
+    - _ShadowSoftness: 0.06
+    - _Smoothness: 1
+    - _SpecSoftness: 0.04
+    - _SpecStylization: 0.7
+    - _SpecThreshold: 0.6
+    - _SpecularAlbedoTint: 0.4
+    - _TerminatorWidth: 0.15
+    - _ToonSpecIntensity: 1
+    - _ToonSpecularBase: 0.2
+    - _UseEmission: 0
+    - _UseMaskMap: 1
+    - _UseNormalMap: 1
+    - _UseRim: 0
+    m_Colors:
+    - _BaseColor: {r: 0.92, g: 0.97, b: 1.08, a: 1}
+    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _OutlineColor: {r: 0.06, g: 0.06, b: 0.07, a: 1}
+    - _RimColor: {r: 0.4, g: 0.4, b: 0.46, a: 1}
+    - _ShadowColor: {r: 0.5, g: 0.54, b: 0.68, a: 1}
+    - _TerminatorColor: {r: 0.55, g: 0.36, b: 0.3, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

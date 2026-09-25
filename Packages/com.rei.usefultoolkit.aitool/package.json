@@ -8,6 +8,7 @@
     "name": "Rei"
   },
   "dependencies": {
-    "com.rei.usefultoolkit.framework": "1.0.0"
+    "com.rei.usefultoolkit.framework": "1.0.0",
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
   }
 }
