@@ -3,7 +3,7 @@ using System;
 namespace UsefulToolkit.BlackBoard.Input
 {
     /// <summary>
-    /// 入力の操作面。ActionMapの切り替え、入力の有効・無効、入力ソースの接続を行う。
+    /// 入力の操作面。ActionMapの切り替え、入力の有効・無効、外部入力の書き込みを行う。
     ///
     /// この型は BlackBoard には載せない。InputState を変更できるのはそれを生成した
     /// Application のクラス(<see cref="UsefulToolkit.Application.Input.IInputManager"/> の実装)だけであり、

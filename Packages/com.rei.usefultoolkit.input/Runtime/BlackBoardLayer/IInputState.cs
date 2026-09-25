@@ -34,7 +34,7 @@ namespace UsefulToolkit.BlackBoard.Input
 
         /// <summary>
         /// 指定したActionの現在値を読み出す。
-        /// 入力ソースが繋がっていない場合はPhaseがDisabledのInputContextを返す。
+        /// エンジンが繋がっていない、またはActionが見つからない場合はPhaseがDisabledのInputContextを返す。
         /// 毎フレーム呼ばれうる経路のため、map・actionがnullでも例外は投げずDisabledを返す。
         ///
         /// 内部では確保を行わないが、enum値をEnum型の引数へ渡す時点でボックス化による確保が起きる。
@@ -56,8 +56,8 @@ namespace UsefulToolkit.BlackBoard.Input
         /// started / performed / canceled は1本のコールバックへまとめて届くため、
         /// 区別が必要な場合は<see cref="InputContext{TValue}.Phase"/>で判定する。
         ///
-        /// エンジン側の入力ソースがまだ繋がっていない場合はここで繋ぐため、
-        /// <see cref="IInputController.Bind{TValue}"/>を事前に呼ぶ必要は無い。
+        /// ハンドラはエンジン側のActionの発火へ直接繋がる。値の型がActionと食い違う場合は、
+        /// 登録時ではなく発火時にエンジン側が例外を出す。
         /// </summary>
         /// <param name="map">ActionMapを表すenum</param>
         /// <param name="action">Actionを表すenum</param>

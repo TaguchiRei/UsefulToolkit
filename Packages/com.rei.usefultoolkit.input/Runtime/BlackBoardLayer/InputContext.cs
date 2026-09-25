@@ -1,7 +1,7 @@
 namespace UsefulToolkit.BlackBoard.Input
 {
     /// <summary>
-    /// 入力のチャンネルを流れるペイロード。1コールバック分のphaseと値を運ぶ。
+    /// 入力コールバックへ渡すペイロード。1コールバック分のphaseと値を運ぶ。
     /// </summary>
     public readonly struct InputContext<TValue> where TValue : unmanaged
     {
