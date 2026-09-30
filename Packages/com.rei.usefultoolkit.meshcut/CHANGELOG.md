@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- 処理時間の計測を作り直しました。従来は各段階の間を Stopwatch で測っていたため、Job の完了を待つフレーム待ちまで
+  処理時間に含まれていました。現在は段階ごとに「待ち / 実行 / 検知遅れ / フレーム」を分けて記録し、
+  切断 1 回ぶんを 1 つの表として出力します。Job の実行時間はワーカー上で記録します。
+- `MultiCutBlade` の計測結果に、プール生成待ち・破片取得・破片反映(うち `SetupCollider`)を含めるようにしました。
+  破片反映をフレーム分割したときの個別ログは廃止し、表の付帯情報「破片反映のフレーム分割回数」にまとめました。
+
+### Added
+
+- `MeshCutProfile` / `MeshCutStageRecord` / `MeshCutProfileInfo` / `MeshCutStageKind`
+- `MultiMeshCut.LastProfile`、`MultiCutBlade.LastProfile` / `EnableProfileLog` / `CollectProfile`
+
 ## [1.0.0] - UsefulToolkit への移植
 
 `TaguchiRei/MeshCut` の `com.rei.usefulmeshcut` を UsefulToolkit のサブパッケージとして取り込んだものです。

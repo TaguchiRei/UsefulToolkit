@@ -56,6 +56,10 @@ namespace UsefulToolkit.MeshCut
         public NativeArray<NewTriangle> NewTriangles;
         public NativeParallelMultiHashMap<int, int2> CutEdges;
 
+        // ── 断面(キャップ)生成(DistributeAndCapJob)の結果 ──
+        public NativeArray<int> CapClosedLoopCount; // per object: 閉じてキャップを生成できたループ数
+        public NativeArray<int> CapOpenLoopCount; // per object: 途切れてキャップを生成しなかったループ数
+
         // ── フラグメント(オブジェクト×表裏)ごとの出力メッシュバッファ ──
         // フラグメントIndex = objIndex * 2 + side (side: 0=front, 1=back)
         // NativeArray<UnsafeList<T>> はunmanaged制約を満たせずコンパイル不可のため、
@@ -182,6 +186,9 @@ namespace UsefulToolkit.MeshCut
             if (NewUvs.IsCreated) NewUvs.Dispose();
             if (NewTriangles.IsCreated) NewTriangles.Dispose();
             if (CutEdges.IsCreated) CutEdges.Dispose();
+
+            if (CapClosedLoopCount.IsCreated) CapClosedLoopCount.Dispose();
+            if (CapOpenLoopCount.IsCreated) CapOpenLoopCount.Dispose();
 
             if (FragmentVertexRange.IsCreated) FragmentVertexRange.Dispose();
             if (FragmentVertexCount.IsCreated) FragmentVertexCount.Dispose();

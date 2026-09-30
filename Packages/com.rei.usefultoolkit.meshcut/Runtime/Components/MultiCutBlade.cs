@@ -17,15 +17,23 @@ namespace UsefulToolkit.MeshCut
 
         [SerializeField] private MeshCutObjectPool _pool;
 
-        [SerializeField, Tooltip("各処理段階の所要時間をConsoleへ出力する")]
+        [SerializeField, Tooltip("各処理段階の所要時間を計測し、切断ごとに表としてConsoleへ出力する")]
         private bool _enableProfileLog;
 
         private readonly MultiMeshCut _slicer = new();
 
-        private void Awake()
+        /// <summary> 切断ごとに計測結果を表としてConsoleへ出力するか </summary>
+        public bool EnableProfileLog
         {
-            _slicer.EnableProfileLog = _enableProfileLog;
+            get => _enableProfileLog;
+            set => _enableProfileLog = value;
         }
+
+        /// <summary> trueにすると、Consoleへは出力せずに計測だけを行い LastProfile を更新します。 </summary>
+        public bool CollectProfile { get; set; }
+
+        /// <summary> 計測が有効な状態で最後に完了した ExecuteCut の計測結果。未計測なら null。 </summary>
+        public MeshCutProfile LastProfile { get; private set; }
 
         [ContextMenu("切断")]
         private async void Test()
@@ -75,75 +83,115 @@ namespace UsefulToolkit.MeshCut
             targets = FilterCuttable(targets);
             if (targets.Length == 0) return;
 
-            // プールの事前生成は非同期のため、完了前に切断すると破片が取得できない
-            await _pool.WaitForGeneration();
+            MeshCutProfiler profiler = _enableProfileLog || CollectProfile
+                ? new MeshCutProfiler()
+                : MeshCutProfiler.Disabled;
 
-            Stopwatch st = Stopwatch.StartNew();
-
-            // 自分自身をBladeにする
-            NativePlane blade = new NativePlane(transform.position, transform.up);
-
-            // 切断を実行
-            await _slicer.Cut(targets, blade);
-
-            // プールから必要な数だけ破片オブジェクトを一括取得
-            // ターゲット1つにつき前後2つの破片が必要
-            int requiredCount = targets.Length * 2;
-            var fragmentStubs = _pool.GetObjects(requiredCount);
-
-            if (fragmentStubs.Count < requiredCount)
+            try
             {
-                Debug.LogError(
-                    $"[UsefulToolkit.MeshCut] 破片が不足しています。必要数 {requiredCount} に対し取得数 {fragmentStubs.Count}。プールの生成数を増やしてください。");
-                return;
-            }
+                // プールの事前生成は非同期のため、完了前に切断すると破片が取得できない
+                int poolWaitStage = profiler.Request("プール生成待ち", MeshCutStageKind.Main);
+                await _pool.WaitForGeneration();
+                profiler.MarkStart(poolWaitStage);
+                profiler.MarkEnd(poolWaitStage);
+                profiler.Observe(poolWaitStage);
 
-            Stopwatch frameStopwatch = Stopwatch.StartNew();
+                // 自分自身をBladeにする
+                NativePlane blade = new NativePlane(transform.position, transform.up);
 
-            // 4. 結果を各破片に反映
-            for (int i = 0; i < targets.Length; i++)
-            {
-                var target = targets[i];
+                // 切断を実行
+                await _slicer.Cut(targets, blade, profiler);
 
-                // Front側 (index: i*2)
-                var frontData = fragmentStubs[i * 2];
-                ApplyResult(frontData, _slicer.CutMesh[i * 2], _slicer.SamplingPoints[i * 2], target,
-                    _slicer.FragmentMeshIds[i * 2]);
+                // プールから必要な数だけ破片オブジェクトを一括取得
+                // ターゲット1つにつき前後2つの破片が必要
+                int getStage = profiler.BeginMain("破片取得");
+                int requiredCount = targets.Length * 2;
+                var fragmentStubs = _pool.GetObjects(requiredCount);
+                profiler.EndMain(getStage);
 
-                // Back側 (index: i*2 + 1)
-                var backData = fragmentStubs[i * 2 + 1];
-                ApplyResult(backData, _slicer.CutMesh[i * 2 + 1], _slicer.SamplingPoints[i * 2 + 1], target,
-                    _slicer.FragmentMeshIds[i * 2 + 1]);
-
-                // 元のオブジェクトは消費済み。非アクティブ化し、二度と切断対象にならないようにする
-                target.DisableCutting();
-                target.gameObject.SetActive(false);
-
-                // 切断元が破片だった場合、スロットを塞いだままにしないようプールへ返す。
-                // 今回配った破片そのものだった場合(プールが一周した場合)は返してはいけない
-                if (!fragmentStubs.Contains(target))
+                if (fragmentStubs.Count < requiredCount)
                 {
-                    _pool.TryReleaseObject(target);
+                    Debug.LogError(
+                        $"[UsefulToolkit.MeshCut] 破片が不足しています。必要数 {requiredCount} に対し取得数 {fragmentStubs.Count}。プールの生成数を増やしてください。");
+                    return;
                 }
 
-                await CheckTime(frameStopwatch, _LimitMs);
-            }
+                Stopwatch frameStopwatch = Stopwatch.StartNew();
 
-            if (_enableProfileLog)
+                long applyStart = Stopwatch.GetTimestamp();
+                long applyTicks = 0;
+                long colliderTicks = 0;
+                int yieldCount = 0;
+
+                // 4. 結果を各破片に反映
+                for (int i = 0; i < targets.Length; i++)
+                {
+                    long itemStart = Stopwatch.GetTimestamp();
+
+                    var target = targets[i];
+
+                    // Front側 (index: i*2)
+                    var frontData = fragmentStubs[i * 2];
+                    ApplyResult(frontData, _slicer.CutMesh[i * 2], _slicer.SamplingPoints[i * 2], target,
+                        _slicer.FragmentMeshIds[i * 2], ref colliderTicks);
+
+                    // Back側 (index: i*2 + 1)
+                    var backData = fragmentStubs[i * 2 + 1];
+                    ApplyResult(backData, _slicer.CutMesh[i * 2 + 1], _slicer.SamplingPoints[i * 2 + 1], target,
+                        _slicer.FragmentMeshIds[i * 2 + 1], ref colliderTicks);
+
+                    // 元のオブジェクトは消費済み。非アクティブ化し、二度と切断対象にならないようにする
+                    target.DisableCutting();
+                    target.gameObject.SetActive(false);
+
+                    // 切断元が破片だった場合、スロットを塞いだままにしないようプールへ返す。
+                    // 今回配った破片そのものだった場合(プールが一周した場合)は返してはいけない
+                    if (!fragmentStubs.Contains(target))
+                    {
+                        _pool.TryReleaseObject(target);
+                    }
+
+                    applyTicks += Stopwatch.GetTimestamp() - itemStart;
+
+                    if (await CheckTime(frameStopwatch, _LimitMs))
+                    {
+                        yieldCount++;
+                    }
+                }
+
+                long applyEnd = Stopwatch.GetTimestamp();
+
+                profiler.AddAccumulated("破片反映", applyStart, applyEnd, applyTicks);
+                profiler.AddAccumulated("SetupCollider", applyStart, applyEnd, colliderTicks, isBreakdown: true);
+                profiler.AddInfo("破片反映のフレーム分割回数", yieldCount);
+
+                if (profiler.Enabled)
+                {
+                    LastProfile = profiler.Build("MultiCutBlade.ExecuteCut");
+
+                    if (_enableProfileLog)
+                    {
+                        Debug.Log(LastProfile.ToString());
+                    }
+                }
+            }
+            finally
             {
-                Debug.Log($"[UsefulToolkit.MeshCut] 切断から反映までの全体処理時間 {st.ElapsedMilliseconds}ms");
+                profiler.Dispose();
             }
         }
 
         /// <param name="fragmentMeshId">
         /// 再切断用にストアへ登録されたメッシュID。登録されていない(＝もう切れない)場合は -1。
         /// </param>
+        /// <param name="colliderTicks">SetupCollider に掛かった時間(Stopwatchのtick)を加算する</param>
         private void ApplyResult(
             CuttableObject cuttable,
             Mesh mesh,
             List<Vector3> samplingPoints,
             CuttableObject original,
-            int fragmentMeshId)
+            int fragmentMeshId,
+            ref long colliderTicks)
         {
             GameObject fragObj = cuttable.gameObject;
 
@@ -183,7 +231,9 @@ namespace UsefulToolkit.MeshCut
             // アクティブ化
             fragObj.SetActive(true);
 
+            long colliderStart = Stopwatch.GetTimestamp();
             cuttable.SetupCollider(samplingPoints);
+            colliderTicks += Stopwatch.GetTimestamp() - colliderStart;
 
             // 切断可否の引き継ぎ。何回でも切断可能なものだけが新しいMeshIdを持つ
             cuttable.InheritCutSettings(original);
@@ -227,18 +277,15 @@ namespace UsefulToolkit.MeshCut
             return result.ToArray();
         }
 
-        private async UniTask CheckTime(Stopwatch stopwatch, float limitMs = 5f)
+        /// <returns>許容時間を超えたため次のフレームへ送った場合は true</returns>
+        private static async UniTask<bool> CheckTime(Stopwatch stopwatch, float limitMs = 5f)
         {
-            if (stopwatch.ElapsedMilliseconds > limitMs)
-            {
-                await UniTask.Yield();
-                stopwatch.Restart();
+            if (stopwatch.ElapsedMilliseconds <= limitMs) return false;
 
-                if (_enableProfileLog)
-                {
-                    Debug.Log("[UsefulToolkit.MeshCut] 処理時間が長すぎたため、次のフレームに送りました。");
-                }
-            }
+            await UniTask.Yield();
+            stopwatch.Restart();
+
+            return true;
         }
 
 

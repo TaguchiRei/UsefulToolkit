@@ -107,8 +107,25 @@ Renderer のマテリアル配列の末尾に断面マテリアルを追加す�
 
 ### 処理時間の計測
 
-`MultiCutBlade` の「Enable Profile Log」を有効にすると、各処理段階の所要時間が Console に出力されます。
-`MultiMeshCut` を直接使う場合は `EnableProfileLog` を `true` にしてください。
+`MultiCutBlade` の「Enable Profile Log」を有効にすると、切断のたびに全処理段階の計測結果が 1 つの表として Console に出力されます。
+`MultiMeshCut` を直接使う場合は `EnableProfileLog` を `true` にしてください(その場合、表は切断処理のぶんだけになります)。
+
+表の各行は 1 つの処理段階で、次の値を持ちます。
+
+| 列 | 意味 |
+|---|---|
+| 種別 | `Main`(メインスレッド) / `Job`(ワーカースレッド) / `BG`(バックグラウンドスレッド) |
+| 待ち | 実行を要求(Job のスケジュール・スレッド切り替え・待機開始)してから、実際に実行が始まるまで |
+| 実行 | 実行していた時間。Job はワーカー上で最初に動き始めてから最後に終わるまで |
+| 検知遅れ | 実行が終わってから、メインスレッドが完了に気付くまで |
+| フレーム | 計測開始から数えた、その段階を検知したフレーム数 |
+
+`└` で始まる行は直前の行の内訳で、合計には含みません。合計行の「何も実行していない時間」は、
+経過時間からメインスレッドとワーカーの実行時間を引いたもので、フレームの切り替わり待ちなどに使われた時間です。
+
+計測を有効にすると、Job の前後に時刻を記録するだけの Job が 1 つずつ挟まります。無効のときは何も挟まりません。
+結果はコードからも `MultiCutBlade.LastProfile` / `MultiMeshCut.LastProfile` で取得できます。
+Console に出さずに結果だけ取りたい場合は `MultiCutBlade.CollectProfile` を `true` にしてください。
 
 ## API
 
@@ -122,12 +139,31 @@ Renderer のマテリアル配列の末尾に断面マテリアルを追加す�
 | `List<List<Vector3>> SamplingPoints` | コライダー生成用のサンプリング点(元オブジェクトのローカル空間)。添字は `CutMesh` と同じ |
 | `void SetBatch(int)` | 頂点/三角形単位Jobの `innerloopBatchCount`。オブジェクト単位のJobはワーカー数から自動算出されます |
 | `void SetSamplingCount(int)` | サンプリング点数 |
-| `bool EnableProfileLog` | 処理時間ログの出力 |
+| `bool EnableProfileLog` | 処理時間の計測と、表の Console 出力 |
+| `MeshCutProfile LastProfile` | 最後に計測した切断の結果 |
 
 ### MultiCutBlade
 
 自分自身の Transform を刃として扱います。`transform.position` が平面上の点、`transform.up` が法線です。
 `ExecuteCut(CuttableObject[])` で切断からプールを使った破片への反映までを行います。
+
+| メンバ | 説明 |
+|---|---|
+| `UniTask ExecuteCut(CuttableObject[])` | 切断し、結果を破片へ反映します |
+| `bool EnableProfileLog` | 処理時間の計測と、表の Console 出力(Inspector の「Enable Profile Log」と同じ) |
+| `bool CollectProfile` | Console へ出さずに計測だけを行う |
+| `MeshCutProfile LastProfile` | 最後に計測した `ExecuteCut` の結果。プール待ち・切断・破片反映の全段階を含みます |
+
+### MeshCutProfile
+
+| メンバ | 説明 |
+|---|---|
+| `IReadOnlyList<MeshCutStageRecord> Stages` | 段階ごとの結果(名前・種別・待ち・実行・検知遅れ・フレーム) |
+| `IReadOnlyList<MeshCutProfileInfo> Infos` | 対象数・頂点数・フラグメントバッファ確保量などの付帯情報 |
+| `double ElapsedMs` / `int ElapsedFrames` | 全体の経過時間とフレーム数 |
+| `double MainExecuteMs` / `WorkerExecuteMs` / `IdleMs` | メイン実行・ワーカー実行・何も実行していない時間 |
+| `static MeshCutProfile Median(IReadOnlyList<MeshCutProfile>, string)` | 複数回の結果から各値の中央値をとります |
+| `string ToString()` | Console 向けの表 |
 
 ### CuttableObject
 

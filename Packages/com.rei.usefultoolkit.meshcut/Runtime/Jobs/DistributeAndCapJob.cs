@@ -45,6 +45,14 @@ namespace UsefulToolkit.MeshCut
         [NativeDisableParallelForRestriction] public NativeArray<int> FragmentVertexCount;
         [NativeDisableParallelForRestriction] public NativeArray<int> FragmentIndexCount;
 
+        /// <summary> オブジェクトごとの、閉じてキャップを生成できた断面ループの数 </summary>
+        [NativeDisableParallelForRestriction] [WriteOnly]
+        public NativeArray<int> CapClosedLoopCount;
+
+        /// <summary> オブジェクトごとの、途中で途切れてキャップを生成しなかった断面ループの数 </summary>
+        [NativeDisableParallelForRestriction] [WriteOnly]
+        public NativeArray<int> CapOpenLoopCount;
+
         private const float QuantizePrecision = 10000f; // 0.1mm単位で丸める
 
         public void Execute(int objIndex)
@@ -140,6 +148,9 @@ namespace UsefulToolkit.MeshCut
             // 3) ループを辿りつつファンキャップを生成
             var visited = new NativeParallelHashSet<int2>(64, Allocator.Temp);
 
+            int closedLoopCount = 0;
+            int openLoopCount = 0;
+
             foreach (var kv in adjacency)
             {
                 int loopStart = kv.Key;
@@ -195,14 +206,22 @@ namespace UsefulToolkit.MeshCut
 
                 if (closed)
                 {
+                    closedLoopCount++;
                     frontVertCursor = FillCapFan(objIndex, loop, frontFrag, capSubmesh, true, frontVertCursor,
                         frontIdxCursor);
                     backVertCursor = FillCapFan(objIndex, loop, backFrag, capSubmesh, false, backVertCursor,
                         backIdxCursor);
                 }
+                else
+                {
+                    openLoopCount++;
+                }
 
                 loop.Dispose();
             }
+
+            CapClosedLoopCount[objIndex] = closedLoopCount;
+            CapOpenLoopCount[objIndex] = openLoopCount;
 
             visited.Dispose();
             adjacency.Dispose();
