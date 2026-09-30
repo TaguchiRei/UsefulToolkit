@@ -54,22 +54,10 @@ namespace UsefulToolkit.MeshCut
             int indexB = face[order.y];
             int indexC = face[order.z];
 
-            //孤立頂点からそれぞれの頂点へのベクトルと面がどの位置で接触しているのかを調べる
-            float alphaAtoB = Intersect(BaseVertices[indexA], BaseVertices[indexB], blade);
-            float alphaAtoC = Intersect(BaseVertices[indexA], BaseVertices[indexC], blade);
-
-            //lerp関数で新規頂点座標を取得する
+            //孤立頂点から残り2頂点への辺(A-B, A-C)と刃の交点を新規頂点として求める
             int vertIndexStart = index * 2;
-            NewVertices[vertIndexStart + 0] = math.lerp(BaseVertices[indexA], BaseVertices[indexB], alphaAtoB);
-            NewVertices[vertIndexStart + 1] = math.lerp(BaseVertices[indexA], BaseVertices[indexC], alphaAtoC);
-
-            //lerp関数での新規法線を取得
-            NewNormals[vertIndexStart + 0] = math.lerp(BaseNormals[indexA], BaseNormals[indexB], alphaAtoB);
-            NewNormals[vertIndexStart + 1] = math.lerp(BaseNormals[indexA], BaseNormals[indexC], alphaAtoC);
-
-            //lerp関数で新規Uv座標を取得
-            NewUvs[vertIndexStart + 0] = math.lerp(BaseUvs[indexA], BaseUvs[indexB], alphaAtoB);
-            NewUvs[vertIndexStart + 1] = math.lerp(BaseUvs[indexA], BaseUvs[indexC], alphaAtoC);
+            WriteEdgeIntersection(indexA, indexB, blade, vertIndexStart + 0);
+            WriteEdgeIntersection(indexA, indexC, blade, vertIndexStart + 1);
 
             //後に再構築するために古いインデックスと新しいインデックスを区別する
             //元からあった頂点はインデックスに一律で1を足して-を付ける。
@@ -109,6 +97,37 @@ namespace UsefulToolkit.MeshCut
             int endVertex = isFront ? newV2 : newV1;
             CutEdges.Add(TriangleObjectIndex[index], new(startVertex, endVertex));
             CutEdges.Add(TriangleObjectIndex[index], new(endVertex, startVertex));
+        }
+
+        /// <summary>
+        /// 辺(index0-index1)と刃の交点の座標・法線・UVを NewVertices 等の outIndex へ書き込む。
+        /// 端点は座標の辞書順に並べ替えてから補間する。
+        /// 同じ辺を共有する隣の三角形では孤立頂点が反対側の端点になり、補間の向きが逆になる。
+        /// 向きが違うと交点が最後の桁でずれ、DistributeAndCapJob の量子化の境目をまたいだときに
+        /// 断面ループが途切れてキャップが生成されなくなるため、向きを揃えてビット単位で同じ値にしている。
+        /// </summary>
+        private void WriteEdgeIntersection(int index0, int index1, NativePlane blade, int outIndex)
+        {
+            if (IsLexicographicallyLess(BaseVertices[index1], BaseVertices[index0]))
+            {
+                (index0, index1) = (index1, index0);
+            }
+
+            float3 p0 = BaseVertices[index0];
+            float3 p1 = BaseVertices[index1];
+            float alpha = Intersect(p0, p1, blade);
+
+            NewVertices[outIndex] = math.lerp(p0, p1, alpha);
+            NewNormals[outIndex] = math.lerp(BaseNormals[index0], BaseNormals[index1], alpha);
+            NewUvs[outIndex] = math.lerp(BaseUvs[index0], BaseUvs[index1], alpha);
+        }
+
+        /// <summary> a が b より辞書順(x→y→z)で小さければ true。座標が完全に同じなら false。 </summary>
+        private static bool IsLexicographicallyLess(float3 a, float3 b)
+        {
+            if (a.x != b.x) return a.x < b.x;
+            if (a.y != b.y) return a.y < b.y;
+            return a.z < b.z;
         }
 
         /// <summary>
