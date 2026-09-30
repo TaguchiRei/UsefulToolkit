@@ -1,7 +1,7 @@
 {
   "name": "com.rei.usefultoolkit.staticdatatools",
   "displayName": "Useful Toolkit - Static Data Tools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "unity": "6000.0",
   "description": "Collection of useful static data tools for Unity.",
   "author": {

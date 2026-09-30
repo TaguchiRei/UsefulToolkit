@@ -9,7 +9,9 @@
         "UsefulToolkit.StaticDataTools.EngineAdapter.Runtime",
         "UsefulToolkit.StaticDataTools.Initialization.Runtime"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

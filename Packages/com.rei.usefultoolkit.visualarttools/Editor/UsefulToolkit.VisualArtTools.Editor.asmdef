@@ -9,7 +9,9 @@
         "UsefulToolkit.VisualArtTools.EngineAdapter.Runtime",
         "UsefulToolkit.VisualArtTools.Initialization.Runtime"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

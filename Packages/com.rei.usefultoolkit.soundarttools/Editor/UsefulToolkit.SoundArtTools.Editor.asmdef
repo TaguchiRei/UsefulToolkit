@@ -9,7 +9,9 @@
         "UsefulToolkit.SoundArtTools.EngineAdapter.Runtime",
         "UsefulToolkit.SoundArtTools.Initialization.Runtime"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
