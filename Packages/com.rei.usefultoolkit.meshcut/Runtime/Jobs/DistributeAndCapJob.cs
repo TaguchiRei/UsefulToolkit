@@ -191,6 +191,11 @@ namespace UsefulToolkit.MeshCut
 
                     if (next == loopStart)
                     {
+                        // 始点へ戻る辺も探索済みにする。記録しないと、この辺を起点に同じループを逆向きに辿り直し、
+                        // 途中の探索済みの辺で止まって「途切れたループ」として数えてしまう
+                        visited.Add(new int2(current, loopStart));
+                        visited.Add(new int2(loopStart, current));
+
                         if (loop.Length >= 3) closed = true;
                         break;
                     }

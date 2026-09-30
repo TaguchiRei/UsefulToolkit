@@ -14,6 +14,15 @@
 
 - `MeshCutProfile` / `MeshCutStageRecord` / `MeshCutProfileInfo` / `MeshCutStageKind`
 - `MultiMeshCut.LastProfile`、`MultiCutBlade.LastProfile` / `EnableProfileLog` / `CollectProfile`
+- 計測結果の付帯情報に、閉じた断面ループ数・途切れた断面ループ区間数・断面が生成されなかった対象数を追加しました。
+
+### Fixed
+
+- 断面ループが閉じずにキャップが生成されなかったフラグメント(末尾のサブメッシュが0件)があると、
+  `FinalizeMeshes` の `NativeArray.Copy` が範囲外例外を投げて切断全体が失敗していた問題。
+  0件のコピーを行わないようにしました(頂点数0のフラグメントも同様)。
+  なお、キャップが生成されない原因そのものは未修正で、該当する破片は断面が開いたままになります。
+- 閉じた断面ループの最後の辺を探索済みにしていなかったため、同じループを逆向きに辿り直す無駄な探索が走っていた問題。
 
 ## [1.0.0] - UsefulToolkit への移植
 
