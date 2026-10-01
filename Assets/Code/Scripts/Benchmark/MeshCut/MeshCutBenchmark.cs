@@ -34,8 +34,8 @@ namespace Sandbox.Benchmark.MeshCut
         [SerializeField, Min(1), Tooltip("集計する実行回数")]
         private int _repeatCount = 5;
 
-        [SerializeField, Min(1), Tooltip("フラグメントバッファの推定確保量がこれを超える組み合わせはスキップする(MB)")]
-        private int _maxFragmentBufferMB = 1024;
+        [SerializeField, Min(1), Tooltip("1回の切断で扱う三角形数の合計がこれを超える組み合わせはスキップする")]
+        private int _maxTotalTriangles = 5000000;
 
         [SerializeField, Tooltip("集計した中央値に加えて、各回の結果も出力する")]
         private bool _logEachRun;
@@ -116,16 +116,15 @@ namespace Sandbox.Benchmark.MeshCut
 
         private async UniTask RunCaseAsync(int objectCount, string environment)
         {
-            int vertexCount = _sourceMesh.vertexCount;
             int triangleCount = CountTriangles(_sourceMesh);
             string caseName = $"三角形 {triangleCount:N0} × {objectCount} 個";
 
-            long estimatedBytes = EstimateFragmentBufferBytes(vertexCount, triangleCount) * objectCount;
-            if (estimatedBytes > (long)_maxFragmentBufferMB * 1024 * 1024)
+            long totalTriangles = (long)triangleCount * objectCount;
+            if (totalTriangles > _maxTotalTriangles)
             {
                 Debug.LogWarning(
-                    $"[MeshCutBenchmark] {caseName}: フラグメントバッファの推定確保量 {estimatedBytes / (1024 * 1024):N0} MB が " +
-                    $"上限 {_maxFragmentBufferMB:N0} MB を超えるためスキップしました。");
+                    $"[MeshCutBenchmark] {caseName}: 三角形数の合計 {totalTriangles:N0} が " +
+                    $"上限 {_maxTotalTriangles:N0} を超えるためスキップしました。");
                 return;
             }
 
@@ -393,22 +392,6 @@ namespace Sandbox.Benchmark.MeshCut
             }
 
             return (int)(indexCount / 3);
-        }
-
-        /// <summary>
-        /// MultiCutContext.AllocateFragmentBuffers と同じ容量計算で、サブメッシュ1つのメッシュを1つ切るときの
-        /// フラグメントバッファの確保バイト数を見積もります(表裏2フラグメント × (元サブメッシュ + 断面) スロット)。
-        /// </summary>
-        private static long EstimateFragmentBufferBytes(int vertexCount, int triangleCount)
-        {
-            long vertCap = vertexCount + 15L * triangleCount;
-            long idxCap = 12L * triangleCount;
-            long capIdxCap = idxCap + 6L * triangleCount;
-
-            long vertexBytes = 2 * vertCap * (12 + 12 + 8);
-            long indexBytes = 2 * (idxCap + capIdxCap) * 4;
-
-            return vertexBytes + indexBytes;
         }
 
         private static string DescribeEnvironment()

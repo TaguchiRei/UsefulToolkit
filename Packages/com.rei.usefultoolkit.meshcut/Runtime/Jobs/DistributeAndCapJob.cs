@@ -8,7 +8,7 @@ namespace UsefulToolkit.MeshCut
     /// <summary>
     /// オブジェクト単位で、TriangleCutJobが生成した新規三角形をFront/Backフラグメントへ振り分け、
     /// 切断面のループを探索し、ファン三角形で断面(キャップ)を生成する。
-    /// フラグメントバッファの頂点/インデックスカーソルはClassifyWholeMeshJobが書き出した値から引き継ぐ。
+    /// フラグメントバッファの頂点/インデックスカーソルはWriteWholeTrianglesJobが書き出した値から引き継ぐ。
     /// </summary>
     [BurstCompile]
     public struct DistributeAndCapJob : IJobParallelFor
@@ -62,7 +62,7 @@ namespace UsefulToolkit.MeshCut
             int backFrag = MultiCutContext.FragmentIndex(objIndex, 1);
             int capSubmesh = ObjectCapSlot[objIndex];
 
-            // ClassifyWholeMeshJobが書き出したカーソルを引き継ぐ
+            // WriteWholeTrianglesJobが書き出したカーソルを引き継ぐ
             int frontVertCursor = FragmentVertexCount[frontFrag];
             int backVertCursor = FragmentVertexCount[backFrag];
 

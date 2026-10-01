@@ -12,6 +12,11 @@
     切断三角形 i の辺は常に新規頂点 (2i, 2i+1) なので、`DistributeAndCapJob` が直接求めます。
   - サンプリング範囲の計算を `SampleRangeJob` に、メッシュへの書き込みを `FinalizeMeshJob`(フラグメント単位で並列)に移し、
     バックグラウンドスレッドとの切り替えをなくしました。
+- フラグメントバッファの確保量を、最悪ケース(全三角形が切断される想定)から実数ベースに変えました。確保量はおよそ1/17〜1/38です。
+  - `ClassifyWholeMeshJob` は数えるだけになり、表裏それぞれの頂点数・サブメッシュ別インデックス数・切断三角形数を出力します。
+  - 新設の `FragmentLayoutJob` がその実数から容量と書き込み位置を決め、フラットなリスト(`NativeList`)を確保します。
+  - 新設の `WriteWholeTrianglesJob` が、丸ごと入る三角形の書き込みと切断面リストの構築を1回の走査で行います。
+    これに伴い `BuildCutFaceListJob` を廃止しました。
 - 破片の球コライダーを求める k-means を、メインスレッドから Burst の `ColliderClusterJob`(破片単位で並列)へ移しました。
   `MultiCutBlade` は全破片ぶんをまとめて計算し、破片反映では結果をコライダーへ設定するだけになりました。
   `CuttableObject.SetupCollider(List<Vector3>)` は同じJobを破片1つぶん実行する形で残しています。

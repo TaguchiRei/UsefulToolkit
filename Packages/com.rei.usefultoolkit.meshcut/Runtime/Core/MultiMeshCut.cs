@@ -179,7 +179,7 @@ namespace UsefulToolkit.MeshCut
 
                 context.Blades = new NativeArray<NativePlane>(objectCount, Allocator.Persistent);
 
-                context.AllocateFragmentBuffers(maxSubmeshSlots);
+                context.AllocateFragmentTables(maxSubmeshSlots);
 
                 int fragmentCount = objectCount * 2;
 
@@ -215,7 +215,6 @@ namespace UsefulToolkit.MeshCut
                 profiler.AddInfo("頂点数", totalVertexCount);
                 profiler.AddInfo("三角形数", totalTriangleCount);
                 profiler.AddInfo("ワーカースレッド数", JobsUtility.JobWorkerCount);
-                profiler.AddInfo("フラグメントバッファ確保量(KB)", CalcFragmentBufferBytes(context) / 1024);
 
                 // ── 全Jobを1本の依存チェーンでスケジュールし、完了はメインスレッドで最後に1回だけ待つ ──
 
@@ -267,7 +266,7 @@ namespace UsefulToolkit.MeshCut
                 handle = profiler.EndJob(vertexGetSideStage,
                     vertexGetSideJob.Schedule(totalVertexCount, batchCount, vertexGetSideStart));
 
-                // 面分類 + 全表/全裏三角形構築(オブジェクト単位で並列)
+                // 面分類(オブジェクト単位で並列)。ここではバッファの容量決めに必要な数だけを数える
                 var classifyJob = new ClassifyWholeMeshJob
                 {
                     ObjectVertexRange = context.ObjectVertexRange,
@@ -275,19 +274,11 @@ namespace UsefulToolkit.MeshCut
                     AllTriangles = context.AllTriangles,
                     AllTriangleSubmesh = context.AllTriangleSubmesh,
                     BaseVertexSide = context.BaseVertexSide,
-                    BaseVertices = context.BaseVertices,
-                    BaseNormals = context.BaseNormals,
-                    BaseUvs = context.BaseUvs,
-                    FragmentVertexRange = context.FragmentVertexRange,
-                    FragmentIndexRange = context.FragmentIndexRange,
                     MaxSubmeshSlots = maxSubmeshSlots,
-                    FragmentVerticesFlat = context.FragmentVerticesFlat,
-                    FragmentNormalsFlat = context.FragmentNormalsFlat,
-                    FragmentUvsFlat = context.FragmentUvsFlat,
-                    FragmentIndicesFlat = context.FragmentIndicesFlat,
-                    FragmentVertexCount = context.FragmentVertexCount,
-                    FragmentIndexCount = context.FragmentIndexCount,
-                    CutFaceCountPerObject = context.CutFaceCountPerObject
+                    FragmentWholeVertexCount = context.FragmentWholeVertexCount,
+                    FragmentWholeIndexCount = context.FragmentWholeIndexCount,
+                    CutFaceCountPerObject = context.CutFaceCountPerObject,
+                    CutFaceCountPerObjectSubmesh = context.CutFaceCountPerObjectSubmesh
                 };
 
                 JobHandle classifyStart = profiler.BeginJob("面仕分け", handle, out int classifyStage, vertexGetSideStage);
@@ -311,24 +302,57 @@ namespace UsefulToolkit.MeshCut
                 JobHandle prefixSumStart = profiler.BeginJob("プレフィックス和", handle, out int prefixSumStage, classifyStage);
                 handle = profiler.EndJob(prefixSumStage, prefixSumJob.Schedule(prefixSumStart));
 
-                // 切断面リスト構築
-                var buildCutFaceJob = new BuildCutFaceListJob
+                // 数えた実数からフラグメントバッファの容量と書き込み位置を決め、フラットなリストを確保する
+                var layoutJob = new FragmentLayoutJob
                 {
+                    FragmentWholeVertexCount = context.FragmentWholeVertexCount,
+                    FragmentWholeIndexCount = context.FragmentWholeIndexCount,
+                    CutFaceCountPerObject = context.CutFaceCountPerObject,
+                    CutFaceCountPerObjectSubmesh = context.CutFaceCountPerObjectSubmesh,
+                    ObjectCapSlot = context.ObjectCapSlot,
+                    MaxSubmeshSlots = maxSubmeshSlots,
+                    FragmentVertexRange = context.FragmentVertexRange,
+                    FragmentIndexRange = context.FragmentIndexRange,
+                    FragmentVerticesFlat = context.FragmentVerticesFlat,
+                    FragmentNormalsFlat = context.FragmentNormalsFlat,
+                    FragmentUvsFlat = context.FragmentUvsFlat,
+                    FragmentIndicesFlat = context.FragmentIndicesFlat
+                };
+
+                JobHandle layoutStart = profiler.BeginJob("バッファ配置計算", handle, out int layoutStage, prefixSumStage);
+                handle = profiler.EndJob(layoutStage, layoutJob.Schedule(layoutStart));
+
+                // 全表/全裏三角形の書き込み + 切断面リスト構築(オブジェクト単位で並列)
+                var writeWholeJob = new WriteWholeTrianglesJob
+                {
+                    ObjectVertexRange = context.ObjectVertexRange,
                     ObjectTriangleRange = context.ObjectTriangleRange,
                     AllTriangles = context.AllTriangles,
                     AllTriangleSubmesh = context.AllTriangleSubmesh,
                     BaseVertexSide = context.BaseVertexSide,
+                    BaseVertices = context.BaseVertices,
+                    BaseNormals = context.BaseNormals,
+                    BaseUvs = context.BaseUvs,
+                    FragmentVertexRange = context.FragmentVertexRange,
+                    FragmentIndexRange = context.FragmentIndexRange,
                     CutFaceStartPerObject = context.CutFaceStartPerObject,
+                    MaxSubmeshSlots = maxSubmeshSlots,
+                    FragmentVerticesFlat = context.FragmentVerticesFlat.AsDeferredJobArray(),
+                    FragmentNormalsFlat = context.FragmentNormalsFlat.AsDeferredJobArray(),
+                    FragmentUvsFlat = context.FragmentUvsFlat.AsDeferredJobArray(),
+                    FragmentIndicesFlat = context.FragmentIndicesFlat.AsDeferredJobArray(),
+                    FragmentVertexCount = context.FragmentVertexCount,
+                    FragmentIndexCount = context.FragmentIndexCount,
                     CutFaces = context.CutFaces.AsDeferredJobArray(),
                     CutStatus = context.CutStatus.AsDeferredJobArray(),
                     CutFaceSubmeshId = context.CutFaceSubmeshId.AsDeferredJobArray(),
                     CutFaceObjectIndex = context.CutFaceObjectIndex.AsDeferredJobArray()
                 };
 
-                JobHandle buildCutFaceStart =
-                    profiler.BeginJob("切断面リスト構築", handle, out int buildCutFaceStage, prefixSumStage);
+                JobHandle writeWholeStart =
+                    profiler.BeginJob("面書き込み・切断面リスト構築", handle, out int buildCutFaceStage, layoutStage);
                 handle = profiler.EndJob(buildCutFaceStage,
-                    buildCutFaceJob.Schedule(objectCount, objectBatch, buildCutFaceStart));
+                    writeWholeJob.Schedule(objectCount, objectBatch, writeWholeStart));
 
                 // 断面三角形生成(切断三角形数はリストの長さから実行時に決まる)
                 var triangleCutJob = new TriangleCutJob
@@ -370,10 +394,10 @@ namespace UsefulToolkit.MeshCut
                     FragmentVertexRange = context.FragmentVertexRange,
                     FragmentIndexRange = context.FragmentIndexRange,
                     MaxSubmeshSlots = maxSubmeshSlots,
-                    FragmentVerticesFlat = context.FragmentVerticesFlat,
-                    FragmentNormalsFlat = context.FragmentNormalsFlat,
-                    FragmentUvsFlat = context.FragmentUvsFlat,
-                    FragmentIndicesFlat = context.FragmentIndicesFlat,
+                    FragmentVerticesFlat = context.FragmentVerticesFlat.AsDeferredJobArray(),
+                    FragmentNormalsFlat = context.FragmentNormalsFlat.AsDeferredJobArray(),
+                    FragmentUvsFlat = context.FragmentUvsFlat.AsDeferredJobArray(),
+                    FragmentIndicesFlat = context.FragmentIndicesFlat.AsDeferredJobArray(),
                     FragmentVertexCount = context.FragmentVertexCount,
                     FragmentIndexCount = context.FragmentIndexCount,
                     CapClosedLoopCount = context.CapClosedLoopCount,
@@ -400,7 +424,7 @@ namespace UsefulToolkit.MeshCut
 
                 var sampleJob = new SampleColliderPointsJob
                 {
-                    FragmentVerticesFlat = context.FragmentVerticesFlat,
+                    FragmentVerticesFlat = context.FragmentVerticesFlat.AsDeferredJobArray(),
                     FragmentVertexRange = context.FragmentVertexRange,
                     FragmentVertexCount = context.FragmentVertexCount,
                     SampleRange = context.SampleRange,
@@ -418,12 +442,12 @@ namespace UsefulToolkit.MeshCut
                     VertexLayout = context.VertexLayout,
                     FragmentVertexRange = context.FragmentVertexRange,
                     FragmentVertexCount = context.FragmentVertexCount,
-                    FragmentVerticesFlat = context.FragmentVerticesFlat,
-                    FragmentNormalsFlat = context.FragmentNormalsFlat,
-                    FragmentUvsFlat = context.FragmentUvsFlat,
+                    FragmentVerticesFlat = context.FragmentVerticesFlat.AsDeferredJobArray(),
+                    FragmentNormalsFlat = context.FragmentNormalsFlat.AsDeferredJobArray(),
+                    FragmentUvsFlat = context.FragmentUvsFlat.AsDeferredJobArray(),
                     FragmentIndexRange = context.FragmentIndexRange,
                     FragmentIndexCount = context.FragmentIndexCount,
-                    FragmentIndicesFlat = context.FragmentIndicesFlat,
+                    FragmentIndicesFlat = context.FragmentIndicesFlat.AsDeferredJobArray(),
                     ObjectCapSlot = context.ObjectCapSlot,
                     MaxSubmeshSlots = maxSubmeshSlots
                 };
@@ -441,6 +465,7 @@ namespace UsefulToolkit.MeshCut
                 profiler.Observe(finalizeStage);
 
                 // ── ここからメインスレッド ──
+                profiler.AddInfo("フラグメントバッファ確保量(KB)", CalcFragmentBufferBytes(context) / 1024);
                 profiler.AddInfo("切断三角形数", context.CutFaces.Length);
 
                 if (profiler.Enabled)
@@ -594,12 +619,12 @@ namespace UsefulToolkit.MeshCut
                     if (context.FragmentVertexCount[fragIndex] == 0) continue;
 
                     meshIds[fragIndex] = store.AppendFragment(
-                        context.FragmentVerticesFlat,
-                        context.FragmentNormalsFlat,
-                        context.FragmentUvsFlat,
+                        context.FragmentVerticesFlat.AsArray(),
+                        context.FragmentNormalsFlat.AsArray(),
+                        context.FragmentUvsFlat.AsArray(),
                         context.FragmentVertexRange[fragIndex].x,
                         context.FragmentVertexCount[fragIndex],
-                        context.FragmentIndicesFlat,
+                        context.FragmentIndicesFlat.AsArray(),
                         context.FragmentIndexRange,
                         context.FragmentIndexCount,
                         fragIndex * maxSubmeshSlots,
