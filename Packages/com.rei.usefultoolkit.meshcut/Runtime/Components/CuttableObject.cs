@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 using UsefulToolkit.Utility;
 using Random = UnityEngine.Random;
@@ -8,7 +11,7 @@ namespace UsefulToolkit.MeshCut
 {
     /// <summary>
     /// 切断可能オブジェクト。破片としても使い回される。
-    /// コライダーはサンプリング点のk-meansクラスタリング結果から球コライダーで近似する(この処理のみメインスレッド)。
+    /// コライダーはサンプリング点のk-meansクラスタリング結果(ColliderClusterJob)から球コライダーで近似する。
     /// </summary>
     public class CuttableObject : MonoBehaviour, IRecyclable
     {
@@ -115,8 +118,20 @@ namespace UsefulToolkit.MeshCut
             }
         }
 
+        /// <summary> この破片の球コライダーを ColliderClusterJob で求めるときの設定値 </summary>
+        public ColliderClusterSettings ColliderSettings => new()
+        {
+            ClusterCount = _colliderNum,
+            BaseShrink = _baseShrink,
+            DensityShrinkMin = _densityShrinkMin,
+            DensityThreshold = _densityThreshold,
+            MaxRadius = _maxRadius
+        };
+
         /// <summary>
         /// 切断結果のサンプリング点から球コライダーを配置します。
+        /// 内部で ColliderClusterJob をこの破片1つぶんだけメインスレッドで実行します。
+        /// 複数の破片をまとめて処理する場合は、ColliderClusterJob を直接スケジュールして ApplyColliderSpheres で反映してください。
         /// </summary>
         /// <param name="samplingPoints">
         /// MultiMeshCut が出力するサンプリング点。切断は元オブジェクトのローカル空間で行われるため、
@@ -127,214 +142,62 @@ namespace UsefulToolkit.MeshCut
         {
             int sampleCount = samplingPoints.Count;
 
-            if (sampleCount == 0)
-            {
-                DisableUnusedColliders(0);
-                return;
-            }
-
-            // クラスタリング
-            List<Vector3> centers = ClusteringVerts(samplingPoints);
-
-            int clusterCount = centers.Count;
-
-            int[] belongCluster = new int[sampleCount];
-            int[] clusterVertCount = new int[clusterCount];
-
-            // 所属クラスタ探索
+            var points = new NativeArray<float3>(sampleCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
             for (int i = 0; i < sampleCount; i++)
             {
-                float minDist = float.MaxValue;
-                int nearest = 0;
-
-                for (int j = 0; j < clusterCount; j++)
-                {
-                    float dist = (centers[j] - samplingPoints[i]).sqrMagnitude;
-
-                    if (dist < minDist)
-                    {
-                        minDist = dist;
-                        nearest = j;
-                    }
-                }
-
-                belongCluster[i] = nearest;
-                clusterVertCount[nearest]++;
+                points[i] = samplingPoints[i];
             }
 
-            // Collider設定
-            for (int i = 0; i < clusterCount; i++)
+            var pointRange = new NativeArray<int2>(1, Allocator.TempJob);
+            pointRange[0] = new int2(0, sampleCount);
+
+            var settings = new NativeArray<ColliderClusterSettings>(1, Allocator.TempJob);
+            settings[0] = ColliderSettings;
+
+            var outputStart = new NativeArray<int>(1, Allocator.TempJob);
+            var spheres = new NativeArray<float4>(_colliderNum, Allocator.TempJob);
+
+            new ColliderClusterJob
+            {
+                Points = points,
+                PointRange = pointRange,
+                Settings = settings,
+                OutputStart = outputStart,
+                Seed = (uint)Random.Range(1, int.MaxValue),
+                Spheres = spheres
+            }.Run(1);
+
+            ApplyColliderSpheres(spheres, 0);
+
+            points.Dispose();
+            pointRange.Dispose();
+            settings.Dispose();
+            outputStart.Dispose();
+            spheres.Dispose();
+        }
+
+        /// <summary>
+        /// ColliderClusterJob が求めた球を球コライダーへ反映します。
+        /// spheres[start] から ColliderSettings.ClusterCount 個を、自身の球コライダーに順に割り当てます。
+        /// 半径が負(ColliderClusterJob.Disabled)の球に対応するコライダーは無効にします。
+        /// </summary>
+        public void ApplyColliderSpheres(NativeArray<float4> spheres, int start)
+        {
+            for (int i = 0; i < _colliders.Count; i++)
             {
                 SphereCollider col = _colliders[i];
+                float4 sphere = spheres[start + i];
 
-                // 1点も所属しなかったクラスタは中心が初期のランダム位置のまま残っており、
-                // 半径0のコライダーがメッシュと無関係な場所に置かれてしまうため無効化する
-                if (clusterVertCount[i] == 0)
+                if (sphere.w < 0f)
                 {
                     col.enabled = false;
                     continue;
                 }
 
-                float maxDistSq = 0f;
-
-                for (int v = 0; v < sampleCount; v++)
-                {
-                    if (belongCluster[v] != i)
-                        continue;
-
-                    float distSq =
-                        (centers[i] - samplingPoints[v]).sqrMagnitude;
-
-                    if (distSq > maxDistSq)
-                        maxDistSq = distSq;
-                }
-
-                float radius = Mathf.Sqrt(maxDistSq);
-
-                radius *= _baseShrink;
-
-                if (clusterVertCount[i] < _densityThreshold)
-                {
-                    float t =
-                        1f - (clusterVertCount[i] / (float)_densityThreshold);
-
-                    float densityShrink =
-                        Mathf.Lerp(_baseShrink, _densityShrinkMin, t);
-
-                    radius *= densityShrink;
-                }
-
-                radius = Mathf.Min(radius, _maxRadius);
-
                 col.enabled = true;
-                col.center = centers[i];
-                col.radius = radius;
+                col.center = sphere.xyz;
+                col.radius = sphere.w;
             }
-
-            DisableUnusedColliders(clusterCount);
-        }
-
-        private void DisableUnusedColliders(int startIndex)
-        {
-            for (int i = startIndex; i < _colliders.Count; i++)
-            {
-                _colliders[i].enabled = false;
-            }
-        }
-
-        /// <summary>
-        /// クラスタリングを利用してコライダーの適切な位置を指定
-        /// </summary>
-        /// <param name="clusteringSample"></param>
-        /// <returns></returns>
-        private List<Vector3> ClusteringVerts(List<Vector3> clusteringSample)
-        {
-            int sampleCount = clusteringSample.Count;
-            int clusterCount = _colliderNum;
-
-            List<Vector3> centers = new(clusterCount);
-
-            float maxX = float.MinValue;
-            float maxY = float.MinValue;
-            float maxZ = float.MinValue;
-            float minX = float.MaxValue;
-            float minY = float.MaxValue;
-            float minZ = float.MaxValue;
-
-            for (int i = 0; i < sampleCount; i++)
-            {
-                var s = clusteringSample[i];
-
-                if (s.x > maxX) maxX = s.x;
-                if (s.y > maxY) maxY = s.y;
-                if (s.z > maxZ) maxZ = s.z;
-
-                if (s.x < minX) minX = s.x;
-                if (s.y < minY) minY = s.y;
-                if (s.z < minZ) minZ = s.z;
-            }
-
-            // ランダムな中心を作成
-            for (int i = 0; i < clusterCount - 6; i++)
-            {
-                centers.Add(new Vector3(
-                    Random.Range(minX, maxX),
-                    Random.Range(minY, maxY),
-                    Random.Range(minZ, maxZ)
-                ));
-            }
-
-            float midX = (minX + maxX) * 0.5f;
-            float midY = (minY + maxY) * 0.5f;
-            float midZ = (minZ + maxZ) * 0.5f;
-
-            centers.Add(new Vector3(midX, midY, maxZ));
-            centers.Add(new Vector3(midX, midY, minZ));
-            centers.Add(new Vector3(midX, maxY, midZ));
-            centers.Add(new Vector3(midX, minY, midZ));
-            centers.Add(new Vector3(maxX, midY, midZ));
-            centers.Add(new Vector3(minX, midY, midZ));
-
-            int[] belongCluster = new int[sampleCount];
-            Vector3[] sum = new Vector3[clusterCount];
-            int[] count = new int[clusterCount];
-
-            const int maxIteration = 20;
-            const float epsilon = 1e-6f;
-
-            for (int iter = 0; iter < maxIteration; iter++)
-            {
-                // 初期化
-                for (int i = 0; i < clusterCount; i++)
-                {
-                    sum[i] = Vector3.zero;
-                    count[i] = 0;
-                }
-
-                // 近傍のクラスタを捜索
-                for (int i = 0; i < sampleCount; i++)
-                {
-                    Vector3 point = clusteringSample[i];
-
-                    float minDist = float.MaxValue;
-                    int nearest = 0;
-
-                    for (int j = 0; j < clusterCount; j++)
-                    {
-                        float dist = (centers[j] - point).sqrMagnitude;
-                        if (dist < minDist)
-                        {
-                            minDist = dist;
-                            nearest = j;
-                        }
-                    }
-
-                    belongCluster[i] = nearest;
-                    sum[nearest] += point;
-                    count[nearest]++;
-                }
-
-                // 重心移動
-                bool moved = false;
-
-                for (int i = 0; i < clusterCount; i++)
-                {
-                    if (count[i] == 0) continue;
-
-                    Vector3 newCenter = sum[i] / count[i];
-
-                    if ((newCenter - centers[i]).sqrMagnitude > epsilon)
-                    {
-                        centers[i] = newCenter;
-                        moved = true;
-                    }
-                }
-
-                if (!moved)
-                    break;
-            }
-
-            return centers;
         }
     }
 }

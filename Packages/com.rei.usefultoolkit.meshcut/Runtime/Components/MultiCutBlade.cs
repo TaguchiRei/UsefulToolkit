@@ -1,6 +1,9 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using Cysharp.Threading.Tasks;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
@@ -87,6 +90,10 @@ namespace UsefulToolkit.MeshCut
                 ? new MeshCutProfiler()
                 : MeshCutProfiler.Disabled;
 
+            // 破片反映はフレームをまたぐため Persistent で確保し、finally で解放する
+            NativeArray<float4> colliderSpheres = default;
+            NativeArray<int> colliderSphereStart = default;
+
             try
             {
                 // プールの事前生成は非同期のため、完了前に切断すると破片が取得できない
@@ -116,6 +123,11 @@ namespace UsefulToolkit.MeshCut
                     return;
                 }
 
+                // 全破片の球コライダーを ColliderClusterJob でまとめて求める。
+                // 設定値は破片側(プールの CuttableObject)のものを使うため、破片を取得した後に行う
+                ComputeColliderSpheres(fragmentStubs, _slicer.SamplingPoints, profiler,
+                    out colliderSpheres, out colliderSphereStart);
+
                 Stopwatch frameStopwatch = Stopwatch.StartNew();
 
                 long applyStart = Stopwatch.GetTimestamp();
@@ -132,13 +144,13 @@ namespace UsefulToolkit.MeshCut
 
                     // Front側 (index: i*2)
                     var frontData = fragmentStubs[i * 2];
-                    ApplyResult(frontData, _slicer.CutMesh[i * 2], _slicer.SamplingPoints[i * 2], target,
-                        _slicer.FragmentMeshIds[i * 2], ref colliderTicks);
+                    ApplyResult(frontData, _slicer.CutMesh[i * 2], colliderSpheres, colliderSphereStart[i * 2],
+                        target, _slicer.FragmentMeshIds[i * 2], ref colliderTicks);
 
                     // Back側 (index: i*2 + 1)
                     var backData = fragmentStubs[i * 2 + 1];
-                    ApplyResult(backData, _slicer.CutMesh[i * 2 + 1], _slicer.SamplingPoints[i * 2 + 1], target,
-                        _slicer.FragmentMeshIds[i * 2 + 1], ref colliderTicks);
+                    ApplyResult(backData, _slicer.CutMesh[i * 2 + 1], colliderSpheres, colliderSphereStart[i * 2 + 1],
+                        target, _slicer.FragmentMeshIds[i * 2 + 1], ref colliderTicks);
 
                     // 元のオブジェクトは消費済み。非アクティブ化し、二度と切断対象にならないようにする
                     target.DisableCutting();
@@ -162,7 +174,7 @@ namespace UsefulToolkit.MeshCut
                 long applyEnd = Stopwatch.GetTimestamp();
 
                 profiler.AddAccumulated("破片反映", applyStart, applyEnd, applyTicks);
-                profiler.AddAccumulated("SetupCollider", applyStart, applyEnd, colliderTicks, isBreakdown: true);
+                profiler.AddAccumulated("コライダー適用", applyStart, applyEnd, colliderTicks, isBreakdown: true);
                 profiler.AddInfo("破片反映のフレーム分割回数", yieldCount);
 
                 if (profiler.Enabled)
@@ -177,18 +189,97 @@ namespace UsefulToolkit.MeshCut
             }
             finally
             {
+                if (colliderSpheres.IsCreated) colliderSpheres.Dispose();
+                if (colliderSphereStart.IsCreated) colliderSphereStart.Dispose();
+
                 profiler.Dispose();
             }
         }
 
+        /// <summary>
+        /// 破片ごとのサンプリング点と、破片自身のコライダー設定値から ColliderClusterJob で球を求めます。
+        /// 破片 k の球は spheres[sphereStart[k]] から ColliderSettings.ClusterCount 個並びます。
+        /// 破片反映の直前に必要なため、Jobの完了をその場で待ちます(破片単位で並列に処理されます)。
+        /// 返す2つの配列は Persistent で確保しているので、呼び出し側で Dispose してください。
+        /// </summary>
+        private static void ComputeColliderSpheres(
+            List<CuttableObject> fragments,
+            List<List<Vector3>> samplingPoints,
+            MeshCutProfiler profiler,
+            out NativeArray<float4> spheres,
+            out NativeArray<int> sphereStart)
+        {
+            int prepareStage = profiler.BeginMain("コライダー入力準備");
+
+            int fragmentCount = samplingPoints.Count;
+
+            int pointTotal = 0;
+            int sphereTotal = 0;
+
+            var pointRange = new NativeArray<int2>(fragmentCount, Allocator.TempJob);
+            var settings = new NativeArray<ColliderClusterSettings>(fragmentCount, Allocator.TempJob);
+            sphereStart = new NativeArray<int>(fragmentCount, Allocator.Persistent);
+
+            for (int k = 0; k < fragmentCount; k++)
+            {
+                ColliderClusterSettings setting = fragments[k].ColliderSettings;
+
+                pointRange[k] = new int2(pointTotal, samplingPoints[k].Count);
+                settings[k] = setting;
+                sphereStart[k] = sphereTotal;
+
+                pointTotal += samplingPoints[k].Count;
+                sphereTotal += setting.ClusterCount;
+            }
+
+            var points = new NativeArray<float3>(pointTotal, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+
+            for (int k = 0; k < fragmentCount; k++)
+            {
+                List<Vector3> list = samplingPoints[k];
+                int offset = pointRange[k].x;
+
+                for (int p = 0; p < list.Count; p++)
+                {
+                    points[offset + p] = list[p];
+                }
+            }
+
+            spheres = new NativeArray<float4>(sphereTotal, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+
+            profiler.EndMain(prepareStage);
+
+            var job = new ColliderClusterJob
+            {
+                Points = points,
+                PointRange = pointRange,
+                Settings = settings,
+                OutputStart = sphereStart,
+                Seed = (uint)UnityEngine.Random.Range(1, int.MaxValue),
+                Spheres = spheres
+            };
+
+            JobHandle clusterStart = profiler.BeginJob("コライダー計算", default, out int clusterStage);
+            JobHandle clusterHandle = profiler.EndJob(clusterStage, job.Schedule(fragmentCount, 1, clusterStart));
+            clusterHandle.Complete();
+            profiler.Observe(clusterStage);
+
+            points.Dispose();
+            pointRange.Dispose();
+            settings.Dispose();
+        }
+
+        /// <param name="colliderSpheres">ComputeColliderSpheres が求めた全破片の球</param>
+        /// <param name="sphereStart">この破片の球の colliderSpheres 上の先頭位置</param>
         /// <param name="fragmentMeshId">
         /// 再切断用にストアへ登録されたメッシュID。登録されていない(＝もう切れない)場合は -1。
         /// </param>
-        /// <param name="colliderTicks">SetupCollider に掛かった時間(Stopwatchのtick)を加算する</param>
+        /// <param name="colliderTicks">コライダーへの反映に掛かった時間(Stopwatchのtick)を加算する</param>
         private void ApplyResult(
             CuttableObject cuttable,
             Mesh mesh,
-            List<Vector3> samplingPoints,
+            NativeArray<float4> colliderSpheres,
+            int sphereStart,
             CuttableObject original,
             int fragmentMeshId,
             ref long colliderTicks)
@@ -231,8 +322,9 @@ namespace UsefulToolkit.MeshCut
             // アクティブ化
             fragObj.SetActive(true);
 
+            // アクティブ化で Awake が走り、球コライダーが用意されてから反映する
             long colliderStart = Stopwatch.GetTimestamp();
-            cuttable.SetupCollider(samplingPoints);
+            cuttable.ApplyColliderSpheres(colliderSpheres, sphereStart);
             colliderTicks += Stopwatch.GetTimestamp() - colliderStart;
 
             // 切断可否の引き継ぎ。何回でも切断可能なものだけが新しいMeshIdを持つ

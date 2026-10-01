@@ -175,9 +175,13 @@ Console に出さずに結果だけ取りたい場合は `MultiCutBlade.CollectP
 | `void SetRegisteredMesh(int)` | メッシュIDを設定し切断可能にする |
 | `void DisableCutting()` | これ以上切断できない状態にする |
 | `void InheritCutSettings(CuttableObject)` | 切断元から `CanMultiCut` を引き継ぐ |
+| `ColliderClusterSettings ColliderSettings` | 球コライダーを求めるときの設定値(球の数・縮小率・最大半径など) |
+| `void SetupCollider(List<Vector3>)` | サンプリング点から球コライダーを求めて配置する(破片1つぶん) |
+| `void ApplyColliderSpheres(NativeArray<float4>, int)` | `ColliderClusterJob` が求めた球をコライダーへ反映する |
 
-切断対象および破片。`SetupCollider(List<Vector3>)` でサンプリング点の k-means クラスタリング結果から
-球コライダーを配置します。`_colliderNum` は 7 以上である必要があります。
+切断対象および破片。サンプリング点を k-means でクラスタリングした結果から球コライダーを配置します。
+クラスタリングは Burst の `ColliderClusterJob` で行い、`MultiCutBlade` は全破片ぶんをまとめて並列に計算します。
+`_colliderNum` は 7 以上である必要があります。
 
 `MultiMeshCut.SamplingPoints` が返す点は**元オブジェクトのローカル空間**の座標です(切断はローカル空間で行われるため)。
 破片の Transform は切断元と同一に設定されるので、`SetupCollider` はこれを変換せずそのまま
@@ -185,5 +189,5 @@ Console に出さずに結果だけ取りたい場合は `MultiCutBlade.CollectP
 
 ## 既知の制限
 
-- 1 回の切断が完了するまでに最低 6 フレームかかります(処理段階ごとに Job の完了待ちを挟むため)。
+- 切断結果を受け取れるのは、切断を開始した次のフレームです(全 Job を 1 本の依存チェーンで実行し、完了を 1 回だけ待つため)。
 - 中間バッファは最悪ケースの容量を毎回確保するため、頂点数の多いメッシュではメモリのスパイクが大きくなります。

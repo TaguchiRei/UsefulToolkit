@@ -12,6 +12,10 @@
     切断三角形 i の辺は常に新規頂点 (2i, 2i+1) なので、`DistributeAndCapJob` が直接求めます。
   - サンプリング範囲の計算を `SampleRangeJob` に、メッシュへの書き込みを `FinalizeMeshJob`(フラグメント単位で並列)に移し、
     バックグラウンドスレッドとの切り替えをなくしました。
+- 破片の球コライダーを求める k-means を、メインスレッドから Burst の `ColliderClusterJob`(破片単位で並列)へ移しました。
+  `MultiCutBlade` は全破片ぶんをまとめて計算し、破片反映では結果をコライダーへ設定するだけになりました。
+  `CuttableObject.SetupCollider(List<Vector3>)` は同じJobを破片1つぶん実行する形で残しています。
+  初期中心の乱数は `Unity.Mathematics.Random` に変わったため、同じ入力でも以前とは異なる初期配置になります。
 
 - 処理時間の計測を作り直しました。従来は各段階の間を Stopwatch で測っていたため、Job の完了を待つフレーム待ちまで
   処理時間に含まれていました。現在は段階ごとに「待ち / 実行 / 検知遅れ / フレーム」を分けて記録し、
@@ -24,6 +28,7 @@
 - `MeshCutProfile` / `MeshCutStageRecord` / `MeshCutProfileInfo` / `MeshCutStageKind`
 - `MultiMeshCut.LastProfile`、`MultiCutBlade.LastProfile` / `EnableProfileLog` / `CollectProfile`
 - 計測結果の付帯情報に、閉じた断面ループ数・途切れた断面ループ区間数・断面が生成されなかった対象数を追加しました。
+- `ColliderClusterJob` / `ColliderClusterSettings`、`CuttableObject.ColliderSettings` / `ApplyColliderSpheres`
 
 ### Fixed
 
