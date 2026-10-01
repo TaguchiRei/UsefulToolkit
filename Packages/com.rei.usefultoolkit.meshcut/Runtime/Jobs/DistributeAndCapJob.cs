@@ -31,8 +31,6 @@ namespace UsefulToolkit.MeshCut
         /// <summary> 断面を書き込むサブメッシュ番号。既に断面を持つメッシュではそのスロットを再利用する </summary>
         [ReadOnly] public NativeArray<int> ObjectCapSlot;
 
-        [ReadOnly] public NativeParallelMultiHashMap<int, int2> CutEdges;
-
         [ReadOnly] public NativeArray<int2> FragmentVertexRange;
         [ReadOnly] public NativeArray<int2> FragmentIndexRange;
         public int MaxSubmeshSlots;
@@ -115,34 +113,34 @@ namespace UsefulToolkit.MeshCut
             var posToRep = new NativeParallelHashMap<QuantKey, int>(64, Allocator.Temp);
             var adjacency = new NativeParallelMultiHashMap<int, int>(64, Allocator.Temp);
 
-            if (CutEdges.TryGetFirstValue(objIndex, out int2 edge, out var edgeIt))
+            // 切断三角形 i の断面の辺は新規頂点 (2i, 2i+1) を結ぶ辺(TriangleCutJob 参照)。
+            // 隣り合う切断三角形の同じ位置の頂点は量子化した座標で同一視し、代表頂点どうしの隣接として登録する
+            for (int i = 0; i < count; i++)
             {
-                do
+                int cutFaceIdx = start + i;
+                int vertA = cutFaceIdx * 2;
+                int vertB = cutFaceIdx * 2 + 1;
+
+                QuantKey keyA = Quantize(NewVertices[vertA]);
+                QuantKey keyB = Quantize(NewVertices[vertB]);
+
+                if (!posToRep.TryGetValue(keyA, out int repA))
                 {
-                    float3 vA = NewVertices[edge.x];
-                    float3 vB = NewVertices[edge.y];
+                    repA = vertA;
+                    posToRep.Add(keyA, repA);
+                }
 
-                    QuantKey keyA = Quantize(vA);
-                    QuantKey keyB = Quantize(vB);
+                if (!posToRep.TryGetValue(keyB, out int repB))
+                {
+                    repB = vertB;
+                    posToRep.Add(keyB, repB);
+                }
 
-                    if (!posToRep.TryGetValue(keyA, out int repA))
-                    {
-                        repA = edge.x;
-                        posToRep.Add(keyA, repA);
-                    }
-
-                    if (!posToRep.TryGetValue(keyB, out int repB))
-                    {
-                        repB = edge.y;
-                        posToRep.Add(keyB, repB);
-                    }
-
-                    if (repA != repB)
-                    {
-                        adjacency.Add(repA, repB);
-                        adjacency.Add(repB, repA);
-                    }
-                } while (CutEdges.TryGetNextValue(out edge, ref edgeIt));
+                if (repA != repB)
+                {
+                    adjacency.Add(repA, repB);
+                    adjacency.Add(repB, repA);
+                }
             }
 
             // 3) ループを辿りつつファンキャップを生成

@@ -7,7 +7,7 @@ namespace UsefulToolkit.MeshCut
 {
     /// <summary>
     /// 「200件以下は全点、それ以上は指定数まで間引き」でコライダー用サンプリング点を作る。
-    /// 出力先の範囲(SampleRange)はメインスレッドで各フラグメントの実頂点数から事前に計算しておく。
+    /// 出力先の範囲(SampleRange)は SampleRangeJob が各フラグメントの実頂点数から事前に計算しておく。
     /// </summary>
     [BurstCompile]
     public struct SampleColliderPointsJob : IJobParallelFor
@@ -29,7 +29,7 @@ namespace UsefulToolkit.MeshCut
             int outStart = range.x;
             int outCount = range.y;
 
-            if (totalCount <= 200)
+            if (totalCount <= SampleRangeJob.FullSampleThreshold)
             {
                 for (int j = 0; j < outCount; j++)
                 {

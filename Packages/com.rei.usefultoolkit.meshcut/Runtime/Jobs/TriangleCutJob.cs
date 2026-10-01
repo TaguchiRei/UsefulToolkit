@@ -5,9 +5,14 @@ using Unity.Mathematics;
 
 namespace UsefulToolkit.MeshCut
 {
-    /// <summary> 刃をまたぐ三角形を切断し、断面側の新規頂点・三角形と切断エッジを生成する。 </summary>
+    /// <summary>
+    /// 刃をまたぐ三角形を切断し、断面側の新規頂点・三角形を生成する。
+    /// 切断三角形 i の新規頂点は 2i, 2i+1 で、この2点を結ぶ辺が断面の輪郭の1辺になる。
+    /// 切断三角形数は CutFacePrefixSumJob の実行時に決まるため、IJobParallelForDefer として CutFaces のリストで
+    /// スケジュールし、配列は AsDeferredJobArray() で受け取る。
+    /// </summary>
     [BurstCompile]
-    public struct TriangleCutJob : IJobParallelFor
+    public struct TriangleCutJob : IJobParallelForDefer
     {
         [ReadOnly] public NativeArray<int3> CutFaces;
         [ReadOnly] public NativeArray<int> CutStatus;
@@ -30,9 +35,6 @@ namespace UsefulToolkit.MeshCut
 
         [NativeDisableParallelForRestriction] [WriteOnly]
         public NativeArray<NewTriangle> NewTriangles;
-
-        [NativeDisableParallelForRestriction] [WriteOnly]
-        public NativeParallelMultiHashMap<int, int2>.ParallelWriter CutEdges;
 
         /// <summary>
         /// 切断処理を行う
@@ -91,12 +93,6 @@ namespace UsefulToolkit.MeshCut
                 Vertex1 = newV2, Vertex2 = oldB, Vertex3 = oldC,
                 Submesh = submesh, Side = sideBC
             };
-
-            //切断後の辺を登録する。
-            int startVertex = isFront ? newV1 : newV2;
-            int endVertex = isFront ? newV2 : newV1;
-            CutEdges.Add(TriangleObjectIndex[index], new(startVertex, endVertex));
-            CutEdges.Add(TriangleObjectIndex[index], new(endVertex, startVertex));
         }
 
         /// <summary>

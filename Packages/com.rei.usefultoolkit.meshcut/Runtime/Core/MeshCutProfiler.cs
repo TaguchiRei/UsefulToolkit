@@ -61,6 +61,12 @@ namespace UsefulToolkit.MeshCut
             /// <summary> Jobの場合、_jobStamps 上の開始時刻の位置(終了時刻はその次)。Job以外は -1 </summary>
             public int JobStampIndex = -1;
 
+            /// <summary>
+            /// 依存チェーンで直前に続くJob段階のID。0以上なら、待ちをスケジュール時刻ではなく
+            /// その段階の終了時刻から数える。チェーンでない場合は -1
+            /// </summary>
+            public int ChainedAfter = -1;
+
             /// <summary> 実行時間を別途集計した段階(複数フレームにまたがる反映処理など)の値。未使用は -1 </summary>
             public long ExecuteTicksOverride = -1;
         }
@@ -160,7 +166,11 @@ namespace UsefulToolkit.MeshCut
         /// Jobの段階を開始します。返したハンドルを、この段階でスケジュールする全Jobの依存に渡してください。
         /// 有効時は dependsOn の後に開始時刻を記録するJobを挟み、無効時は dependsOn をそのまま返します。
         /// </summary>
-        public JobHandle BeginJob(string name, JobHandle dependsOn, out int id)
+        /// <param name="chainedAfter">
+        /// 依存チェーンで直前に続くJob段階のID。指定すると、待ちをその段階の終了時刻から数えます。
+        /// 指定しない場合はスケジュールした時刻から数えます。
+        /// </param>
+        public JobHandle BeginJob(string name, JobHandle dependsOn, out int id, int chainedAfter = -1)
         {
             id = -1;
             if (!_enabled) return dependsOn;
@@ -170,7 +180,13 @@ namespace UsefulToolkit.MeshCut
                 _jobStamps = new NativeArray<long>(MaxJobStamps, Allocator.Persistent);
             }
 
-            var entry = new Entry { Name = name, Kind = MeshCutStageKind.Job, Request = Stopwatch.GetTimestamp() };
+            var entry = new Entry
+            {
+                Name = name,
+                Kind = MeshCutStageKind.Job,
+                Request = Stopwatch.GetTimestamp(),
+                ChainedAfter = chainedAfter
+            };
             id = AddEntry(entry);
 
             if (_jobStampCursor + 2 > MaxJobStamps)
@@ -216,11 +232,17 @@ namespace UsefulToolkit.MeshCut
             {
                 long start = entry.Start;
                 long end = entry.End;
+                long request = entry.Request;
 
                 if (entry.JobStampIndex >= 0)
                 {
                     start = _jobStamps[entry.JobStampIndex];
                     end = _jobStamps[entry.JobStampIndex + 1];
+
+                    if (entry.ChainedAfter >= 0 && _entries[entry.ChainedAfter].JobStampIndex >= 0)
+                    {
+                        request = _jobStamps[_entries[entry.ChainedAfter].JobStampIndex + 1];
+                    }
                 }
 
                 long wait;
@@ -240,7 +262,7 @@ namespace UsefulToolkit.MeshCut
                 else
                 {
                     execute = end - start;
-                    wait = start - entry.Request;
+                    wait = start - request;
                 }
 
                 long observed = entry.Observed != 0 ? entry.Observed : end;

@@ -1,6 +1,8 @@
 using System;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace UsefulToolkit.MeshCut
 {
@@ -39,22 +41,24 @@ namespace UsefulToolkit.MeshCut
         /// <summary> オブジェクトごとの切断処理に使う(オブジェクトローカル空間のBlade) </summary>
         public NativeArray<NativePlane> Blades;
 
-        // ── 面分類(Job5a/5b)の結果 ──
+        // ── 面分類(ClassifyWholeMeshJob / CutFacePrefixSumJob / BuildCutFaceListJob)の結果 ──
         public NativeArray<int> CutFaceCountPerObject;
         public NativeArray<int> CutFaceStartPerObject;
-        public int TotalCutFaceCount;
 
-        public NativeArray<int3> CutFaces;
-        public NativeArray<int> CutStatus;
-        public NativeArray<int> CutFaceSubmeshId;
-        public NativeArray<int> CutFaceObjectIndex;
+        // 以下の NativeList は、切断三角形の総数が決まる CutFacePrefixSumJob の中でサイズを決める。
+        // 後続のJobへは AsDeferredJobArray() で渡し、Job実行時点の長さを読ませること
+        // (スケジュール時点では長さ0のため、AsArray() で渡すと空の配列になる)
+        public NativeList<int3> CutFaces;
+        public NativeList<int> CutStatus;
+        public NativeList<int> CutFaceSubmeshId;
+        public NativeList<int> CutFaceObjectIndex;
 
         // ── 断面三角形生成(TriangleCutJob)の結果 ──
-        public NativeArray<float3> NewVertices;
-        public NativeArray<float3> NewNormals;
-        public NativeArray<float2> NewUvs;
-        public NativeArray<NewTriangle> NewTriangles;
-        public NativeParallelMultiHashMap<int, int2> CutEdges;
+        // 切断三角形 i の新規頂点は 2i, 2i+1、新規三角形は 3i..3i+2。断面の辺は常に (2i, 2i+1) になる
+        public NativeList<float3> NewVertices;
+        public NativeList<float3> NewNormals;
+        public NativeList<float2> NewUvs;
+        public NativeList<NewTriangle> NewTriangles;
 
         // ── 断面(キャップ)生成(DistributeAndCapJob)の結果 ──
         public NativeArray<int> CapClosedLoopCount; // per object: 閉じてキャップを生成できたループ数
@@ -82,8 +86,18 @@ namespace UsefulToolkit.MeshCut
         public int MaxSubmeshSlots;
 
         // ── コライダー用サンプリング点 ──
+        // SamplePoints はフラグメントごとに上限ぶん(SampleCapacityPerFragment)を予約した配列で、
+        // 実際に使う範囲は SampleRangeJob が SampleRange へ (offset, count) として書き出す
         public NativeArray<float3> SamplePoints;
         public NativeArray<int2> SampleRange;
+        public int SampleCapacityPerFragment;
+
+        // ── 最終メッシュ ──
+        /// <summary> FinalizeMeshJob が書き込む Mesh.MeshData。適用(ApplyAndDispose)されなかった場合は Dispose で破棄する </summary>
+        public Mesh.MeshDataArray WritableMeshData;
+
+        public bool HasWritableMeshData;
+        public NativeArray<VertexAttributeDescriptor> VertexLayout;
 
         public MultiCutContext(int objectCount)
         {
@@ -185,7 +199,6 @@ namespace UsefulToolkit.MeshCut
             if (NewNormals.IsCreated) NewNormals.Dispose();
             if (NewUvs.IsCreated) NewUvs.Dispose();
             if (NewTriangles.IsCreated) NewTriangles.Dispose();
-            if (CutEdges.IsCreated) CutEdges.Dispose();
 
             if (CapClosedLoopCount.IsCreated) CapClosedLoopCount.Dispose();
             if (CapOpenLoopCount.IsCreated) CapOpenLoopCount.Dispose();
@@ -201,6 +214,14 @@ namespace UsefulToolkit.MeshCut
 
             if (SamplePoints.IsCreated) SamplePoints.Dispose();
             if (SampleRange.IsCreated) SampleRange.Dispose();
+
+            if (HasWritableMeshData)
+            {
+                WritableMeshData.Dispose();
+                HasWritableMeshData = false;
+            }
+
+            if (VertexLayout.IsCreated) VertexLayout.Dispose();
         }
     }
 }

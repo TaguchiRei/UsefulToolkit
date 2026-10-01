@@ -250,14 +250,20 @@ namespace UsefulToolkit.MeshCut
                     continue;
                 }
 
+                // Frame が負の段階は、メインスレッドが完了を直接待たずに次のJobへ繋いだ段階
+                string detect = stage.Frame < 0 ? "-" : stage.DetectDelayMs.ToString("F2");
+                string frame = stage.Frame < 0 ? "-" : "+" + stage.Frame;
+
                 sb.AppendLine(
                     $"{stage.Name} | {KindLabel(stage.Kind)} | {stage.WaitMs:F2} | {stage.ExecuteMs:F2} | " +
-                    $"{stage.DetectDelayMs:F2} | +{stage.Frame}");
+                    $"{detect} | {frame}");
             }
 
             sb.AppendLine(
-                "待ち: 要求してから実行が始まるまで / 検知遅れ: 実行が終わってからメインスレッドが完了に気付くまで / " +
-                "フレーム: 計測開始から数えたフレーム数 / └: 直前の段階の内訳(実行時間のみ)");
+                "待ち: 要求してから実行が始まるまで(Job同士を繋いだ段階は前の段階の終了から) / " +
+                "検知遅れ: 実行が終わってからメインスレッドが完了に気付くまで / " +
+                "フレーム: 計測開始から数えたフレーム数 / " +
+                "-: メインスレッドが待たずに次のJobへ繋いだ段階 / └: 直前の段階の内訳(実行時間のみ)");
 
             return sb.ToString();
         }
