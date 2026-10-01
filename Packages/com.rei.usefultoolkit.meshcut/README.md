@@ -67,6 +67,14 @@ Burst / Collections / Mathematics と Framework パッケージは、本パッ�
 まだ切断可能な `CuttableObject` が参照するメッシュだけを残してストアを作り直します。
 手動で行いたい場合は `MeshDataCache.Rebuild()` を呼んでください。
 
+### ストアを読む Job との関係
+
+切断の Job はストアのデータを複製せず、直接読みます。ストアの `NativeList` は追加登録や再構築で中身の位置が変わるため、
+`MeshDataCache` は読み取り中の Job を記録しておき(`AddStoreReader`)、ストアを変更・破棄する処理
+(`Initialize` / `Rebuild` / `Unload` / 追加登録 / 破棄)の前に完了を待ちます(`CompleteStoreReaders`)。
+自前でストアを読む Job を書く場合や、ストアを直接変更する場合も、この2つを使ってください。
+別の刃の切断が進行中にストアを変更すると、その切断の Job が終わるまでメインスレッドが待ちます。
+
 ## 使い方
 
 シーンに置いた `CutBlade` (`MultiCutBlade`) を使う場合、インスペクタの右クリックメニュー「切断」で、

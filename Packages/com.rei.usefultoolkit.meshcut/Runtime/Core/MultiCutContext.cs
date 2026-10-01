@@ -14,17 +14,18 @@ namespace UsefulToolkit.MeshCut
     {
         public readonly int ObjectCount;
 
-        // ── 結合された入力頂点・三角形データ ──
-        public NativeArray<float3> BaseVertices;
-        public NativeArray<float3> BaseNormals;
-        public NativeArray<float2> BaseUvs;
-        public NativeArray<int> VertexObjectIndex;
-        public NativeArray<int> BaseVertexSide;
-        public NativeArray<int2> ObjectVertexRange;
+        // ── 入力の頂点・三角形 ──
+        // 頂点・三角形の実データは NativeMeshDataStore から直接読み、ここへは複製しない。
+        // 頂点はオブジェクトを並べた通し番号(ObjectVertexRange の範囲)で扱う。同じメッシュを使う複数のオブジェクトでも
+        // 刃との位置関係(BaseVertexSide)はオブジェクトごとに異なるため、メッシュ単位ではなくオブジェクト単位の番号が要る。
+        // 通し番号 g の頂点データは、ストア上の g + ObjectStoreVertexOffset[オブジェクト] にある。
+        public NativeArray<int2> ObjectVertexRange; // per object: (通し番号の先頭, 頂点数)
+        public NativeArray<int> ObjectStoreVertexOffset; // per object: ストア上の先頭 - 通し番号の先頭
+        public NativeArray<int> BaseVertexSide; // per 通し番号: 刃の表(1)か裏(0)か
 
-        public NativeArray<int3> AllTriangles;
-        public NativeArray<int> AllTriangleSubmesh;
-        public NativeArray<int2> ObjectTriangleRange;
+        // 三角形はストアのメッシュローカルな番号を読み、ObjectVertexRange の先頭を足して通し番号にする
+        public NativeArray<int2> ObjectTriangleRange; // per object: (この切断内での三角形の通し番号の先頭, 三角形数)
+        public NativeArray<int> ObjectStoreTriangleStart; // per object: ストア上の三角形の先頭
 
         public NativeArray<int> ObjectSubmeshCount;
 
@@ -35,7 +36,6 @@ namespace UsefulToolkit.MeshCut
         /// </summary>
         public NativeArray<int> ObjectCapSlot;
 
-        public NativeArray<int> ObjectMeshId;
         public NativeArray<NativeTransform> Transforms;
 
         /// <summary> オブジェクトごとの切断処理に使う(オブジェクトローカル空間のBlade) </summary>
@@ -140,20 +140,15 @@ namespace UsefulToolkit.MeshCut
 
         public void Dispose()
         {
-            if (BaseVertices.IsCreated) BaseVertices.Dispose();
-            if (BaseNormals.IsCreated) BaseNormals.Dispose();
-            if (BaseUvs.IsCreated) BaseUvs.Dispose();
-            if (VertexObjectIndex.IsCreated) VertexObjectIndex.Dispose();
-            if (BaseVertexSide.IsCreated) BaseVertexSide.Dispose();
             if (ObjectVertexRange.IsCreated) ObjectVertexRange.Dispose();
+            if (ObjectStoreVertexOffset.IsCreated) ObjectStoreVertexOffset.Dispose();
+            if (BaseVertexSide.IsCreated) BaseVertexSide.Dispose();
 
-            if (AllTriangles.IsCreated) AllTriangles.Dispose();
-            if (AllTriangleSubmesh.IsCreated) AllTriangleSubmesh.Dispose();
             if (ObjectTriangleRange.IsCreated) ObjectTriangleRange.Dispose();
+            if (ObjectStoreTriangleStart.IsCreated) ObjectStoreTriangleStart.Dispose();
 
             if (ObjectSubmeshCount.IsCreated) ObjectSubmeshCount.Dispose();
             if (ObjectCapSlot.IsCreated) ObjectCapSlot.Dispose();
-            if (ObjectMeshId.IsCreated) ObjectMeshId.Dispose();
             if (Transforms.IsCreated) Transforms.Dispose();
             if (Blades.IsCreated) Blades.Dispose();
 

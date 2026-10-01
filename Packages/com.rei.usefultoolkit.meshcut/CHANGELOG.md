@@ -17,6 +17,11 @@
   - 新設の `FragmentLayoutJob` がその実数から容量と書き込み位置を決め、フラットなリスト(`NativeList`)を確保します。
   - 新設の `WriteWholeTrianglesJob` が、丸ごと入る三角形の書き込みと切断面リストの構築を1回の走査で行います。
     これに伴い `BuildCutFaceListJob` を廃止しました。
+- 切断のたびに切断対象の頂点・三角形データを複製していた `CopyMeshDataJob` を廃止し、各Jobが `NativeMeshDataStore` を
+  直接読むようにしました。頂点はオブジェクトごとの通し番号で扱い、ストア上の位置はオブジェクトごとのずれ
+  (`ObjectStoreVertexOffset`)から求めます。複製用の配列(頂点あたり36バイト・三角形あたり16バイト)が不要になりました。
+  - ストアを読む Job が走っている間にストアが変更されないよう、`MeshDataCache` に `AddStoreReader` /
+    `CompleteStoreReaders` を追加し、ストアの変更・破棄の前に読み取り中の Job を完了させるようにしました。
 - 生成したメッシュの適用(`Mesh.ApplyAndDisposeWritableMeshData`)で、Unity 側のインデックス検証を省くようにしました
   (`MeshUpdateFlags.DontValidateIndices`)。インデックスは各フラグメントの頂点数の範囲内でしか書かれないためです。
 - 破片の球コライダーを求める k-means を、メインスレッドから Burst の `ColliderClusterJob`(破片単位で並列)へ移しました。
@@ -36,6 +41,7 @@
 - `MultiMeshCut.LastProfile`、`MultiCutBlade.LastProfile` / `EnableProfileLog` / `CollectProfile`
 - 計測結果の付帯情報に、閉じた断面ループ数・途切れた断面ループ区間数・断面が生成されなかった対象数を追加しました。
 - `ColliderClusterJob` / `ColliderClusterSettings`、`CuttableObject.ColliderSettings` / `ApplyColliderSpheres` / `SetCutMesh`
+- `MeshDataCache.AddStoreReader` / `CompleteStoreReaders`
 
 ### Fixed
 

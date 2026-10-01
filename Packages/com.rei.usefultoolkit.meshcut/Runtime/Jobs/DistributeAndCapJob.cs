@@ -21,9 +21,11 @@ namespace UsefulToolkit.MeshCut
         [ReadOnly] public NativeArray<float3> NewNormals;
         [ReadOnly] public NativeArray<float2> NewUvs;
 
-        [ReadOnly] public NativeArray<float3> BaseVertices;
-        [ReadOnly] public NativeArray<float3> BaseNormals;
-        [ReadOnly] public NativeArray<float2> BaseUvs;
+        // 元からある頂点(NewTriangle の負の番号)は通し番号で、ストア上の番号は ObjectStoreVertexOffset を足して求める
+        [ReadOnly] public NativeArray<int> ObjectStoreVertexOffset;
+        [ReadOnly] public NativeArray<float3> StoreVertices;
+        [ReadOnly] public NativeArray<float3> StoreNormals;
+        [ReadOnly] public NativeArray<float2> StoreUvs;
 
         [ReadOnly] public NativeArray<NativePlane> Blades;
         [ReadOnly] public NativeArray<int> ObjectSubmeshCount;
@@ -61,6 +63,7 @@ namespace UsefulToolkit.MeshCut
             int frontFrag = MultiCutContext.FragmentIndex(objIndex, 0);
             int backFrag = MultiCutContext.FragmentIndex(objIndex, 1);
             int capSubmesh = ObjectCapSlot[objIndex];
+            int storeVertexOffset = ObjectStoreVertexOffset[objIndex];
 
             // WriteWholeTrianglesJobが書き出したカーソルを引き継ぐ
             int frontVertCursor = FragmentVertexCount[frontFrag];
@@ -86,15 +89,15 @@ namespace UsefulToolkit.MeshCut
                 {
                     NewTriangle nt = NewTriangles[cutFaceIdx * 3 + k];
 
-                    float3 v1 = GetVertex(nt.Vertex1);
-                    float3 v2 = GetVertex(nt.Vertex2);
-                    float3 v3 = GetVertex(nt.Vertex3);
-                    float3 n1 = GetNormal(nt.Vertex1);
-                    float3 n2 = GetNormal(nt.Vertex2);
-                    float3 n3 = GetNormal(nt.Vertex3);
-                    float2 u1 = GetUv(nt.Vertex1);
-                    float2 u2 = GetUv(nt.Vertex2);
-                    float2 u3 = GetUv(nt.Vertex3);
+                    float3 v1 = GetVertex(nt.Vertex1, storeVertexOffset);
+                    float3 v2 = GetVertex(nt.Vertex2, storeVertexOffset);
+                    float3 v3 = GetVertex(nt.Vertex3, storeVertexOffset);
+                    float3 n1 = GetNormal(nt.Vertex1, storeVertexOffset);
+                    float3 n2 = GetNormal(nt.Vertex2, storeVertexOffset);
+                    float3 n3 = GetNormal(nt.Vertex3, storeVertexOffset);
+                    float2 u1 = GetUv(nt.Vertex1, storeVertexOffset);
+                    float2 u2 = GetUv(nt.Vertex2, storeVertexOffset);
+                    float2 u3 = GetUv(nt.Vertex3, storeVertexOffset);
 
                     if (nt.Side == 1)
                     {
@@ -364,8 +367,14 @@ namespace UsefulToolkit.MeshCut
             return vertCursor;
         }
 
-        private float3 GetVertex(int index) => index < 0 ? BaseVertices[-(index + 1)] : NewVertices[index];
-        private float3 GetNormal(int index) => index < 0 ? BaseNormals[-(index + 1)] : NewNormals[index];
-        private float2 GetUv(int index) => index < 0 ? BaseUvs[-(index + 1)] : NewUvs[index];
+        // index が負なら元からある頂点(通し番号 -(index + 1))、0以上なら TriangleCutJob が生成した新規頂点
+        private float3 GetVertex(int index, int storeVertexOffset) =>
+            index < 0 ? StoreVertices[-(index + 1) + storeVertexOffset] : NewVertices[index];
+
+        private float3 GetNormal(int index, int storeVertexOffset) =>
+            index < 0 ? StoreNormals[-(index + 1) + storeVertexOffset] : NewNormals[index];
+
+        private float2 GetUv(int index, int storeVertexOffset) =>
+            index < 0 ? StoreUvs[-(index + 1) + storeVertexOffset] : NewUvs[index];
     }
 }

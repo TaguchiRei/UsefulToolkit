@@ -20,9 +20,11 @@ namespace UsefulToolkit.MeshCut
         [ReadOnly] public NativeArray<NativePlane> Blades;
         [ReadOnly] public NativeArray<int> TriangleObjectIndex;
 
-        [ReadOnly] public NativeArray<float3> BaseVertices;
-        [ReadOnly] public NativeArray<float3> BaseNormals;
-        [ReadOnly] public NativeArray<float2> BaseUvs;
+        // CutFaces の頂点は通し番号。ストア上の番号は ObjectStoreVertexOffset[オブジェクト] を足して求める
+        [ReadOnly] public NativeArray<int> ObjectStoreVertexOffset;
+        [ReadOnly] public NativeArray<float3> StoreVertices;
+        [ReadOnly] public NativeArray<float3> StoreNormals;
+        [ReadOnly] public NativeArray<float2> StoreUvs;
 
         [NativeDisableParallelForRestriction] [WriteOnly]
         public NativeArray<float3> NewVertices;
@@ -44,7 +46,9 @@ namespace UsefulToolkit.MeshCut
         {
             int3 face = CutFaces[index]; //処理する三角形を取得
             int status = CutStatus[index]; //どの頂点が孤立しているかの情報を取得する
-            NativePlane blade = Blades[TriangleObjectIndex[index]];
+            int objIndex = TriangleObjectIndex[index];
+            NativePlane blade = Blades[objIndex];
+            int storeVertexOffset = ObjectStoreVertexOffset[objIndex];
             int submesh = CutFaceSubmeshId[index];
 
             //計算に適切な順番に頂点をソートするための情報を取得
@@ -58,8 +62,8 @@ namespace UsefulToolkit.MeshCut
 
             //孤立頂点から残り2頂点への辺(A-B, A-C)と刃の交点を新規頂点として求める
             int vertIndexStart = index * 2;
-            WriteEdgeIntersection(indexA, indexB, blade, vertIndexStart + 0);
-            WriteEdgeIntersection(indexA, indexC, blade, vertIndexStart + 1);
+            WriteEdgeIntersection(indexA + storeVertexOffset, indexB + storeVertexOffset, blade, vertIndexStart + 0);
+            WriteEdgeIntersection(indexA + storeVertexOffset, indexC + storeVertexOffset, blade, vertIndexStart + 1);
 
             //後に再構築するために古いインデックスと新しいインデックスを区別する
             //元からあった頂点はインデックスに一律で1を足して-を付ける。
@@ -96,7 +100,7 @@ namespace UsefulToolkit.MeshCut
         }
 
         /// <summary>
-        /// 辺(index0-index1)と刃の交点の座標・法線・UVを NewVertices 等の outIndex へ書き込む。
+        /// 辺(ストア上の頂点番号 index0-index1)と刃の交点の座標・法線・UVを NewVertices 等の outIndex へ書き込む。
         /// 端点は座標の辞書順に並べ替えてから補間する。
         /// 同じ辺を共有する隣の三角形では孤立頂点が反対側の端点になり、補間の向きが逆になる。
         /// 向きが違うと交点が最後の桁でずれ、DistributeAndCapJob の量子化の境目をまたいだときに
@@ -104,18 +108,18 @@ namespace UsefulToolkit.MeshCut
         /// </summary>
         private void WriteEdgeIntersection(int index0, int index1, NativePlane blade, int outIndex)
         {
-            if (IsLexicographicallyLess(BaseVertices[index1], BaseVertices[index0]))
+            if (IsLexicographicallyLess(StoreVertices[index1], StoreVertices[index0]))
             {
                 (index0, index1) = (index1, index0);
             }
 
-            float3 p0 = BaseVertices[index0];
-            float3 p1 = BaseVertices[index1];
+            float3 p0 = StoreVertices[index0];
+            float3 p1 = StoreVertices[index1];
             float alpha = Intersect(p0, p1, blade);
 
             NewVertices[outIndex] = math.lerp(p0, p1, alpha);
-            NewNormals[outIndex] = math.lerp(BaseNormals[index0], BaseNormals[index1], alpha);
-            NewUvs[outIndex] = math.lerp(BaseUvs[index0], BaseUvs[index1], alpha);
+            NewNormals[outIndex] = math.lerp(StoreNormals[index0], StoreNormals[index1], alpha);
+            NewUvs[outIndex] = math.lerp(StoreUvs[index0], StoreUvs[index1], alpha);
         }
 
         /// <summary> a が b より辞書順(x→y→z)で小さければ true。座標が完全に同じなら false。 </summary>

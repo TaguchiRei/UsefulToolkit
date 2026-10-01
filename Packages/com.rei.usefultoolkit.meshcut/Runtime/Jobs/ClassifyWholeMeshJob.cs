@@ -17,8 +17,14 @@ namespace UsefulToolkit.MeshCut
     {
         [ReadOnly] public NativeArray<int2> ObjectVertexRange;
         [ReadOnly] public NativeArray<int2> ObjectTriangleRange;
-        [ReadOnly] public NativeArray<int3> AllTriangles;
-        [ReadOnly] public NativeArray<int> AllTriangleSubmesh;
+        [ReadOnly] public NativeArray<int> ObjectStoreTriangleStart;
+
+        /// <summary> NativeMeshDataStore.Triangles(メッシュローカルな頂点番号) </summary>
+        [ReadOnly] public NativeArray<int3> StoreTriangles;
+
+        /// <summary> NativeMeshDataStore.TriangleSubmesh </summary>
+        [ReadOnly] public NativeArray<int> StoreTriangleSubmesh;
+
         [ReadOnly] public NativeArray<int> BaseVertexSide;
 
         public int MaxSubmeshSlots;
@@ -54,11 +60,15 @@ namespace UsefulToolkit.MeshCut
             int backVerts = 0;
             int cutCount = 0;
 
+            int storeTriStart = ObjectStoreTriangleStart[objIndex];
+
             for (int i = 0; i < tRange.y; i++)
             {
-                int triIdx = tRange.x + i;
-                int3 tri = AllTriangles[triIdx];
-                int submesh = AllTriangleSubmesh[triIdx];
+                int triIdx = storeTriStart + i;
+
+                // メッシュローカルな頂点番号を、このオブジェクトの通し番号へ変換する
+                int3 tri = StoreTriangles[triIdx] + vRange.x;
+                int submesh = StoreTriangleSubmesh[triIdx];
 
                 int side1 = BaseVertexSide[tri.x];
                 int side2 = BaseVertexSide[tri.y];

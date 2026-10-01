@@ -16,13 +16,17 @@ namespace UsefulToolkit.MeshCut
     public struct WriteWholeTrianglesJob : IJobParallelFor
     {
         [ReadOnly] public NativeArray<int2> ObjectVertexRange;
+        [ReadOnly] public NativeArray<int> ObjectStoreVertexOffset;
         [ReadOnly] public NativeArray<int2> ObjectTriangleRange;
-        [ReadOnly] public NativeArray<int3> AllTriangles;
-        [ReadOnly] public NativeArray<int> AllTriangleSubmesh;
+        [ReadOnly] public NativeArray<int> ObjectStoreTriangleStart;
         [ReadOnly] public NativeArray<int> BaseVertexSide;
-        [ReadOnly] public NativeArray<float3> BaseVertices;
-        [ReadOnly] public NativeArray<float3> BaseNormals;
-        [ReadOnly] public NativeArray<float2> BaseUvs;
+
+        // NativeMeshDataStore のデータ。三角形はメッシュローカルな頂点番号
+        [ReadOnly] public NativeArray<int3> StoreTriangles;
+        [ReadOnly] public NativeArray<int> StoreTriangleSubmesh;
+        [ReadOnly] public NativeArray<float3> StoreVertices;
+        [ReadOnly] public NativeArray<float3> StoreNormals;
+        [ReadOnly] public NativeArray<float2> StoreUvs;
 
         [ReadOnly] public NativeArray<int2> FragmentVertexRange;
         [ReadOnly] public NativeArray<int2> FragmentIndexRange;
@@ -76,11 +80,16 @@ namespace UsefulToolkit.MeshCut
             int backVertCursor = 0;
             int cutWriteIndex = CutFaceStartPerObject[objIndex];
 
+            int storeTriStart = ObjectStoreTriangleStart[objIndex];
+            int storeVertexOffset = ObjectStoreVertexOffset[objIndex];
+
             for (int i = 0; i < tRange.y; i++)
             {
-                int triIdx = tRange.x + i;
-                int3 tri = AllTriangles[triIdx];
-                int submesh = AllTriangleSubmesh[triIdx];
+                int triIdx = storeTriStart + i;
+
+                // メッシュローカルな頂点番号を、このオブジェクトの通し番号へ変換する
+                int3 tri = StoreTriangles[triIdx] + vRange.x;
+                int submesh = StoreTriangleSubmesh[triIdx];
 
                 int side1 = BaseVertexSide[tri.x];
                 int side2 = BaseVertexSide[tri.y];
@@ -89,13 +98,13 @@ namespace UsefulToolkit.MeshCut
 
                 if (result == 0)
                 {
-                    backVertCursor = AddWholeTriangle(backFrag, submesh, tri, vRange.x, dedupBack, backVertCursor,
-                        backIdxCursor);
+                    backVertCursor = AddWholeTriangle(backFrag, submesh, tri, vRange.x, storeVertexOffset, dedupBack,
+                        backVertCursor, backIdxCursor);
                 }
                 else if (result == 7)
                 {
-                    frontVertCursor = AddWholeTriangle(frontFrag, submesh, tri, vRange.x, dedupFront, frontVertCursor,
-                        frontIdxCursor);
+                    frontVertCursor = AddWholeTriangle(frontFrag, submesh, tri, vRange.x, storeVertexOffset, dedupFront,
+                        frontVertCursor, frontIdxCursor);
                 }
                 else
                 {
@@ -124,12 +133,12 @@ namespace UsefulToolkit.MeshCut
 
         /// <returns>更新後の頂点カーソル(呼び出し側で保持している変数へ書き戻すこと)</returns>
         private int AddWholeTriangle(
-            int fragIdx, int submesh, int3 globalTri, int vStart,
+            int fragIdx, int submesh, int3 globalTri, int vStart, int storeVertexOffset,
             NativeArray<int> dedup, int vertCursor, NativeArray<int> idxCursor)
         {
-            int i1 = GetOrAddVertex(fragIdx, globalTri.x - vStart, globalTri.x, dedup, ref vertCursor);
-            int i2 = GetOrAddVertex(fragIdx, globalTri.y - vStart, globalTri.y, dedup, ref vertCursor);
-            int i3 = GetOrAddVertex(fragIdx, globalTri.z - vStart, globalTri.z, dedup, ref vertCursor);
+            int i1 = GetOrAddVertex(fragIdx, globalTri.x - vStart, globalTri.x + storeVertexOffset, dedup, ref vertCursor);
+            int i2 = GetOrAddVertex(fragIdx, globalTri.y - vStart, globalTri.y + storeVertexOffset, dedup, ref vertCursor);
+            int i3 = GetOrAddVertex(fragIdx, globalTri.z - vStart, globalTri.z + storeVertexOffset, dedup, ref vertCursor);
 
             int2 idxRange = FragmentIndexRange[fragIdx * MaxSubmeshSlots + submesh];
             int cursor = idxCursor[submesh];
@@ -143,7 +152,9 @@ namespace UsefulToolkit.MeshCut
             return vertCursor;
         }
 
-        private int GetOrAddVertex(int fragIdx, int localIndex, int globalIndex, NativeArray<int> dedup,
+        /// <param name="localIndex">オブジェクト内の頂点番号(重複除去の表の添字)</param>
+        /// <param name="storeIndex">ストア上の頂点番号</param>
+        private int GetOrAddVertex(int fragIdx, int localIndex, int storeIndex, NativeArray<int> dedup,
             ref int vertCursor)
         {
             int existing = dedup[localIndex];
@@ -152,9 +163,9 @@ namespace UsefulToolkit.MeshCut
             int2 vRange = FragmentVertexRange[fragIdx];
             int newIndex = vertCursor;
 
-            FragmentVerticesFlat[vRange.x + newIndex] = BaseVertices[globalIndex];
-            FragmentNormalsFlat[vRange.x + newIndex] = BaseNormals[globalIndex];
-            FragmentUvsFlat[vRange.x + newIndex] = BaseUvs[globalIndex];
+            FragmentVerticesFlat[vRange.x + newIndex] = StoreVertices[storeIndex];
+            FragmentNormalsFlat[vRange.x + newIndex] = StoreNormals[storeIndex];
+            FragmentUvsFlat[vRange.x + newIndex] = StoreUvs[storeIndex];
 
             dedup[localIndex] = newIndex;
             vertCursor++;

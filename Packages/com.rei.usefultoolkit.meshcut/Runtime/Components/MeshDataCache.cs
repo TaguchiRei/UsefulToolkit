@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -11,6 +12,9 @@ namespace UsefulToolkit.MeshCut
     ///
     /// 何回でも切断可能なオブジェクトの破片は実行時に追加登録されるため、ストアは切断のたびに伸びる。
     /// 一定量を超えたら、生存しているCuttableObjectが参照するメッシュだけを残して自動的に再構築する。
+    ///
+    /// 切断のJobはストアのデータを複製せずに直接読む。ストアの NativeList はリサイズや破棄で中身の位置が変わるため、
+    /// ストアを変更・破棄する処理は必ず CompleteStoreReaders で読み取り中のJobを完了させてから行うこと。
     /// </summary>
     public class MeshDataCache : MonoBehaviour
     {
@@ -27,6 +31,26 @@ namespace UsefulToolkit.MeshCut
         /// <summary> 再構築の要否を判断するための基準頂点数 </summary>
         private int _baselineVertexCount;
 
+        /// <summary> ストアを読んでいるJobのハンドル(AddStoreReader で登録されたもの全て) </summary>
+        private JobHandle _storeReaders;
+
+        /// <summary>
+        /// ストアを読むJobのハンドルを登録します。ストアを変更・破棄する前に、登録されたJobの完了を待つために使います。
+        /// </summary>
+        public void AddStoreReader(JobHandle handle)
+        {
+            _storeReaders = _storeReaders.IsCompleted ? handle : JobHandle.CombineDependencies(_storeReaders, handle);
+        }
+
+        /// <summary>
+        /// ストアを読んでいるJobを全て完了させます。ストアへの追加登録・再構築・破棄の前に呼んでください。
+        /// </summary>
+        public void CompleteStoreReaders()
+        {
+            _storeReaders.Complete();
+            _storeReaders = default;
+        }
+
         private void Start()
         {
             if (Instance != null)
@@ -41,6 +65,7 @@ namespace UsefulToolkit.MeshCut
 
         public void Initialize()
         {
+            CompleteStoreReaders();
             Store?.Dispose();
             Store = new NativeMeshDataStore();
             _users.Clear();
@@ -103,7 +128,7 @@ namespace UsefulToolkit.MeshCut
 
         /// <summary>
         /// 追加登録によってストアが膨らんでいれば再構築します。
-        /// 切断の開始前(Jobが走っていないタイミング)にのみ呼ぶこと。
+        /// 再構築する場合は、ストアを読んでいるJobの完了を待ってから行います。
         /// </summary>
         public void RebuildIfNeeded()
         {
@@ -120,6 +145,8 @@ namespace UsefulToolkit.MeshCut
         public void Rebuild()
         {
             if (Store == null) return;
+
+            CompleteStoreReaders();
 
             var newStore = new NativeMeshDataStore();
             var idMap = new Dictionary<int, int>();
@@ -151,6 +178,7 @@ namespace UsefulToolkit.MeshCut
 
         public void Unload()
         {
+            CompleteStoreReaders();
             Store?.Dispose();
             Store = null;
             _users.Clear();
@@ -160,6 +188,7 @@ namespace UsefulToolkit.MeshCut
 
         private void OnDestroy()
         {
+            CompleteStoreReaders();
             Store?.Dispose();
 
             if (Instance == this)

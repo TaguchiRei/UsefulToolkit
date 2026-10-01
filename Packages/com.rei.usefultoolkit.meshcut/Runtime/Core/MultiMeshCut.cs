@@ -124,9 +124,10 @@ namespace UsefulToolkit.MeshCut
                 int initStage = profiler.BeginMain("初期化・バッファ確保");
 
                 // [メインスレッド] Unity API(Mesh, Transform)を使う初期化。範囲テーブルとTransformスナップショットのみ。
-                context.ObjectMeshId = new NativeArray<int>(objectCount, Allocator.Persistent);
                 context.ObjectVertexRange = new NativeArray<int2>(objectCount, Allocator.Persistent);
                 context.ObjectTriangleRange = new NativeArray<int2>(objectCount, Allocator.Persistent);
+                context.ObjectStoreVertexOffset = new NativeArray<int>(objectCount, Allocator.Persistent);
+                context.ObjectStoreTriangleStart = new NativeArray<int>(objectCount, Allocator.Persistent);
                 context.ObjectSubmeshCount = new NativeArray<int>(objectCount, Allocator.Persistent);
                 context.ObjectCapSlot = new NativeArray<int>(objectCount, Allocator.Persistent);
                 context.Transforms = new NativeArray<NativeTransform>(objectCount, Allocator.Persistent);
@@ -138,7 +139,6 @@ namespace UsefulToolkit.MeshCut
                 for (int i = 0; i < objectCount; i++)
                 {
                     int meshId = breakables[i].MeshId;
-                    context.ObjectMeshId[i] = meshId;
 
                     int2 vRange = store.MeshVertexRange[meshId];
                     int2 tRange = store.MeshTriangleRange[meshId];
@@ -146,6 +146,10 @@ namespace UsefulToolkit.MeshCut
 
                     context.ObjectVertexRange[i] = new int2(totalVertexCount, vRange.y);
                     context.ObjectTriangleRange[i] = new int2(totalTriangleCount, tRange.y);
+
+                    // 頂点・三角形の実データはストアから直接読むため、通し番号とストア上の位置の対応だけを持つ
+                    context.ObjectStoreVertexOffset[i] = vRange.x - totalVertexCount;
+                    context.ObjectStoreTriangleStart[i] = tRange.x;
                     context.ObjectSubmeshCount[i] = submeshCount;
 
                     // 既に断面サブメッシュを持つメッシュ(＝一度切られた破片)は、そのスロットへ断面を追記する(新しいサブメッシュは足さない)。
@@ -161,20 +165,7 @@ namespace UsefulToolkit.MeshCut
                     context.Transforms[i] = new NativeTransform(t.position, t.rotation, t.localScale);
                 }
 
-                context.BaseVertices = new NativeArray<float3>(totalVertexCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.BaseNormals = new NativeArray<float3>(totalVertexCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.BaseUvs = new NativeArray<float2>(totalVertexCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.VertexObjectIndex = new NativeArray<int>(totalVertexCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
                 context.BaseVertexSide = new NativeArray<int>(totalVertexCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-
-                context.AllTriangles = new NativeArray<int3>(totalTriangleCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.AllTriangleSubmesh = new NativeArray<int>(totalTriangleCount, Allocator.Persistent,
                     NativeArrayOptions.UninitializedMemory);
 
                 context.Blades = new NativeArray<NativePlane>(objectCount, Allocator.Persistent);
@@ -218,29 +209,16 @@ namespace UsefulToolkit.MeshCut
 
                 // ── 全Jobを1本の依存チェーンでスケジュールし、完了はメインスレッドで最後に1回だけ待つ ──
 
-                // メッシュデータ結合 + Blade変換(並列)
-                JobHandle copyStart = profiler.BeginJob("メッシュ結合・Blade変換", default, out int copyStage);
+                // ストアのデータは複製せずに直接読む。ストアを変更する処理は MeshDataCache.CompleteStoreReaders で
+                // このJobの完了を待つため、スケジュール後に AddStoreReader で登録する
+                NativeArray<float3> storeVertices = store.Vertices.AsArray();
+                NativeArray<float3> storeNormals = store.Normals.AsArray();
+                NativeArray<float2> storeUvs = store.Uvs.AsArray();
+                NativeArray<int3> storeTriangles = store.Triangles.AsArray();
+                NativeArray<int> storeTriangleSubmesh = store.TriangleSubmesh.AsArray();
 
-                var copyJob = new CopyMeshDataJob
-                {
-                    SrcVertices = store.Vertices.AsArray(),
-                    SrcNormals = store.Normals.AsArray(),
-                    SrcUvs = store.Uvs.AsArray(),
-                    SrcTriangles = store.Triangles.AsArray(),
-                    SrcTriangleSubmesh = store.TriangleSubmesh.AsArray(),
-                    SrcMeshVertexRange = store.MeshVertexRange.AsArray(),
-                    SrcMeshTriangleRange = store.MeshTriangleRange.AsArray(),
-                    ObjectMeshId = context.ObjectMeshId,
-                    ObjectVertexRange = context.ObjectVertexRange,
-                    ObjectTriangleRange = context.ObjectTriangleRange,
-                    DstVertices = context.BaseVertices,
-                    DstNormals = context.BaseNormals,
-                    DstUvs = context.BaseUvs,
-                    VertexObjectIndex = context.VertexObjectIndex,
-                    DstTriangles = context.AllTriangles,
-                    DstTriangleSubmesh = context.AllTriangleSubmesh
-                };
-                JobHandle copyHandle = copyJob.Schedule(objectCount, objectBatch, copyStart);
+                // Blade変換
+                JobHandle bladeStart = profiler.BeginJob("Blade変換", default, out int bladeStage);
 
                 var bladeJob = new BladeToLocalJob
                 {
@@ -248,21 +226,21 @@ namespace UsefulToolkit.MeshCut
                     Transforms = context.Transforms,
                     Blades = context.Blades
                 };
-                JobHandle bladeHandle = bladeJob.Schedule(objectCount, objectBatch, copyStart);
 
-                JobHandle handle = profiler.EndJob(copyStage, JobHandle.CombineDependencies(copyHandle, bladeHandle));
+                JobHandle handle = profiler.EndJob(bladeStage, bladeJob.Schedule(objectCount, objectBatch, bladeStart));
 
                 // 頂点仕分け
                 var vertexGetSideJob = new VertexGetSideJob
                 {
-                    Vertices = context.BaseVertices,
-                    BladeIndex = context.VertexObjectIndex,
+                    StoreVertices = storeVertices,
+                    ObjectVertexRange = context.ObjectVertexRange,
+                    ObjectStoreVertexOffset = context.ObjectStoreVertexOffset,
                     Blades = context.Blades,
                     VertexSides = context.BaseVertexSide
                 };
 
                 JobHandle vertexGetSideStart =
-                    profiler.BeginJob("頂点仕分け", handle, out int vertexGetSideStage, copyStage);
+                    profiler.BeginJob("頂点仕分け", handle, out int vertexGetSideStage, bladeStage);
                 handle = profiler.EndJob(vertexGetSideStage,
                     vertexGetSideJob.Schedule(totalVertexCount, batchCount, vertexGetSideStart));
 
@@ -271,8 +249,9 @@ namespace UsefulToolkit.MeshCut
                 {
                     ObjectVertexRange = context.ObjectVertexRange,
                     ObjectTriangleRange = context.ObjectTriangleRange,
-                    AllTriangles = context.AllTriangles,
-                    AllTriangleSubmesh = context.AllTriangleSubmesh,
+                    ObjectStoreTriangleStart = context.ObjectStoreTriangleStart,
+                    StoreTriangles = storeTriangles,
+                    StoreTriangleSubmesh = storeTriangleSubmesh,
                     BaseVertexSide = context.BaseVertexSide,
                     MaxSubmeshSlots = maxSubmeshSlots,
                     FragmentWholeVertexCount = context.FragmentWholeVertexCount,
@@ -326,13 +305,15 @@ namespace UsefulToolkit.MeshCut
                 var writeWholeJob = new WriteWholeTrianglesJob
                 {
                     ObjectVertexRange = context.ObjectVertexRange,
+                    ObjectStoreVertexOffset = context.ObjectStoreVertexOffset,
                     ObjectTriangleRange = context.ObjectTriangleRange,
-                    AllTriangles = context.AllTriangles,
-                    AllTriangleSubmesh = context.AllTriangleSubmesh,
+                    ObjectStoreTriangleStart = context.ObjectStoreTriangleStart,
                     BaseVertexSide = context.BaseVertexSide,
-                    BaseVertices = context.BaseVertices,
-                    BaseNormals = context.BaseNormals,
-                    BaseUvs = context.BaseUvs,
+                    StoreTriangles = storeTriangles,
+                    StoreTriangleSubmesh = storeTriangleSubmesh,
+                    StoreVertices = storeVertices,
+                    StoreNormals = storeNormals,
+                    StoreUvs = storeUvs,
                     FragmentVertexRange = context.FragmentVertexRange,
                     FragmentIndexRange = context.FragmentIndexRange,
                     CutFaceStartPerObject = context.CutFaceStartPerObject,
@@ -362,9 +343,10 @@ namespace UsefulToolkit.MeshCut
                     CutFaceSubmeshId = context.CutFaceSubmeshId.AsDeferredJobArray(),
                     Blades = context.Blades,
                     TriangleObjectIndex = context.CutFaceObjectIndex.AsDeferredJobArray(),
-                    BaseVertices = context.BaseVertices,
-                    BaseNormals = context.BaseNormals,
-                    BaseUvs = context.BaseUvs,
+                    ObjectStoreVertexOffset = context.ObjectStoreVertexOffset,
+                    StoreVertices = storeVertices,
+                    StoreNormals = storeNormals,
+                    StoreUvs = storeUvs,
                     NewVertices = context.NewVertices.AsDeferredJobArray(),
                     NewNormals = context.NewNormals.AsDeferredJobArray(),
                     NewUvs = context.NewUvs.AsDeferredJobArray(),
@@ -385,9 +367,10 @@ namespace UsefulToolkit.MeshCut
                     NewVertices = context.NewVertices.AsDeferredJobArray(),
                     NewNormals = context.NewNormals.AsDeferredJobArray(),
                     NewUvs = context.NewUvs.AsDeferredJobArray(),
-                    BaseVertices = context.BaseVertices,
-                    BaseNormals = context.BaseNormals,
-                    BaseUvs = context.BaseUvs,
+                    ObjectStoreVertexOffset = context.ObjectStoreVertexOffset,
+                    StoreVertices = storeVertices,
+                    StoreNormals = storeNormals,
+                    StoreUvs = storeUvs,
                     Blades = context.Blades,
                     ObjectSubmeshCount = context.ObjectSubmeshCount,
                     ObjectCapSlot = context.ObjectCapSlot,
@@ -458,6 +441,7 @@ namespace UsefulToolkit.MeshCut
                     finalizeJob.Schedule(fragmentCount, CalcBatchCount(fragmentCount), finalizeStart));
 
                 pendingJobs = JobHandle.CombineDependencies(sampleHandle, finalizeHandle);
+                MeshDataCache.Instance.AddStoreReader(pendingJobs);
                 JobHandle.ScheduleBatchedJobs();
 
                 await pendingJobs.ToUniTask(PlayerLoopTiming.Update);
@@ -495,6 +479,7 @@ namespace UsefulToolkit.MeshCut
                 // 何回でも切断可能なオブジェクトのフラグメントを、次の切断のためにストアへ登録する。
                 // 全てのJobが完了した後に行うこと(ストアのNativeListがリサイズされ、Jobが持つビューが無効になるため)
                 int registerStage = profiler.BeginMain("破片のストア登録");
+                MeshDataCache.Instance.CompleteStoreReaders();
                 int[] fragmentMeshIds = RegisterMultiCutFragments(breakables, context, store, maxSubmeshSlots);
                 profiler.EndMain(registerStage);
 
