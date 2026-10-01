@@ -178,6 +178,11 @@ Console に出さずに結果だけ取りたい場合は `MultiCutBlade.CollectP
 | `ColliderClusterSettings ColliderSettings` | 球コライダーを求めるときの設定値(球の数・縮小率・最大半径など) |
 | `void SetupCollider(List<Vector3>)` | サンプリング点から球コライダーを求めて配置する(破片1つぶん) |
 | `void ApplyColliderSpheres(NativeArray<float4>, int)` | `ColliderClusterJob` が求めた球をコライダーへ反映する |
+| `void SetCutMesh(Mesh)` | 切断で生成されたメッシュを表示し、持ち主になる。以前に持っていたメッシュは破棄する |
+
+`MultiMeshCut.CutMesh` のメッシュは切断のたびに新しく生成されます。自前で反映処理を書く場合は `SetCutMesh` で破片に渡すか、
+不要になった時点で自分で `Destroy` してください(放置すると `Resources.UnloadUnusedAssets` まで解放されません)。
+`SetCutMesh` には切断で生成したメッシュだけを渡してください。共有アセットを渡すと、差し替え時にそれごと破棄されます。
 
 切断対象および破片。サンプリング点を k-means でクラスタリングした結果から球コライダーを配置します。
 クラスタリングは Burst の `ColliderClusterJob` で行い、`MultiCutBlade` は全破片ぶんをまとめて並列に計算します。

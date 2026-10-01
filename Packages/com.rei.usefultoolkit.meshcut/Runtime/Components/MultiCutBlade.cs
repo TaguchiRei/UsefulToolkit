@@ -293,8 +293,8 @@ namespace UsefulToolkit.MeshCut
             );
             fragObj.transform.localScale = original.transform.localScale;
 
-            // メッシュ設定
-            cuttable.Mesh.sharedMesh = mesh;
+            // メッシュ設定。この破片が前回の切断で持っていたメッシュはここで破棄される
+            cuttable.SetCutMesh(mesh);
 
             // マテリアルコピー処理
             var originalRenderer = original.Renderer;

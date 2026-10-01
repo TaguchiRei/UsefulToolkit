@@ -56,6 +56,7 @@ namespace Sandbox.Benchmark.MeshCut
         private Mesh _sourceMesh;
 
         private bool _running;
+        private bool _previousRunInBackground;
 
         private async void Start()
         {
@@ -81,6 +82,10 @@ namespace Sandbox.Benchmark.MeshCut
             }
 
             _running = true;
+
+            // Unity が背面にあってもフレームを進めるため、計測中だけ有効にする(終了時に元へ戻す)
+            _previousRunInBackground = Application.runInBackground;
+            Application.runInBackground = true;
 
             try
             {
@@ -110,7 +115,17 @@ namespace Sandbox.Benchmark.MeshCut
             }
             finally
             {
+                Application.runInBackground = _previousRunInBackground;
                 _running = false;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            // 計測の途中で再生を止めた場合も runInBackground を元に戻す
+            if (_running)
+            {
+                Application.runInBackground = _previousRunInBackground;
             }
         }
 
@@ -129,6 +144,7 @@ namespace Sandbox.Benchmark.MeshCut
             }
 
             var profiles = new List<MeshCutProfile>(_repeatCount);
+            int maxLiveMeshCount = 0;
 
             for (int run = 0; run < _warmupCount + _repeatCount; run++)
             {
@@ -139,7 +155,7 @@ namespace Sandbox.Benchmark.MeshCut
                 await _blade.ExecuteCut(targets);
                 MeshCutProfile profile = _blade.LastProfile;
 
-                await CleanupAsync(targets);
+                maxLiveMeshCount = Mathf.Max(maxLiveMeshCount, await CleanupAsync(targets));
 
                 if (profile == null || ReferenceEquals(profile, before))
                 {
@@ -159,7 +175,7 @@ namespace Sandbox.Benchmark.MeshCut
             }
 
             MeshCutProfile median = MeshCutProfile.Median(profiles, $"{caseName} の中央値 ({profiles.Count} 回)");
-            Debug.Log($"{median}{environment}");
+            Debug.Log($"{median}{environment}\n後片付け前に生存していた Mesh 数(最大): {maxLiveMeshCount:N0}");
         }
 
         // ── シーン構築 ──
@@ -271,8 +287,13 @@ namespace Sandbox.Benchmark.MeshCut
         /// <summary>
         /// 切断元を破棄し、破片を非アクティブに戻し、切断で生成されたメッシュのうち参照されなくなったものを解放します。
         /// </summary>
-        private async UniTask CleanupAsync(CuttableObject[] targets)
+        /// <returns>解放する前に生存していた Mesh の数(切断で作られたメッシュが破棄されずに残っていると増える)</returns>
+        private async UniTask<int> CleanupAsync(CuttableObject[] targets)
         {
+            // Destroy したメッシュが実際に消えるのはフレームの終わりなので、次のフレームまで待ってから数える
+            await UniTask.NextFrame();
+            int liveMeshCount = Resources.FindObjectsOfTypeAll<Mesh>().Length;
+
             foreach (CuttableObject target in targets)
             {
                 if (target != null)
@@ -290,6 +311,8 @@ namespace Sandbox.Benchmark.MeshCut
             GC.Collect();
 
             await UniTask.Yield();
+
+            return liveMeshCount;
         }
 
         /// <summary>

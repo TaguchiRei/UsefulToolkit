@@ -515,7 +515,9 @@ namespace UsefulToolkit.MeshCut
                     resultMeshes[i] = new Mesh();
                 }
 
-                Mesh.ApplyAndDisposeWritableMeshData(context.WritableMeshData, resultMeshes);
+                // インデックスは各フラグメントの頂点数の範囲内でしか書かれないため、Unity側の検証を省く
+                Mesh.ApplyAndDisposeWritableMeshData(context.WritableMeshData, resultMeshes,
+                    MeshUpdateFlags.DontValidateIndices);
                 context.HasWritableMeshData = false;
 
                 profiler.EndMain(applyStage);

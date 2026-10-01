@@ -38,6 +38,36 @@ namespace UsefulToolkit.MeshCut
         public MeshFilter Mesh;
 
         /// <summary>
+        /// 切断で生成され、この破片が持ち主になっているメッシュ。
+        /// 別のメッシュへ差し替えるときと、この破片が破棄されるときに Destroy する。
+        /// 切断で生成されたものだけを入れること(プレハブ等の共有アセットを入れると、それごと破棄してしまう)。
+        /// </summary>
+        private UnityEngine.Mesh _ownedCutMesh;
+
+        /// <summary>
+        /// 切断で生成されたメッシュを表示し、この破片を持ち主にします。
+        /// 以前に持ち主になっていたメッシュは、参照する者がいなくなるため破棄します。
+        /// </summary>
+        public void SetCutMesh(UnityEngine.Mesh mesh)
+        {
+            if (_ownedCutMesh != null && _ownedCutMesh != mesh)
+            {
+                Destroy(_ownedCutMesh);
+            }
+
+            _ownedCutMesh = mesh;
+            Mesh.sharedMesh = mesh;
+        }
+
+        private void OnDestroy()
+        {
+            if (_ownedCutMesh != null)
+            {
+                Destroy(_ownedCutMesh);
+            }
+        }
+
+        /// <summary>
         /// NativeMeshDataStore に登録されたメッシュIDを設定し、切断可能な状態にします。
         /// MeshDataCache の初期登録と、何回でも切断可能なオブジェクトの破片への引き継ぎで使います。
         /// </summary>
@@ -69,7 +99,7 @@ namespace UsefulToolkit.MeshCut
 
         [SerializeField] private PhysicsMaterial _physicsMaterial;
 
-        // ClusteringVertsが軸方向の固定6点を必ず追加するため、7未満だとクラスタ中心が不足して破綻する
+        // ColliderClusterJobが軸方向の固定6点を必ず追加するため、7未満だとクラスタ中心が不足して破綻する
         [SerializeField, Min(7), Tooltip("破片に生成する球コライダーの数(7以上)")]
         private int _colliderNum = 10;
 

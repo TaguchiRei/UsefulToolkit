@@ -17,6 +17,8 @@
   - 新設の `FragmentLayoutJob` がその実数から容量と書き込み位置を決め、フラットなリスト(`NativeList`)を確保します。
   - 新設の `WriteWholeTrianglesJob` が、丸ごと入る三角形の書き込みと切断面リストの構築を1回の走査で行います。
     これに伴い `BuildCutFaceListJob` を廃止しました。
+- 生成したメッシュの適用(`Mesh.ApplyAndDisposeWritableMeshData`)で、Unity 側のインデックス検証を省くようにしました
+  (`MeshUpdateFlags.DontValidateIndices`)。インデックスは各フラグメントの頂点数の範囲内でしか書かれないためです。
 - 破片の球コライダーを求める k-means を、メインスレッドから Burst の `ColliderClusterJob`(破片単位で並列)へ移しました。
   `MultiCutBlade` は全破片ぶんをまとめて計算し、破片反映では結果をコライダーへ設定するだけになりました。
   `CuttableObject.SetupCollider(List<Vector3>)` は同じJobを破片1つぶん実行する形で残しています。
@@ -33,7 +35,7 @@
 - `MeshCutProfile` / `MeshCutStageRecord` / `MeshCutProfileInfo` / `MeshCutStageKind`
 - `MultiMeshCut.LastProfile`、`MultiCutBlade.LastProfile` / `EnableProfileLog` / `CollectProfile`
 - 計測結果の付帯情報に、閉じた断面ループ数・途切れた断面ループ区間数・断面が生成されなかった対象数を追加しました。
-- `ColliderClusterJob` / `ColliderClusterSettings`、`CuttableObject.ColliderSettings` / `ApplyColliderSpheres`
+- `ColliderClusterJob` / `ColliderClusterSettings`、`CuttableObject.ColliderSettings` / `ApplyColliderSpheres` / `SetCutMesh`
 
 ### Fixed
 
@@ -44,6 +46,9 @@
   同じ辺を共有する隣り合う三角形で補間の向きが逆になり、交点が最後の桁でずれて、
   ループ探索の量子化(0.1mm)の境目をまたいだときに別の点として扱われていたためです。
   `TriangleCutJob` で辺の端点を座標の辞書順に揃えてから補間し、同じ辺からは常に同じ交点が出るようにしました。
+- 破片を使い回すたびに、前回の切断で生成したメッシュが破棄されずに残っていた問題(`Resources.UnloadUnusedAssets` を
+  呼ぶまでネイティブメモリが増え続けていた)。破片が切断で生成されたメッシュの持ち主になり、
+  差し替え時と破片の破棄時に `Destroy` するようにしました(`CuttableObject.SetCutMesh`)。
 - 閉じた断面ループの最後の辺を探索済みにしていなかったため、同じループを逆向きに辿り直す無駄な探索が走っていた問題。
 
 ## [1.0.0] - UsefulToolkit への移植
