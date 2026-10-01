@@ -1,5 +1,67 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- 切断処理の全Jobを1本の依存チェーンでスケジュールし、完了をメインスレッドで1回だけ待つようにしました。
+  従来は段階ごとに完了を待っていたため、計算量に関係なく結果が出るまで最低8フレームかかっていました。
+  - 切断三角形数で決まるバッファは `NativeList` にし、新設の `CutFacePrefixSumJob` の中でサイズを決めます。
+    `TriangleCutJob` は `IJobParallelForDefer` になりました。
+  - 断面の辺を受け渡していた `NativeParallelMultiHashMap`(`CutEdges`)を廃止しました。
+    切断三角形 i の辺は常に新規頂点 (2i, 2i+1) なので、`DistributeAndCapJob` が直接求めます。
+  - サンプリング範囲の計算を `SampleRangeJob` に、メッシュへの書き込みを `FinalizeMeshJob`(フラグメント単位で並列)に移し、
+    バックグラウンドスレッドとの切り替えをなくしました。
+- フラグメントバッファの確保量を、最悪ケース(全三角形が切断される想定)から実数ベースに変えました。確保量はおよそ1/17〜1/38です。
+  - `ClassifyWholeMeshJob` は数えるだけになり、表裏それぞれの頂点数・サブメッシュ別インデックス数・切断三角形数を出力します。
+  - 新設の `FragmentLayoutJob` がその実数から容量と書き込み位置を決め、フラットなリスト(`NativeList`)を確保します。
+  - 新設の `WriteWholeTrianglesJob` が、丸ごと入る三角形の書き込みと切断面リストの構築を1回の走査で行います。
+    これに伴い `BuildCutFaceListJob` を廃止しました。
+- 切断のたびに切断対象の頂点・三角形データを複製していた `CopyMeshDataJob` を廃止し、各Jobが `NativeMeshDataStore` を
+  直接読むようにしました。頂点はオブジェクトごとの通し番号で扱い、ストア上の位置はオブジェクトごとのずれ
+  (`ObjectStoreVertexOffset`)から求めます。複製用の配列(頂点あたり36バイト・三角形あたり16バイト)が不要になりました。
+  - ストアを読む Job が走っている間にストアが変更されないよう、`MeshDataCache` に `AddStoreReader` /
+    `CompleteStoreReaders` を追加し、ストアの変更・破棄の前に読み取り中の Job を完了させるようにしました。
+- 切断で増える三角形(切断三角形を分割した側面の三角形と、断面のファン三角形)の頂点を重複除去するようにしました。
+  破片の頂点数は 11〜42% 減ります(切断面付近の三角形の割合が大きい、ポリゴン数の少ないメッシュほど減ります)。
+  - 側面の頂点は、元からある頂点なら通し番号、切断でできた頂点なら切断した元の辺(`NewVertexEdge`)をキーに表裏それぞれで共有します。
+    座標でまとめないのは、UV の継ぎ目のように位置が同じでも属性の違う頂点を1つにしないためです。
+  - 断面の頂点はループの各頂点と中心に1つずつ置いて共有します。側面とは法線が違うため共有しません。
+- 生成したメッシュの適用(`Mesh.ApplyAndDisposeWritableMeshData`)で、Unity 側のインデックス検証を省くようにしました
+  (`MeshUpdateFlags.DontValidateIndices`)。インデックスは各フラグメントの頂点数の範囲内でしか書かれないためです。
+- 破片の球コライダーを求める k-means を、メインスレッドから Burst の `ColliderClusterJob`(破片単位で並列)へ移しました。
+  `MultiCutBlade` は全破片ぶんをまとめて計算し、破片反映では結果をコライダーへ設定するだけになりました。
+  `CuttableObject.SetupCollider(List<Vector3>)` は同じJobを破片1つぶん実行する形で残しています。
+  初期中心の乱数は `Unity.Mathematics.Random` に変わったため、同じ入力でも以前とは異なる初期配置になります。
+
+- 処理時間の計測を作り直しました。従来は各段階の間を Stopwatch で測っていたため、Job の完了を待つフレーム待ちまで
+  処理時間に含まれていました。現在は段階ごとに「待ち / 実行 / 検知遅れ / フレーム」を分けて記録し、
+  切断 1 回ぶんを 1 つの表として出力します。Job の実行時間はワーカー上で記録します。
+- `MultiCutBlade` の計測結果に、プール生成待ち・破片取得・破片反映(うち `SetupCollider`)を含めるようにしました。
+  破片反映をフレーム分割したときの個別ログは廃止し、表の付帯情報「破片反映のフレーム分割回数」にまとめました。
+
+### Added
+
+- `MeshCutProfile` / `MeshCutStageRecord` / `MeshCutProfileInfo` / `MeshCutStageKind`
+- `MultiMeshCut.LastProfile`、`MultiCutBlade.LastProfile` / `EnableProfileLog` / `CollectProfile`
+- 計測結果の付帯情報に、閉じた断面ループ数・途切れた断面ループ区間数・断面が生成されなかった対象数を追加しました。
+- `ColliderClusterJob` / `ColliderClusterSettings`、`CuttableObject.ColliderSettings` / `ApplyColliderSpheres` / `SetCutMesh`
+- `MeshDataCache.AddStoreReader` / `CompleteStoreReaders`
+
+### Fixed
+
+- 断面ループが閉じずにキャップが生成されなかったフラグメント(末尾のサブメッシュが0件)があると、
+  `FinalizeMeshes` の `NativeArray.Copy` が範囲外例外を投げて切断全体が失敗していた問題。
+  0件のコピーを行わないようにしました(頂点数0のフラグメントも同様)。
+- 断面ループが途切れてキャップ(断面)が生成されないことがあった問題。
+  同じ辺を共有する隣り合う三角形で補間の向きが逆になり、交点が最後の桁でずれて、
+  ループ探索の量子化(0.1mm)の境目をまたいだときに別の点として扱われていたためです。
+  `TriangleCutJob` で辺の端点を座標の辞書順に揃えてから補間し、同じ辺からは常に同じ交点が出るようにしました。
+- 破片を使い回すたびに、前回の切断で生成したメッシュが破棄されずに残っていた問題(`Resources.UnloadUnusedAssets` を
+  呼ぶまでネイティブメモリが増え続けていた)。破片が切断で生成されたメッシュの持ち主になり、
+  差し替え時と破片の破棄時に `Destroy` するようにしました(`CuttableObject.SetCutMesh`)。
+- 閉じた断面ループの最後の辺を探索済みにしていなかったため、同じループを逆向きに辿り直す無駄な探索が走っていた問題。
+
 ## [1.0.0] - UsefulToolkit への移植
 
 `TaguchiRei/MeshCut` の `com.rei.usefulmeshcut` を UsefulToolkit のサブパッケージとして取り込んだものです。

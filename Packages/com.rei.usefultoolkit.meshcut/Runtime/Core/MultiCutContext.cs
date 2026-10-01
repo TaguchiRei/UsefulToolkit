@@ -1,6 +1,8 @@
 using System;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace UsefulToolkit.MeshCut
 {
@@ -12,17 +14,18 @@ namespace UsefulToolkit.MeshCut
     {
         public readonly int ObjectCount;
 
-        // ── 結合された入力頂点・三角形データ ──
-        public NativeArray<float3> BaseVertices;
-        public NativeArray<float3> BaseNormals;
-        public NativeArray<float2> BaseUvs;
-        public NativeArray<int> VertexObjectIndex;
-        public NativeArray<int> BaseVertexSide;
-        public NativeArray<int2> ObjectVertexRange;
+        // ── 入力の頂点・三角形 ──
+        // 頂点・三角形の実データは NativeMeshDataStore から直接読み、ここへは複製しない。
+        // 頂点はオブジェクトを並べた通し番号(ObjectVertexRange の範囲)で扱う。同じメッシュを使う複数のオブジェクトでも
+        // 刃との位置関係(BaseVertexSide)はオブジェクトごとに異なるため、メッシュ単位ではなくオブジェクト単位の番号が要る。
+        // 通し番号 g の頂点データは、ストア上の g + ObjectStoreVertexOffset[オブジェクト] にある。
+        public NativeArray<int2> ObjectVertexRange; // per object: (通し番号の先頭, 頂点数)
+        public NativeArray<int> ObjectStoreVertexOffset; // per object: ストア上の先頭 - 通し番号の先頭
+        public NativeArray<int> BaseVertexSide; // per 通し番号: 刃の表(1)か裏(0)か
 
-        public NativeArray<int3> AllTriangles;
-        public NativeArray<int> AllTriangleSubmesh;
-        public NativeArray<int2> ObjectTriangleRange;
+        // 三角形はストアのメッシュローカルな番号を読み、ObjectVertexRange の先頭を足して通し番号にする
+        public NativeArray<int2> ObjectTriangleRange; // per object: (この切断内での三角形の通し番号の先頭, 三角形数)
+        public NativeArray<int> ObjectStoreTriangleStart; // per object: ストア上の三角形の先頭
 
         public NativeArray<int> ObjectSubmeshCount;
 
@@ -33,53 +36,76 @@ namespace UsefulToolkit.MeshCut
         /// </summary>
         public NativeArray<int> ObjectCapSlot;
 
-        public NativeArray<int> ObjectMeshId;
         public NativeArray<NativeTransform> Transforms;
 
         /// <summary> オブジェクトごとの切断処理に使う(オブジェクトローカル空間のBlade) </summary>
         public NativeArray<NativePlane> Blades;
 
-        // ── 面分類(Job5a/5b)の結果 ──
+        // ── 面分類(ClassifyWholeMeshJob / CutFacePrefixSumJob / WriteWholeTrianglesJob)の結果 ──
         public NativeArray<int> CutFaceCountPerObject;
         public NativeArray<int> CutFaceStartPerObject;
-        public int TotalCutFaceCount;
 
-        public NativeArray<int3> CutFaces;
-        public NativeArray<int> CutStatus;
-        public NativeArray<int> CutFaceSubmeshId;
-        public NativeArray<int> CutFaceObjectIndex;
+        // 以下の NativeList は、切断三角形の総数が決まる CutFacePrefixSumJob の中でサイズを決める。
+        // 後続のJobへは AsDeferredJobArray() で渡し、Job実行時点の長さを読ませること
+        // (スケジュール時点では長さ0のため、AsArray() で渡すと空の配列になる)
+        public NativeList<int3> CutFaces;
+        public NativeList<int> CutStatus;
+        public NativeList<int> CutFaceSubmeshId;
+        public NativeList<int> CutFaceObjectIndex;
 
         // ── 断面三角形生成(TriangleCutJob)の結果 ──
-        public NativeArray<float3> NewVertices;
-        public NativeArray<float3> NewNormals;
-        public NativeArray<float2> NewUvs;
-        public NativeArray<NewTriangle> NewTriangles;
-        public NativeParallelMultiHashMap<int, int2> CutEdges;
+        // 切断三角形 i の新規頂点は 2i, 2i+1、新規三角形は 3i..3i+2。断面の辺は常に (2i, 2i+1) になる
+        public NativeList<float3> NewVertices;
+        public NativeList<float3> NewNormals;
+        public NativeList<float2> NewUvs;
+        public NativeList<int2> NewVertexEdge; // per 新規頂点: 切断した元の辺(通し番号の小さい方, 大きい方)
+        public NativeList<NewTriangle> NewTriangles;
+
+        // ── 断面(キャップ)生成(DistributeAndCapJob)の結果 ──
+        public NativeArray<int> CapClosedLoopCount; // per object: 閉じてキャップを生成できたループ数
+        public NativeArray<int> CapOpenLoopCount; // per object: 途切れてキャップを生成しなかったループ数
 
         // ── フラグメント(オブジェクト×表裏)ごとの出力メッシュバッファ ──
         // フラグメントIndex = objIndex * 2 + side (side: 0=front, 1=back)
-        // NativeArray<UnsafeList<T>> はunmanaged制約を満たせずコンパイル不可のため、
-        // 「オブジェクト毎の最悪ケース容量を事前計算 → フラット配列に(offset,capacity)で予約 → 実使用数を別配列に書き出す」
-        // 方式で表現する。容量は dedup頂点(≤vertCount) + 断面新規頂点(≤9*triCount) + キャップ頂点(≤6*triCount) の
-        // 安全な上限として vertCount + 15*triCount を採用する(triCountは切断三角形数triCountForObjectの安全な上限にもなる)。
-        public NativeArray<int2> FragmentVertexRange; // per fragment: (offset, capacity) into FragmentVerticesFlat等
-        public NativeArray<int> FragmentVertexCount; // per fragment: 実使用頂点数(ClassifyWholeMeshJob→DistributeAndCapJobで引き継ぎ更新)
-
-        public NativeArray<float3> FragmentVerticesFlat;
-        public NativeArray<float3> FragmentNormalsFlat;
-        public NativeArray<float2> FragmentUvsFlat;
-
         // サブメッシュスロット = フラグメントIndex * MaxSubmeshSlots + submesh (submesh: 0..N-1が元サブメッシュ、Nがキャップ)
+        //
+        // NativeArray<UnsafeList<T>> はunmanaged制約を満たせずコンパイル不可のため、
+        // フラグメント・スロットごとに (offset, capacity) で区切ったフラットなリストで表し、実使用数は別配列に書き出す。
+        // 容量は ClassifyWholeMeshJob が数えた実数から FragmentLayoutJob が決め、フラットなリストもそこでサイズを決める。
+        // そのため後続のJobへは AsDeferredJobArray() で渡すこと(スケジュール時点では長さ0)。
+
+        // ClassifyWholeMeshJob の数え上げ結果
+        public NativeArray<int> FragmentWholeVertexCount; // per fragment: 丸ごと入る三角形が使う頂点数(重複除去後)
+        public NativeArray<int> FragmentWholeIndexCount; // per slot: 丸ごと入る三角形のインデックス数
+        public NativeArray<int> CutFaceCountPerObjectSubmesh; // per (object, submesh) = objIndex * MaxSubmeshSlots + submesh
+
+        public NativeArray<int2> FragmentVertexRange; // per fragment: (offset, capacity) into FragmentVerticesFlat等
+        public NativeArray<int> FragmentVertexCount; // per fragment: 実使用頂点数(WriteWholeTrianglesJob→DistributeAndCapJobで引き継ぎ更新)
+
+        public NativeList<float3> FragmentVerticesFlat;
+        public NativeList<float3> FragmentNormalsFlat;
+        public NativeList<float2> FragmentUvsFlat;
+
         public NativeArray<int2> FragmentIndexRange; // per slot: (offset, capacity) into FragmentIndicesFlat
         public NativeArray<int> FragmentIndexCount; // per slot: 実使用インデックス数
 
-        public NativeArray<int> FragmentIndicesFlat;
+        public NativeList<int> FragmentIndicesFlat;
 
         public int MaxSubmeshSlots;
 
         // ── コライダー用サンプリング点 ──
+        // SamplePoints はフラグメントごとに上限ぶん(SampleCapacityPerFragment)を予約した配列で、
+        // 実際に使う範囲は SampleRangeJob が SampleRange へ (offset, count) として書き出す
         public NativeArray<float3> SamplePoints;
         public NativeArray<int2> SampleRange;
+        public int SampleCapacityPerFragment;
+
+        // ── 最終メッシュ ──
+        /// <summary> FinalizeMeshJob が書き込む Mesh.MeshData。適用(ApplyAndDispose)されなかった場合は Dispose で破棄する </summary>
+        public Mesh.MeshDataArray WritableMeshData;
+
+        public bool HasWritableMeshData;
+        public NativeArray<VertexAttributeDescriptor> VertexLayout;
 
         public MultiCutContext(int objectCount)
         {
@@ -89,83 +115,41 @@ namespace UsefulToolkit.MeshCut
         public static int FragmentIndex(int objIndex, int side) => objIndex * 2 + side;
 
         /// <summary>
-        /// ObjectVertexRange/ObjectTriangleRangeが確定した後に呼び出す。
-        /// オブジェクト毎の最悪ケース容量からフラグメントバッファのオフセット・容量表を構築する。
+        /// フラグメント・スロット単位の表と、空のフラットなリストを確保する。
+        /// 容量とリストの長さは、Job内(FragmentLayoutJob)で切断結果の実数から決まる。
         /// </summary>
-        public void AllocateFragmentBuffers(int maxSubmeshSlots)
+        public void AllocateFragmentTables(int maxSubmeshSlots)
         {
             MaxSubmeshSlots = maxSubmeshSlots;
             int fragmentCount = ObjectCount * 2;
             int slotCount = fragmentCount * maxSubmeshSlots;
+
+            FragmentWholeVertexCount = new NativeArray<int>(fragmentCount, Allocator.Persistent);
+            FragmentWholeIndexCount = new NativeArray<int>(slotCount, Allocator.Persistent);
+            CutFaceCountPerObjectSubmesh = new NativeArray<int>(ObjectCount * maxSubmeshSlots, Allocator.Persistent);
 
             FragmentVertexRange = new NativeArray<int2>(fragmentCount, Allocator.Persistent);
             FragmentVertexCount = new NativeArray<int>(fragmentCount, Allocator.Persistent);
             FragmentIndexRange = new NativeArray<int2>(slotCount, Allocator.Persistent);
             FragmentIndexCount = new NativeArray<int>(slotCount, Allocator.Persistent);
 
-            int vertTotal = 0;
-            int idxTotal = 0;
-
-            for (int objIndex = 0; objIndex < ObjectCount; objIndex++)
-            {
-                int vertCountForObject = ObjectVertexRange[objIndex].y;
-                int triCountForObject = ObjectTriangleRange[objIndex].y;
-
-                // 安全な上限: dedup頂点(≤vertCount) + 断面新規頂点(≤9*triCount) + キャップ頂点(≤6*triCount)
-                int vertCap = vertCountForObject + 15 * triCountForObject;
-
-                // 安全な上限: 元三角形(≤3*triCount) + 断面新規三角形(≤9*triCount)
-                int idxCap = 12 * triCountForObject;
-
-                // 断面スロットは上記に加えてキャップのファン三角形(≤6*triCount)も受け取る。
-                // 未切断メッシュでは空きスロットなので実質キャップぶんだけだが、
-                // 既に断面を持つメッシュを切り直す場合は同じスロットへ全てが積まれるため、合算した容量が要る。
-                int capSlotForObject = ObjectCapSlot[objIndex];
-                int capIdxCap = idxCap + 6 * triCountForObject;
-
-                for (int side = 0; side < 2; side++)
-                {
-                    int fragIdx = objIndex * 2 + side;
-                    FragmentVertexRange[fragIdx] = new int2(vertTotal, vertCap);
-                    vertTotal += vertCap;
-
-                    for (int s = 0; s < maxSubmeshSlots; s++)
-                    {
-                        int slot = fragIdx * maxSubmeshSlots + s;
-                        int capacity = s == capSlotForObject ? capIdxCap : idxCap;
-
-                        FragmentIndexRange[slot] = new int2(idxTotal, capacity);
-                        idxTotal += capacity;
-                    }
-                }
-            }
-
-            FragmentVerticesFlat = new NativeArray<float3>(vertTotal, Allocator.Persistent,
-                NativeArrayOptions.UninitializedMemory);
-            FragmentNormalsFlat = new NativeArray<float3>(vertTotal, Allocator.Persistent,
-                NativeArrayOptions.UninitializedMemory);
-            FragmentUvsFlat = new NativeArray<float2>(vertTotal, Allocator.Persistent,
-                NativeArrayOptions.UninitializedMemory);
-            FragmentIndicesFlat = new NativeArray<int>(idxTotal, Allocator.Persistent,
-                NativeArrayOptions.UninitializedMemory);
+            FragmentVerticesFlat = new NativeList<float3>(Allocator.Persistent);
+            FragmentNormalsFlat = new NativeList<float3>(Allocator.Persistent);
+            FragmentUvsFlat = new NativeList<float2>(Allocator.Persistent);
+            FragmentIndicesFlat = new NativeList<int>(Allocator.Persistent);
         }
 
         public void Dispose()
         {
-            if (BaseVertices.IsCreated) BaseVertices.Dispose();
-            if (BaseNormals.IsCreated) BaseNormals.Dispose();
-            if (BaseUvs.IsCreated) BaseUvs.Dispose();
-            if (VertexObjectIndex.IsCreated) VertexObjectIndex.Dispose();
-            if (BaseVertexSide.IsCreated) BaseVertexSide.Dispose();
             if (ObjectVertexRange.IsCreated) ObjectVertexRange.Dispose();
+            if (ObjectStoreVertexOffset.IsCreated) ObjectStoreVertexOffset.Dispose();
+            if (BaseVertexSide.IsCreated) BaseVertexSide.Dispose();
 
-            if (AllTriangles.IsCreated) AllTriangles.Dispose();
-            if (AllTriangleSubmesh.IsCreated) AllTriangleSubmesh.Dispose();
             if (ObjectTriangleRange.IsCreated) ObjectTriangleRange.Dispose();
+            if (ObjectStoreTriangleStart.IsCreated) ObjectStoreTriangleStart.Dispose();
 
             if (ObjectSubmeshCount.IsCreated) ObjectSubmeshCount.Dispose();
             if (ObjectCapSlot.IsCreated) ObjectCapSlot.Dispose();
-            if (ObjectMeshId.IsCreated) ObjectMeshId.Dispose();
             if (Transforms.IsCreated) Transforms.Dispose();
             if (Blades.IsCreated) Blades.Dispose();
 
@@ -180,8 +164,15 @@ namespace UsefulToolkit.MeshCut
             if (NewVertices.IsCreated) NewVertices.Dispose();
             if (NewNormals.IsCreated) NewNormals.Dispose();
             if (NewUvs.IsCreated) NewUvs.Dispose();
+            if (NewVertexEdge.IsCreated) NewVertexEdge.Dispose();
             if (NewTriangles.IsCreated) NewTriangles.Dispose();
-            if (CutEdges.IsCreated) CutEdges.Dispose();
+
+            if (CapClosedLoopCount.IsCreated) CapClosedLoopCount.Dispose();
+            if (CapOpenLoopCount.IsCreated) CapOpenLoopCount.Dispose();
+
+            if (FragmentWholeVertexCount.IsCreated) FragmentWholeVertexCount.Dispose();
+            if (FragmentWholeIndexCount.IsCreated) FragmentWholeIndexCount.Dispose();
+            if (CutFaceCountPerObjectSubmesh.IsCreated) CutFaceCountPerObjectSubmesh.Dispose();
 
             if (FragmentVertexRange.IsCreated) FragmentVertexRange.Dispose();
             if (FragmentVertexCount.IsCreated) FragmentVertexCount.Dispose();
@@ -194,6 +185,14 @@ namespace UsefulToolkit.MeshCut
 
             if (SamplePoints.IsCreated) SamplePoints.Dispose();
             if (SampleRange.IsCreated) SampleRange.Dispose();
+
+            if (HasWritableMeshData)
+            {
+                WritableMeshData.Dispose();
+                HasWritableMeshData = false;
+            }
+
+            if (VertexLayout.IsCreated) VertexLayout.Dispose();
         }
     }
 }

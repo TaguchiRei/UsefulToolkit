@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using Cysharp.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
@@ -28,8 +27,11 @@ namespace UsefulToolkit.MeshCut
         /// </summary>
         public int[] FragmentMeshIds { private set; get; }
 
-        /// <summary> trueにすると各処理段階の所要時間をConsoleへ出力します。 </summary>
+        /// <summary> trueにすると各処理段階の所要時間を計測し、切断完了時に表としてConsoleへ出力します。 </summary>
         public bool EnableProfileLog;
+
+        /// <summary> EnableProfileLog が有効な状態で最後に完了した切断の計測結果。未計測なら null。 </summary>
+        public MeshCutProfile LastProfile { private set; get; }
 
         private UniTask _cutTask;
         private int _batchCount = 32;
@@ -37,8 +39,17 @@ namespace UsefulToolkit.MeshCut
 
         public UniTask Cut(CuttableObject[] breakables, NativePlane blade)
         {
+            return Cut(breakables, blade, null);
+        }
+
+        /// <summary>
+        /// 呼び出し側が持つ計測器へ各段階を記録しながら切断します。
+        /// profiler を渡した場合、計測結果の組み立て・出力・破棄は呼び出し側が行い、LastProfile は更新しません。
+        /// </summary>
+        internal UniTask Cut(CuttableObject[] breakables, NativePlane blade, MeshCutProfiler profiler)
+        {
             Complete = false;
-            _cutTask = CutAsync(breakables, blade, _batchCount, _sampling);
+            _cutTask = CutAsync(breakables, blade, _batchCount, _sampling, profiler);
 
             return _cutTask;
         }
@@ -74,12 +85,6 @@ namespace UsefulToolkit.MeshCut
             _sampling = sampling;
         }
 
-        private void ProfileLog(string message)
-        {
-            if (!EnableProfileLog) return;
-            Debug.Log($"[UsefulToolkit.MeshCut] {message}");
-        }
-
         /// <summary>
         /// 要素数の少ないIJobParallelFor向けに、全ワーカースレッドへ行き渡るバッチ数を算出します。
         /// </summary>
@@ -89,9 +94,12 @@ namespace UsefulToolkit.MeshCut
             return math.max(1, length / workerCount);
         }
 
-        private async UniTask CutAsync(CuttableObject[] breakables, NativePlane blade, int batchCount, int sampling)
+        private async UniTask CutAsync(CuttableObject[] breakables, NativePlane blade, int batchCount, int sampling,
+            MeshCutProfiler externalProfiler)
         {
-            Stopwatch totalStopwatch = Stopwatch.StartNew();
+            bool ownsProfiler = externalProfiler == null;
+            MeshCutProfiler profiler = externalProfiler ??
+                                       (EnableProfileLog ? new MeshCutProfiler() : MeshCutProfiler.Disabled);
 
             int objectCount = breakables.Length;
             MultiCutContext context = new MultiCutContext(objectCount);
@@ -101,19 +109,25 @@ namespace UsefulToolkit.MeshCut
             // ワーカースレッド数から分割数を決める。
             int objectBatch = CalcBatchCount(objectCount);
 
+            // スケジュール済みで完了を待っていないJob。finally でバッファを解放する前に必ず完了させる
+            JobHandle pendingJobs = default;
+
             try
             {
                 // 追加登録で膨らんだストアをここで整理する。Jobが走っていないこのタイミングでのみ安全に行える
+                int rebuildStage = profiler.BeginMain("ストア再構築判定");
                 MeshDataCache.Instance.RebuildIfNeeded();
+                profiler.EndMain(rebuildStage);
 
                 var store = MeshDataCache.Instance.Store;
 
-                Stopwatch stopwatch = Stopwatch.StartNew();
+                int initStage = profiler.BeginMain("初期化・バッファ確保");
 
                 // [メインスレッド] Unity API(Mesh, Transform)を使う初期化。範囲テーブルとTransformスナップショットのみ。
-                context.ObjectMeshId = new NativeArray<int>(objectCount, Allocator.Persistent);
                 context.ObjectVertexRange = new NativeArray<int2>(objectCount, Allocator.Persistent);
                 context.ObjectTriangleRange = new NativeArray<int2>(objectCount, Allocator.Persistent);
+                context.ObjectStoreVertexOffset = new NativeArray<int>(objectCount, Allocator.Persistent);
+                context.ObjectStoreTriangleStart = new NativeArray<int>(objectCount, Allocator.Persistent);
                 context.ObjectSubmeshCount = new NativeArray<int>(objectCount, Allocator.Persistent);
                 context.ObjectCapSlot = new NativeArray<int>(objectCount, Allocator.Persistent);
                 context.Transforms = new NativeArray<NativeTransform>(objectCount, Allocator.Persistent);
@@ -125,7 +139,6 @@ namespace UsefulToolkit.MeshCut
                 for (int i = 0; i < objectCount; i++)
                 {
                     int meshId = breakables[i].MeshId;
-                    context.ObjectMeshId[i] = meshId;
 
                     int2 vRange = store.MeshVertexRange[meshId];
                     int2 tRange = store.MeshTriangleRange[meshId];
@@ -133,6 +146,10 @@ namespace UsefulToolkit.MeshCut
 
                     context.ObjectVertexRange[i] = new int2(totalVertexCount, vRange.y);
                     context.ObjectTriangleRange[i] = new int2(totalTriangleCount, tRange.y);
+
+                    // 頂点・三角形の実データはストアから直接読むため、通し番号とストア上の位置の対応だけを持つ
+                    context.ObjectStoreVertexOffset[i] = vRange.x - totalVertexCount;
+                    context.ObjectStoreTriangleStart[i] = tRange.x;
                     context.ObjectSubmeshCount[i] = submeshCount;
 
                     // 既に断面サブメッシュを持つメッシュ(＝一度切られた破片)は、そのスロットへ断面を追記する(新しいサブメッシュは足さない)。
@@ -148,50 +165,61 @@ namespace UsefulToolkit.MeshCut
                     context.Transforms[i] = new NativeTransform(t.position, t.rotation, t.localScale);
                 }
 
-                context.BaseVertices = new NativeArray<float3>(totalVertexCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.BaseNormals = new NativeArray<float3>(totalVertexCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.BaseUvs = new NativeArray<float2>(totalVertexCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.VertexObjectIndex = new NativeArray<int>(totalVertexCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
                 context.BaseVertexSide = new NativeArray<int>(totalVertexCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-
-                context.AllTriangles = new NativeArray<int3>(totalTriangleCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.AllTriangleSubmesh = new NativeArray<int>(totalTriangleCount, Allocator.Persistent,
                     NativeArrayOptions.UninitializedMemory);
 
                 context.Blades = new NativeArray<NativePlane>(objectCount, Allocator.Persistent);
 
-                context.AllocateFragmentBuffers(maxSubmeshSlots);
+                context.AllocateFragmentTables(maxSubmeshSlots);
 
-                ProfileLog($"計測: 初期化処理 - {stopwatch.ElapsedMilliseconds} ms");
-                stopwatch.Restart();
+                int fragmentCount = objectCount * 2;
 
-                // ── メッシュデータ結合 + Blade変換(並列) ──
-                var copyJob = new CopyMeshDataJob
-                {
-                    SrcVertices = store.Vertices.AsArray(),
-                    SrcNormals = store.Normals.AsArray(),
-                    SrcUvs = store.Uvs.AsArray(),
-                    SrcTriangles = store.Triangles.AsArray(),
-                    SrcTriangleSubmesh = store.TriangleSubmesh.AsArray(),
-                    SrcMeshVertexRange = store.MeshVertexRange.AsArray(),
-                    SrcMeshTriangleRange = store.MeshTriangleRange.AsArray(),
-                    ObjectMeshId = context.ObjectMeshId,
-                    ObjectVertexRange = context.ObjectVertexRange,
-                    ObjectTriangleRange = context.ObjectTriangleRange,
-                    DstVertices = context.BaseVertices,
-                    DstNormals = context.BaseNormals,
-                    DstUvs = context.BaseUvs,
-                    VertexObjectIndex = context.VertexObjectIndex,
-                    DstTriangles = context.AllTriangles,
-                    DstTriangleSubmesh = context.AllTriangleSubmesh
-                };
-                JobHandle copyHandle = copyJob.Schedule(objectCount, objectBatch);
+                // 切断三角形数に依存するバッファは、CutFacePrefixSumJob の中でサイズを決める
+                context.CutFaceCountPerObject = new NativeArray<int>(objectCount, Allocator.Persistent);
+                context.CutFaceStartPerObject = new NativeArray<int>(objectCount, Allocator.Persistent);
+                context.CutFaces = new NativeList<int3>(Allocator.Persistent);
+                context.CutStatus = new NativeList<int>(Allocator.Persistent);
+                context.CutFaceSubmeshId = new NativeList<int>(Allocator.Persistent);
+                context.CutFaceObjectIndex = new NativeList<int>(Allocator.Persistent);
+                context.NewVertices = new NativeList<float3>(Allocator.Persistent);
+                context.NewNormals = new NativeList<float3>(Allocator.Persistent);
+                context.NewUvs = new NativeList<float2>(Allocator.Persistent);
+                context.NewVertexEdge = new NativeList<int2>(Allocator.Persistent);
+                context.NewTriangles = new NativeList<NewTriangle>(Allocator.Persistent);
+
+                context.CapClosedLoopCount = new NativeArray<int>(objectCount, Allocator.Persistent);
+                context.CapOpenLoopCount = new NativeArray<int>(objectCount, Allocator.Persistent);
+
+                // サンプリング点は、フラグメント毎に取りうる最大数ぶんを予約しておく
+                context.SampleCapacityPerFragment = math.max(SampleRangeJob.FullSampleThreshold, sampling);
+                context.SampleRange = new NativeArray<int2>(fragmentCount, Allocator.Persistent);
+                context.SamplePoints = new NativeArray<float3>(fragmentCount * context.SampleCapacityPerFragment,
+                    Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+
+                // AllocateWritableMeshData はメインスレッド専用のため、Jobをスケジュールする前に確保する
+                context.WritableMeshData = Mesh.AllocateWritableMeshData(fragmentCount);
+                context.HasWritableMeshData = true;
+                context.VertexLayout = new NativeArray<VertexAttributeDescriptor>(VertexLayout, Allocator.Persistent);
+
+                profiler.EndMain(initStage);
+
+                profiler.AddInfo("対象数", objectCount);
+                profiler.AddInfo("頂点数", totalVertexCount);
+                profiler.AddInfo("三角形数", totalTriangleCount);
+                profiler.AddInfo("ワーカースレッド数", JobsUtility.JobWorkerCount);
+
+                // ── 全Jobを1本の依存チェーンでスケジュールし、完了はメインスレッドで最後に1回だけ待つ ──
+
+                // ストアのデータは複製せずに直接読む。ストアを変更する処理は MeshDataCache.CompleteStoreReaders で
+                // このJobの完了を待つため、スケジュール後に AddStoreReader で登録する
+                NativeArray<float3> storeVertices = store.Vertices.AsArray();
+                NativeArray<float3> storeNormals = store.Normals.AsArray();
+                NativeArray<float2> storeUvs = store.Uvs.AsArray();
+                NativeArray<int3> storeTriangles = store.Triangles.AsArray();
+                NativeArray<int> storeTriangleSubmesh = store.TriangleSubmesh.AsArray();
+
+                // Blade変換
+                JobHandle bladeStart = profiler.BeginJob("Blade変換", default, out int bladeStage);
 
                 var bladeJob = new BladeToLocalJob
                 {
@@ -199,193 +227,242 @@ namespace UsefulToolkit.MeshCut
                     Transforms = context.Transforms,
                     Blades = context.Blades
                 };
-                JobHandle bladeHandle = bladeJob.Schedule(objectCount, objectBatch);
 
-                await JobHandle.CombineDependencies(copyHandle, bladeHandle).ToUniTask(PlayerLoopTiming.Update);
+                JobHandle handle = profiler.EndJob(bladeStage, bladeJob.Schedule(objectCount, objectBatch, bladeStart));
 
-                ProfileLog($"計測: メッシュ結合・Blade変換 - {stopwatch.ElapsedMilliseconds} ms");
-                stopwatch.Restart();
-
-                // ── 頂点仕分け ──
+                // 頂点仕分け
                 var vertexGetSideJob = new VertexGetSideJob
                 {
-                    Vertices = context.BaseVertices,
-                    BladeIndex = context.VertexObjectIndex,
+                    StoreVertices = storeVertices,
+                    ObjectVertexRange = context.ObjectVertexRange,
+                    ObjectStoreVertexOffset = context.ObjectStoreVertexOffset,
                     Blades = context.Blades,
                     VertexSides = context.BaseVertexSide
                 };
 
-                JobHandle vertexGetSideHandle = vertexGetSideJob.Schedule(totalVertexCount, batchCount);
-                await vertexGetSideHandle.ToUniTask(PlayerLoopTiming.Update);
+                JobHandle vertexGetSideStart =
+                    profiler.BeginJob("頂点仕分け", handle, out int vertexGetSideStage, bladeStage);
+                handle = profiler.EndJob(vertexGetSideStage,
+                    vertexGetSideJob.Schedule(totalVertexCount, batchCount, vertexGetSideStart));
 
-                ProfileLog($"計測: 頂点仕分け処理 - {stopwatch.ElapsedMilliseconds} ms");
-                stopwatch.Restart();
-
-                // ── 面分類 + 全表/全裏三角形構築(オブジェクト単位で並列) ──
-                context.CutFaceCountPerObject = new NativeArray<int>(objectCount, Allocator.Persistent);
-
+                // 面分類(オブジェクト単位で並列)。ここではバッファの容量決めに必要な数だけを数える
                 var classifyJob = new ClassifyWholeMeshJob
                 {
                     ObjectVertexRange = context.ObjectVertexRange,
                     ObjectTriangleRange = context.ObjectTriangleRange,
-                    AllTriangles = context.AllTriangles,
-                    AllTriangleSubmesh = context.AllTriangleSubmesh,
+                    ObjectStoreTriangleStart = context.ObjectStoreTriangleStart,
+                    StoreTriangles = storeTriangles,
+                    StoreTriangleSubmesh = storeTriangleSubmesh,
                     BaseVertexSide = context.BaseVertexSide,
-                    BaseVertices = context.BaseVertices,
-                    BaseNormals = context.BaseNormals,
-                    BaseUvs = context.BaseUvs,
-                    FragmentVertexRange = context.FragmentVertexRange,
-                    FragmentIndexRange = context.FragmentIndexRange,
                     MaxSubmeshSlots = maxSubmeshSlots,
-                    FragmentVerticesFlat = context.FragmentVerticesFlat,
-                    FragmentNormalsFlat = context.FragmentNormalsFlat,
-                    FragmentUvsFlat = context.FragmentUvsFlat,
-                    FragmentIndicesFlat = context.FragmentIndicesFlat,
-                    FragmentVertexCount = context.FragmentVertexCount,
-                    FragmentIndexCount = context.FragmentIndexCount,
-                    CutFaceCountPerObject = context.CutFaceCountPerObject
+                    FragmentWholeVertexCount = context.FragmentWholeVertexCount,
+                    FragmentWholeIndexCount = context.FragmentWholeIndexCount,
+                    CutFaceCountPerObject = context.CutFaceCountPerObject,
+                    CutFaceCountPerObjectSubmesh = context.CutFaceCountPerObjectSubmesh
                 };
 
-                JobHandle classifyHandle = classifyJob.Schedule(objectCount, objectBatch);
-                await classifyHandle.ToUniTask(PlayerLoopTiming.Update);
+                JobHandle classifyStart = profiler.BeginJob("面仕分け", handle, out int classifyStage, vertexGetSideStage);
+                handle = profiler.EndJob(classifyStage, classifyJob.Schedule(objectCount, objectBatch, classifyStart));
 
-                ProfileLog($"計測: 面仕分け処理 - {stopwatch.ElapsedMilliseconds} ms");
-                stopwatch.Restart();
-
-                // [メインスレッド] オブジェクト毎の切断三角形数からプレフィックス和を計算(軽量な整数演算のみ)
-                context.CutFaceStartPerObject = new NativeArray<int>(objectCount, Allocator.Persistent);
-                int totalCutFaceCount = 0;
-
-                for (int i = 0; i < objectCount; i++)
+                // プレフィックス和 + 切断三角形数に応じたリストのサイズ決定
+                var prefixSumJob = new CutFacePrefixSumJob
                 {
-                    context.CutFaceStartPerObject[i] = totalCutFaceCount;
-                    totalCutFaceCount += context.CutFaceCountPerObject[i];
-                }
-
-                context.TotalCutFaceCount = totalCutFaceCount;
-
-                context.CutFaces = new NativeArray<int3>(totalCutFaceCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.CutStatus = new NativeArray<int>(totalCutFaceCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.CutFaceSubmeshId = new NativeArray<int>(totalCutFaceCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.CutFaceObjectIndex = new NativeArray<int>(totalCutFaceCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-
-                var buildCutFaceJob = new BuildCutFaceListJob
-                {
-                    ObjectTriangleRange = context.ObjectTriangleRange,
-                    AllTriangles = context.AllTriangles,
-                    AllTriangleSubmesh = context.AllTriangleSubmesh,
-                    BaseVertexSide = context.BaseVertexSide,
+                    CutFaceCountPerObject = context.CutFaceCountPerObject,
                     CutFaceStartPerObject = context.CutFaceStartPerObject,
                     CutFaces = context.CutFaces,
                     CutStatus = context.CutStatus,
                     CutFaceSubmeshId = context.CutFaceSubmeshId,
-                    CutFaceObjectIndex = context.CutFaceObjectIndex
-                };
-
-                JobHandle buildCutFaceHandle = buildCutFaceJob.Schedule(objectCount, objectBatch);
-                await buildCutFaceHandle.ToUniTask(PlayerLoopTiming.Update);
-
-                // ── 断面三角形生成 ──
-                context.NewVertices = new NativeArray<float3>(totalCutFaceCount * 2, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.NewNormals = new NativeArray<float3>(totalCutFaceCount * 2, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.NewUvs = new NativeArray<float2>(totalCutFaceCount * 2, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.NewTriangles = new NativeArray<NewTriangle>(totalCutFaceCount * 3, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
-                context.CutEdges =
-                    new NativeParallelMultiHashMap<int, int2>(math.max(totalCutFaceCount * 2, 1), Allocator.Persistent);
-
-                var triangleCutJob = new TriangleCutJob
-                {
-                    CutFaces = context.CutFaces,
-                    CutStatus = context.CutStatus,
-                    CutFaceSubmeshId = context.CutFaceSubmeshId,
-                    Blades = context.Blades,
-                    TriangleObjectIndex = context.CutFaceObjectIndex,
-                    BaseVertices = context.BaseVertices,
-                    BaseNormals = context.BaseNormals,
-                    BaseUvs = context.BaseUvs,
+                    CutFaceObjectIndex = context.CutFaceObjectIndex,
                     NewVertices = context.NewVertices,
                     NewNormals = context.NewNormals,
                     NewUvs = context.NewUvs,
-                    NewTriangles = context.NewTriangles,
-                    CutEdges = context.CutEdges.AsParallelWriter()
+                    NewVertexEdge = context.NewVertexEdge,
+                    NewTriangles = context.NewTriangles
                 };
 
-                JobHandle triangleCutHandle = triangleCutJob.Schedule(totalCutFaceCount, batchCount);
-                await triangleCutHandle.ToUniTask(PlayerLoopTiming.Update);
+                JobHandle prefixSumStart = profiler.BeginJob("プレフィックス和", handle, out int prefixSumStage, classifyStage);
+                handle = profiler.EndJob(prefixSumStage, prefixSumJob.Schedule(prefixSumStart));
 
-                ProfileLog($"計測: 面切断処理 - {stopwatch.ElapsedMilliseconds} ms");
-                stopwatch.Restart();
+                // 数えた実数からフラグメントバッファの容量と書き込み位置を決め、フラットなリストを確保する
+                var layoutJob = new FragmentLayoutJob
+                {
+                    FragmentWholeVertexCount = context.FragmentWholeVertexCount,
+                    FragmentWholeIndexCount = context.FragmentWholeIndexCount,
+                    CutFaceCountPerObject = context.CutFaceCountPerObject,
+                    CutFaceCountPerObjectSubmesh = context.CutFaceCountPerObjectSubmesh,
+                    ObjectCapSlot = context.ObjectCapSlot,
+                    MaxSubmeshSlots = maxSubmeshSlots,
+                    FragmentVertexRange = context.FragmentVertexRange,
+                    FragmentIndexRange = context.FragmentIndexRange,
+                    FragmentVerticesFlat = context.FragmentVerticesFlat,
+                    FragmentNormalsFlat = context.FragmentNormalsFlat,
+                    FragmentUvsFlat = context.FragmentUvsFlat,
+                    FragmentIndicesFlat = context.FragmentIndicesFlat
+                };
 
-                // ── 新規三角形の前後振り分け + 切断面ループ探索 + キャップ生成(オブジェクト単位で並列) ──
+                JobHandle layoutStart = profiler.BeginJob("バッファ配置計算", handle, out int layoutStage, prefixSumStage);
+                handle = profiler.EndJob(layoutStage, layoutJob.Schedule(layoutStart));
+
+                // 全表/全裏三角形の書き込み + 切断面リスト構築(オブジェクト単位で並列)
+                var writeWholeJob = new WriteWholeTrianglesJob
+                {
+                    ObjectVertexRange = context.ObjectVertexRange,
+                    ObjectStoreVertexOffset = context.ObjectStoreVertexOffset,
+                    ObjectTriangleRange = context.ObjectTriangleRange,
+                    ObjectStoreTriangleStart = context.ObjectStoreTriangleStart,
+                    BaseVertexSide = context.BaseVertexSide,
+                    StoreTriangles = storeTriangles,
+                    StoreTriangleSubmesh = storeTriangleSubmesh,
+                    StoreVertices = storeVertices,
+                    StoreNormals = storeNormals,
+                    StoreUvs = storeUvs,
+                    FragmentVertexRange = context.FragmentVertexRange,
+                    FragmentIndexRange = context.FragmentIndexRange,
+                    CutFaceStartPerObject = context.CutFaceStartPerObject,
+                    MaxSubmeshSlots = maxSubmeshSlots,
+                    FragmentVerticesFlat = context.FragmentVerticesFlat.AsDeferredJobArray(),
+                    FragmentNormalsFlat = context.FragmentNormalsFlat.AsDeferredJobArray(),
+                    FragmentUvsFlat = context.FragmentUvsFlat.AsDeferredJobArray(),
+                    FragmentIndicesFlat = context.FragmentIndicesFlat.AsDeferredJobArray(),
+                    FragmentVertexCount = context.FragmentVertexCount,
+                    FragmentIndexCount = context.FragmentIndexCount,
+                    CutFaces = context.CutFaces.AsDeferredJobArray(),
+                    CutStatus = context.CutStatus.AsDeferredJobArray(),
+                    CutFaceSubmeshId = context.CutFaceSubmeshId.AsDeferredJobArray(),
+                    CutFaceObjectIndex = context.CutFaceObjectIndex.AsDeferredJobArray()
+                };
+
+                JobHandle writeWholeStart =
+                    profiler.BeginJob("面書き込み・切断面リスト構築", handle, out int buildCutFaceStage, layoutStage);
+                handle = profiler.EndJob(buildCutFaceStage,
+                    writeWholeJob.Schedule(objectCount, objectBatch, writeWholeStart));
+
+                // 断面三角形生成(切断三角形数はリストの長さから実行時に決まる)
+                var triangleCutJob = new TriangleCutJob
+                {
+                    CutFaces = context.CutFaces.AsDeferredJobArray(),
+                    CutStatus = context.CutStatus.AsDeferredJobArray(),
+                    CutFaceSubmeshId = context.CutFaceSubmeshId.AsDeferredJobArray(),
+                    Blades = context.Blades,
+                    TriangleObjectIndex = context.CutFaceObjectIndex.AsDeferredJobArray(),
+                    ObjectStoreVertexOffset = context.ObjectStoreVertexOffset,
+                    StoreVertices = storeVertices,
+                    StoreNormals = storeNormals,
+                    StoreUvs = storeUvs,
+                    NewVertices = context.NewVertices.AsDeferredJobArray(),
+                    NewNormals = context.NewNormals.AsDeferredJobArray(),
+                    NewUvs = context.NewUvs.AsDeferredJobArray(),
+                    NewVertexEdge = context.NewVertexEdge.AsDeferredJobArray(),
+                    NewTriangles = context.NewTriangles.AsDeferredJobArray()
+                };
+
+                JobHandle triangleCutStart =
+                    profiler.BeginJob("面切断", handle, out int triangleCutStage, buildCutFaceStage);
+                handle = profiler.EndJob(triangleCutStage,
+                    triangleCutJob.Schedule(context.CutFaces, batchCount, triangleCutStart));
+
+                // 新規三角形の前後振り分け + 切断面ループ探索 + キャップ生成(オブジェクト単位で並列)
                 var distributeJob = new DistributeAndCapJob
                 {
                     CutFaceStartPerObject = context.CutFaceStartPerObject,
                     CutFaceCountPerObject = context.CutFaceCountPerObject,
-                    NewTriangles = context.NewTriangles,
-                    NewVertices = context.NewVertices,
-                    NewNormals = context.NewNormals,
-                    NewUvs = context.NewUvs,
-                    BaseVertices = context.BaseVertices,
-                    BaseNormals = context.BaseNormals,
-                    BaseUvs = context.BaseUvs,
+                    NewTriangles = context.NewTriangles.AsDeferredJobArray(),
+                    NewVertices = context.NewVertices.AsDeferredJobArray(),
+                    NewNormals = context.NewNormals.AsDeferredJobArray(),
+                    NewUvs = context.NewUvs.AsDeferredJobArray(),
+                    NewVertexEdge = context.NewVertexEdge.AsDeferredJobArray(),
+                    ObjectStoreVertexOffset = context.ObjectStoreVertexOffset,
+                    StoreVertices = storeVertices,
+                    StoreNormals = storeNormals,
+                    StoreUvs = storeUvs,
                     Blades = context.Blades,
                     ObjectSubmeshCount = context.ObjectSubmeshCount,
                     ObjectCapSlot = context.ObjectCapSlot,
-                    CutEdges = context.CutEdges,
                     FragmentVertexRange = context.FragmentVertexRange,
                     FragmentIndexRange = context.FragmentIndexRange,
                     MaxSubmeshSlots = maxSubmeshSlots,
-                    FragmentVerticesFlat = context.FragmentVerticesFlat,
-                    FragmentNormalsFlat = context.FragmentNormalsFlat,
-                    FragmentUvsFlat = context.FragmentUvsFlat,
-                    FragmentIndicesFlat = context.FragmentIndicesFlat,
+                    FragmentVerticesFlat = context.FragmentVerticesFlat.AsDeferredJobArray(),
+                    FragmentNormalsFlat = context.FragmentNormalsFlat.AsDeferredJobArray(),
+                    FragmentUvsFlat = context.FragmentUvsFlat.AsDeferredJobArray(),
+                    FragmentIndicesFlat = context.FragmentIndicesFlat.AsDeferredJobArray(),
                     FragmentVertexCount = context.FragmentVertexCount,
-                    FragmentIndexCount = context.FragmentIndexCount
+                    FragmentIndexCount = context.FragmentIndexCount,
+                    CapClosedLoopCount = context.CapClosedLoopCount,
+                    CapOpenLoopCount = context.CapOpenLoopCount
                 };
 
-                JobHandle distributeHandle = distributeJob.Schedule(objectCount, objectBatch);
-                await distributeHandle.ToUniTask(PlayerLoopTiming.Update);
+                JobHandle distributeStart =
+                    profiler.BeginJob("断面生成", handle, out int distributeStage, triangleCutStage);
+                JobHandle distributeHandle = profiler.EndJob(distributeStage,
+                    distributeJob.Schedule(objectCount, objectBatch, distributeStart));
 
-                ProfileLog($"計測: 断面生成 - {stopwatch.ElapsedMilliseconds} ms");
-                stopwatch.Restart();
-
-                // [メインスレッド] フラグメント毎の頂点数からサンプリング範囲(コライダー用)を計算
-                int fragmentCount = objectCount * 2;
-                context.SampleRange = new NativeArray<int2>(fragmentCount, Allocator.Persistent);
-                int totalSampleCount = 0;
-
-                for (int i = 0; i < fragmentCount; i++)
+                // 断面生成の後は、サンプリング(範囲計算→点の抽出)とメッシュ書込が互いに独立なので並行して走らせる
+                var sampleRangeJob = new SampleRangeJob
                 {
-                    int vertCount = context.FragmentVertexCount[i];
-                    int sampleCount = vertCount <= 200 ? vertCount : sampling;
-                    context.SampleRange[i] = new int2(totalSampleCount, sampleCount);
-                    totalSampleCount += sampleCount;
-                }
+                    FragmentVertexCount = context.FragmentVertexCount,
+                    SamplingCount = sampling,
+                    CapacityPerFragment = context.SampleCapacityPerFragment,
+                    SampleRange = context.SampleRange
+                };
 
-                context.SamplePoints = new NativeArray<float3>(totalSampleCount, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
+                JobHandle sampleRangeStart =
+                    profiler.BeginJob("サンプリング範囲計算", distributeHandle, out int sampleRangeStage, distributeStage);
+                JobHandle sampleHandle = profiler.EndJob(sampleRangeStage, sampleRangeJob.Schedule(sampleRangeStart));
 
                 var sampleJob = new SampleColliderPointsJob
                 {
-                    FragmentVerticesFlat = context.FragmentVerticesFlat,
+                    FragmentVerticesFlat = context.FragmentVerticesFlat.AsDeferredJobArray(),
                     FragmentVertexRange = context.FragmentVertexRange,
                     FragmentVertexCount = context.FragmentVertexCount,
                     SampleRange = context.SampleRange,
                     SamplePoints = context.SamplePoints
                 };
 
-                JobHandle sampleHandle = sampleJob.Schedule(fragmentCount, CalcBatchCount(fragmentCount));
-                await sampleHandle.ToUniTask(PlayerLoopTiming.Update);
+                JobHandle sampleStart =
+                    profiler.BeginJob("サンプリング", sampleHandle, out int sampleStage, sampleRangeStage);
+                sampleHandle = profiler.EndJob(sampleStage,
+                    sampleJob.Schedule(fragmentCount, CalcBatchCount(fragmentCount), sampleStart));
 
-                // [メインスレッド] 公開API(List<List<Vector3>>)の形へ変換
+                var finalizeJob = new FinalizeMeshJob
+                {
+                    MeshData = context.WritableMeshData,
+                    VertexLayout = context.VertexLayout,
+                    FragmentVertexRange = context.FragmentVertexRange,
+                    FragmentVertexCount = context.FragmentVertexCount,
+                    FragmentVerticesFlat = context.FragmentVerticesFlat.AsDeferredJobArray(),
+                    FragmentNormalsFlat = context.FragmentNormalsFlat.AsDeferredJobArray(),
+                    FragmentUvsFlat = context.FragmentUvsFlat.AsDeferredJobArray(),
+                    FragmentIndexRange = context.FragmentIndexRange,
+                    FragmentIndexCount = context.FragmentIndexCount,
+                    FragmentIndicesFlat = context.FragmentIndicesFlat.AsDeferredJobArray(),
+                    ObjectCapSlot = context.ObjectCapSlot,
+                    MaxSubmeshSlots = maxSubmeshSlots
+                };
+
+                JobHandle finalizeStart =
+                    profiler.BeginJob("メッシュ書込", distributeHandle, out int finalizeStage, distributeStage);
+                JobHandle finalizeHandle = profiler.EndJob(finalizeStage,
+                    finalizeJob.Schedule(fragmentCount, CalcBatchCount(fragmentCount), finalizeStart));
+
+                pendingJobs = JobHandle.CombineDependencies(sampleHandle, finalizeHandle);
+                MeshDataCache.Instance.AddStoreReader(pendingJobs);
+                JobHandle.ScheduleBatchedJobs();
+
+                await pendingJobs.ToUniTask(PlayerLoopTiming.Update);
+                profiler.Observe(sampleStage);
+                profiler.Observe(finalizeStage);
+
+                // ── ここからメインスレッド ──
+                profiler.AddInfo("フラグメントバッファ確保量(KB)", CalcFragmentBufferBytes(context) / 1024);
+                profiler.AddInfo("切断三角形数", context.CutFaces.Length);
+
+                if (profiler.Enabled)
+                {
+                    AddCapInfos(context, profiler);
+                }
+
+                // 公開API(List<List<Vector3>>)の形へ変換
+                int convertStage = profiler.BeginMain("サンプリング点変換");
                 var samplingPoints = new List<List<Vector3>>(fragmentCount);
 
                 for (int i = 0; i < fragmentCount; i++)
@@ -401,19 +478,50 @@ namespace UsefulToolkit.MeshCut
                     samplingPoints.Add(list);
                 }
 
-                // [メインスレッド] 何回でも切断可能なオブジェクトのフラグメントを、次の切断のためにストアへ登録する。
+                profiler.EndMain(convertStage);
+
+                // 何回でも切断可能なオブジェクトのフラグメントを、次の切断のためにストアへ登録する。
                 // 全てのJobが完了した後に行うこと(ストアのNativeListがリサイズされ、Jobが持つビューが無効になるため)
+                int registerStage = profiler.BeginMain("破片のストア登録");
+                MeshDataCache.Instance.CompleteStoreReaders();
                 int[] fragmentMeshIds = RegisterMultiCutFragments(breakables, context, store, maxSubmeshSlots);
+                profiler.EndMain(registerStage);
 
-                // FinalizeMeshes は内部でメインスレッドへの切り替えを自前で行う
-                CutMesh = await FinalizeMeshes(context, fragmentCount, maxSubmeshSlots);
+                int fragmentVertexTotal = 0;
+                for (int i = 0; i < fragmentCount; i++)
+                {
+                    fragmentVertexTotal += context.FragmentVertexCount[i];
+                }
 
+                profiler.AddInfo("フラグメント頂点数", fragmentVertexTotal);
+
+                // FinalizeMeshJob が書き込んだ MeshData を Mesh へ反映する
+                int applyStage = profiler.BeginMain("メッシュ生成・適用");
+
+                Mesh[] resultMeshes = new Mesh[fragmentCount];
+                for (int i = 0; i < fragmentCount; i++)
+                {
+                    resultMeshes[i] = new Mesh();
+                }
+
+                // インデックスは各フラグメントの頂点数の範囲内でしか書かれないため、Unity側の検証を省く
+                Mesh.ApplyAndDisposeWritableMeshData(context.WritableMeshData, resultMeshes,
+                    MeshUpdateFlags.DontValidateIndices);
+                context.HasWritableMeshData = false;
+
+                profiler.EndMain(applyStage);
+
+                CutMesh = resultMeshes;
                 FragmentMeshIds = fragmentMeshIds;
 
                 SamplingPoints = samplingPoints;
                 Complete = true;
 
-                ProfileLog($"計測: メッシュ生成 - {stopwatch.ElapsedMilliseconds} ms");
+                if (ownsProfiler && profiler.Enabled)
+                {
+                    LastProfile = profiler.Build("MultiMeshCut.Cut");
+                    Debug.Log(LastProfile.ToString());
+                }
             }
             catch (Exception e)
             {
@@ -422,10 +530,53 @@ namespace UsefulToolkit.MeshCut
             }
             finally
             {
+                // 例外で抜けた場合もJobが使っているバッファを破棄しないよう、完了を待ってから解放する
+                pendingJobs.Complete();
                 context.Dispose();
-                totalStopwatch.Stop();
-                ProfileLog($"計測: MultiMeshCut.CutAsync 全体処理時間 - {totalStopwatch.ElapsedMilliseconds} ms");
+
+                if (ownsProfiler)
+                {
+                    profiler.Dispose();
+                }
             }
+        }
+
+        /// <summary>
+        /// 断面ループの集計を計測結果の付帯情報に追加します。
+        /// 途切れたループは、辿った向きごとに区間として数えるため、1本の途切れたループが2と数えられることがあります。
+        /// </summary>
+        private static void AddCapInfos(MultiCutContext context, MeshCutProfiler profiler)
+        {
+            int closedTotal = 0;
+            int openTotal = 0;
+            int noCapObjects = 0;
+
+            for (int i = 0; i < context.ObjectCount; i++)
+            {
+                int closed = context.CapClosedLoopCount[i];
+
+                closedTotal += closed;
+                openTotal += context.CapOpenLoopCount[i];
+
+                // 切断面を持つのに断面が1枚も生成されなかった対象
+                if (context.CutFaceCountPerObject[i] > 0 && closed == 0)
+                {
+                    noCapObjects++;
+                }
+            }
+
+            profiler.AddInfo("閉じた断面ループ数", closedTotal);
+            profiler.AddInfo("途切れた断面ループ区間数", openTotal);
+            profiler.AddInfo("断面が生成されなかった対象数", noCapObjects);
+        }
+
+        /// <summary> フラグメント用フラットバッファ(頂点・法線・UV・インデックス)の確保バイト数 </summary>
+        private static long CalcFragmentBufferBytes(MultiCutContext context)
+        {
+            long vertexBytes = (long)context.FragmentVerticesFlat.Length * (12 + 12 + 8);
+            long indexBytes = (long)context.FragmentIndicesFlat.Length * 4;
+
+            return vertexBytes + indexBytes;
         }
 
         /// <summary>
@@ -459,12 +610,12 @@ namespace UsefulToolkit.MeshCut
                     if (context.FragmentVertexCount[fragIndex] == 0) continue;
 
                     meshIds[fragIndex] = store.AppendFragment(
-                        context.FragmentVerticesFlat,
-                        context.FragmentNormalsFlat,
-                        context.FragmentUvsFlat,
+                        context.FragmentVerticesFlat.AsArray(),
+                        context.FragmentNormalsFlat.AsArray(),
+                        context.FragmentUvsFlat.AsArray(),
                         context.FragmentVertexRange[fragIndex].x,
                         context.FragmentVertexCount[fragIndex],
-                        context.FragmentIndicesFlat,
+                        context.FragmentIndicesFlat.AsArray(),
                         context.FragmentIndexRange,
                         context.FragmentIndexCount,
                         fragIndex * maxSubmeshSlots,
@@ -482,82 +633,5 @@ namespace UsefulToolkit.MeshCut
             new(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, stream: 1),
             new(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, stream: 2)
         };
-
-        private async Awaitable<Mesh[]> FinalizeMeshes(MultiCutContext context, int fragmentCount, int maxSubmeshSlots)
-        {
-            // AllocateWritableMeshData はメインスレッド必須なので最初に切り替える
-            await Awaitable.MainThreadAsync();
-
-            var writableDataArray = Mesh.AllocateWritableMeshData(fragmentCount);
-
-            // 重いメモリコピーをバックグラウンドで実行
-            await Awaitable.BackgroundThreadAsync();
-
-            for (int i = 0; i < fragmentCount; i++)
-            {
-                var data = writableDataArray[i];
-
-                int2 vRange = context.FragmentVertexRange[i];
-                int vertexCount = context.FragmentVertexCount[i];
-
-                // Vertex Buffer
-                data.SetVertexBufferParams(vertexCount, VertexLayout);
-
-                var vertices = data.GetVertexData<float3>(0);
-                var normals = data.GetVertexData<float3>(1);
-                var uvs = data.GetVertexData<float2>(2);
-
-                NativeArray<float3>.Copy(context.FragmentVerticesFlat, vRange.x, vertices, 0, vertexCount);
-                NativeArray<float3>.Copy(context.FragmentNormalsFlat, vRange.x, normals, 0, vertexCount);
-                NativeArray<float2>.Copy(context.FragmentUvsFlat, vRange.x, uvs, 0, vertexCount);
-
-                int objIndex = i / 2;
-
-                // 断面スロットは常に最後のサブメッシュになるので、+1 がサブメッシュ数
-                int fragSubmeshCount = context.ObjectCapSlot[objIndex] + 1;
-
-                // Index Buffer
-                int totalIndexCount = 0;
-                for (int s = 0; s < fragSubmeshCount; s++)
-                {
-                    totalIndexCount += context.FragmentIndexCount[i * maxSubmeshSlots + s];
-                }
-
-                data.SetIndexBufferParams(totalIndexCount, IndexFormat.UInt32);
-
-                var indices = data.GetIndexData<int>();
-
-                // SubMesh
-                data.subMeshCount = fragSubmeshCount;
-
-                int indexOffset = 0;
-
-                for (int s = 0; s < fragSubmeshCount; s++)
-                {
-                    int2 idxRange = context.FragmentIndexRange[i * maxSubmeshSlots + s];
-                    int subCount = context.FragmentIndexCount[i * maxSubmeshSlots + s];
-
-                    NativeArray<int>.Copy(context.FragmentIndicesFlat, idxRange.x, indices, indexOffset, subCount);
-
-                    // SetSubMeshのデフォルト(Bounds再計算あり)で呼ぶ。DontRecalculateBoundsを付けるとBoundsが未計算になり破片がカリングで消える。
-                    data.SetSubMesh(s, new SubMeshDescriptor(indexOffset, subCount));
-
-                    indexOffset += subCount;
-                }
-            }
-
-            // Mesh生成はメインスレッドで
-            await Awaitable.MainThreadAsync();
-
-            Mesh[] resultMeshes = new Mesh[fragmentCount];
-            for (int i = 0; i < fragmentCount; i++)
-            {
-                resultMeshes[i] = new Mesh();
-            }
-
-            Mesh.ApplyAndDisposeWritableMeshData(writableDataArray, resultMeshes);
-
-            return resultMeshes;
-        }
     }
 }

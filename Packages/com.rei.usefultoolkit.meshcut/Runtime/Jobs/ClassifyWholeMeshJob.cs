@@ -7,37 +7,39 @@ namespace UsefulToolkit.MeshCut
 {
     /// <summary>
     /// オブジェクト単位(Execute(objIndex)は1オブジェクトを丸ごと逐次処理する)で、
-    /// 各三角形が刃に対して完全に表/裏/切断対象のどれかを判定する。
-    /// 完全に表・裏の三角形はその場でFront/Backフラグメントバッファへdedupして追加する
-    /// (元の頂点インデックスをキーにしたdedup方式)。
-    /// 切断対象の三角形は、このパスでは件数のみをカウントする(実データはBuildCutFaceListJobで書き出す)。
+    /// 各三角形が刃に対して完全に表/裏/切断対象のどれかを判定し、バッファの容量決めに必要な数だけを数える。
+    /// - 完全に表・裏の三角形: その側のフラグメントが使う頂点数(元の頂点インデックスで重複除去)と、サブメッシュ別のインデックス数
+    /// - 切断対象の三角形: オブジェクト全体とサブメッシュ別の件数
+    /// 実データの書き込みは、容量が決まった後に WriteWholeTrianglesJob が同じ判定でやり直す。
     /// </summary>
     [BurstCompile]
     public struct ClassifyWholeMeshJob : IJobParallelFor
     {
         [ReadOnly] public NativeArray<int2> ObjectVertexRange;
         [ReadOnly] public NativeArray<int2> ObjectTriangleRange;
-        [ReadOnly] public NativeArray<int3> AllTriangles;
-        [ReadOnly] public NativeArray<int> AllTriangleSubmesh;
-        [ReadOnly] public NativeArray<int> BaseVertexSide;
-        [ReadOnly] public NativeArray<float3> BaseVertices;
-        [ReadOnly] public NativeArray<float3> BaseNormals;
-        [ReadOnly] public NativeArray<float2> BaseUvs;
+        [ReadOnly] public NativeArray<int> ObjectStoreTriangleStart;
 
-        [ReadOnly] public NativeArray<int2> FragmentVertexRange;
-        [ReadOnly] public NativeArray<int2> FragmentIndexRange;
+        /// <summary> NativeMeshDataStore.Triangles(メッシュローカルな頂点番号) </summary>
+        [ReadOnly] public NativeArray<int3> StoreTriangles;
+
+        /// <summary> NativeMeshDataStore.TriangleSubmesh </summary>
+        [ReadOnly] public NativeArray<int> StoreTriangleSubmesh;
+
+        [ReadOnly] public NativeArray<int> BaseVertexSide;
+
         public int MaxSubmeshSlots;
 
-        [NativeDisableParallelForRestriction] public NativeArray<float3> FragmentVerticesFlat;
-        [NativeDisableParallelForRestriction] public NativeArray<float3> FragmentNormalsFlat;
-        [NativeDisableParallelForRestriction] public NativeArray<float2> FragmentUvsFlat;
-        [NativeDisableParallelForRestriction] public NativeArray<int> FragmentIndicesFlat;
+        [NativeDisableParallelForRestriction] [WriteOnly]
+        public NativeArray<int> FragmentWholeVertexCount;
 
-        [NativeDisableParallelForRestriction] public NativeArray<int> FragmentVertexCount;
-        [NativeDisableParallelForRestriction] public NativeArray<int> FragmentIndexCount;
+        [NativeDisableParallelForRestriction] [WriteOnly]
+        public NativeArray<int> FragmentWholeIndexCount;
 
         [NativeDisableParallelForRestriction] [WriteOnly]
         public NativeArray<int> CutFaceCountPerObject;
+
+        [NativeDisableParallelForRestriction] [WriteOnly]
+        public NativeArray<int> CutFaceCountPerObjectSubmesh;
 
         public void Execute(int objIndex)
         {
@@ -47,27 +49,26 @@ namespace UsefulToolkit.MeshCut
             int frontFrag = MultiCutContext.FragmentIndex(objIndex, 0);
             int backFrag = MultiCutContext.FragmentIndex(objIndex, 1);
 
-            var dedupFront = new NativeArray<int>(vRange.y, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-            var dedupBack = new NativeArray<int>(vRange.y, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            // 頂点はどちらか一方の側にしか属さないため、使用済みフラグは1つで表裏を兼ねられる
+            var used = new NativeArray<bool>(vRange.y, Allocator.Temp, NativeArrayOptions.ClearMemory);
 
-            for (int i = 0; i < vRange.y; i++)
-            {
-                dedupFront[i] = -1;
-                dedupBack[i] = -1;
-            }
+            var frontIdx = new NativeArray<int>(MaxSubmeshSlots, Allocator.Temp, NativeArrayOptions.ClearMemory);
+            var backIdx = new NativeArray<int>(MaxSubmeshSlots, Allocator.Temp, NativeArrayOptions.ClearMemory);
+            var cutPerSubmesh = new NativeArray<int>(MaxSubmeshSlots, Allocator.Temp, NativeArrayOptions.ClearMemory);
 
-            var frontIdxCursor = new NativeArray<int>(MaxSubmeshSlots, Allocator.Temp, NativeArrayOptions.ClearMemory);
-            var backIdxCursor = new NativeArray<int>(MaxSubmeshSlots, Allocator.Temp, NativeArrayOptions.ClearMemory);
-
-            int frontVertCursor = 0;
-            int backVertCursor = 0;
+            int frontVerts = 0;
+            int backVerts = 0;
             int cutCount = 0;
+
+            int storeTriStart = ObjectStoreTriangleStart[objIndex];
 
             for (int i = 0; i < tRange.y; i++)
             {
-                int triIdx = tRange.x + i;
-                int3 tri = AllTriangles[triIdx];
-                int submesh = AllTriangleSubmesh[triIdx];
+                int triIdx = storeTriStart + i;
+
+                // メッシュローカルな頂点番号を、このオブジェクトの通し番号へ変換する
+                int3 tri = StoreTriangles[triIdx] + vRange.x;
+                int submesh = StoreTriangleSubmesh[triIdx];
 
                 int side1 = BaseVertexSide[tri.x];
                 int side2 = BaseVertexSide[tri.y];
@@ -76,74 +77,54 @@ namespace UsefulToolkit.MeshCut
 
                 if (result == 0)
                 {
-                    backVertCursor = AddWholeTriangle(backFrag, submesh, tri, vRange.x, dedupBack, backVertCursor,
-                        backIdxCursor);
+                    backVerts += CountNewVertices(tri, vRange.x, used);
+                    backIdx[submesh] += 3;
                 }
                 else if (result == 7)
                 {
-                    frontVertCursor = AddWholeTriangle(frontFrag, submesh, tri, vRange.x, dedupFront, frontVertCursor,
-                        frontIdxCursor);
+                    frontVerts += CountNewVertices(tri, vRange.x, used);
+                    frontIdx[submesh] += 3;
                 }
                 else
                 {
                     cutCount++;
+                    cutPerSubmesh[submesh]++;
                 }
             }
 
+            FragmentWholeVertexCount[frontFrag] = frontVerts;
+            FragmentWholeVertexCount[backFrag] = backVerts;
             CutFaceCountPerObject[objIndex] = cutCount;
-            FragmentVertexCount[frontFrag] = frontVertCursor;
-            FragmentVertexCount[backFrag] = backVertCursor;
 
             for (int s = 0; s < MaxSubmeshSlots; s++)
             {
-                FragmentIndexCount[frontFrag * MaxSubmeshSlots + s] = frontIdxCursor[s];
-                FragmentIndexCount[backFrag * MaxSubmeshSlots + s] = backIdxCursor[s];
+                FragmentWholeIndexCount[frontFrag * MaxSubmeshSlots + s] = frontIdx[s];
+                FragmentWholeIndexCount[backFrag * MaxSubmeshSlots + s] = backIdx[s];
+                CutFaceCountPerObjectSubmesh[objIndex * MaxSubmeshSlots + s] = cutPerSubmesh[s];
             }
 
-            dedupFront.Dispose();
-            dedupBack.Dispose();
-            frontIdxCursor.Dispose();
-            backIdxCursor.Dispose();
+            used.Dispose();
+            frontIdx.Dispose();
+            backIdx.Dispose();
+            cutPerSubmesh.Dispose();
         }
 
-        /// <returns>更新後の頂点カーソル(呼び出し側で保持している変数へ書き戻すこと)</returns>
-        private int AddWholeTriangle(
-            int fragIdx, int submesh, int3 globalTri, int vStart,
-            NativeArray<int> dedup, int vertCursor, NativeArray<int> idxCursor)
+        /// <summary> 三角形の3頂点のうち、まだ数えていない頂点の数を返し、数えた印を付ける </summary>
+        private static int CountNewVertices(int3 globalTri, int vStart, NativeArray<bool> used)
         {
-            int i1 = GetOrAddVertex(fragIdx, globalTri.x - vStart, globalTri.x, dedup, ref vertCursor);
-            int i2 = GetOrAddVertex(fragIdx, globalTri.y - vStart, globalTri.y, dedup, ref vertCursor);
-            int i3 = GetOrAddVertex(fragIdx, globalTri.z - vStart, globalTri.z, dedup, ref vertCursor);
-
-            int2 idxRange = FragmentIndexRange[fragIdx * MaxSubmeshSlots + submesh];
-            int cursor = idxCursor[submesh];
-
-            FragmentIndicesFlat[idxRange.x + cursor + 0] = i1;
-            FragmentIndicesFlat[idxRange.x + cursor + 1] = i2;
-            FragmentIndicesFlat[idxRange.x + cursor + 2] = i3;
-
-            idxCursor[submesh] = cursor + 3;
-
-            return vertCursor;
+            int added = 0;
+            added += MarkUsed(globalTri.x - vStart, used);
+            added += MarkUsed(globalTri.y - vStart, used);
+            added += MarkUsed(globalTri.z - vStart, used);
+            return added;
         }
 
-        private int GetOrAddVertex(int fragIdx, int localIndex, int globalIndex, NativeArray<int> dedup,
-            ref int vertCursor)
+        private static int MarkUsed(int localIndex, NativeArray<bool> used)
         {
-            int existing = dedup[localIndex];
-            if (existing != -1) return existing;
+            if (used[localIndex]) return 0;
 
-            int2 vRange = FragmentVertexRange[fragIdx];
-            int newIndex = vertCursor;
-
-            FragmentVerticesFlat[vRange.x + newIndex] = BaseVertices[globalIndex];
-            FragmentNormalsFlat[vRange.x + newIndex] = BaseNormals[globalIndex];
-            FragmentUvsFlat[vRange.x + newIndex] = BaseUvs[globalIndex];
-
-            dedup[localIndex] = newIndex;
-            vertCursor++;
-
-            return newIndex;
+            used[localIndex] = true;
+            return 1;
         }
     }
 }

@@ -5,9 +5,14 @@ using Unity.Mathematics;
 
 namespace UsefulToolkit.MeshCut
 {
-    /// <summary> 刃をまたぐ三角形を切断し、断面側の新規頂点・三角形と切断エッジを生成する。 </summary>
+    /// <summary>
+    /// 刃をまたぐ三角形を切断し、断面側の新規頂点・三角形を生成する。
+    /// 切断三角形 i の新規頂点は 2i, 2i+1 で、この2点を結ぶ辺が断面の輪郭の1辺になる。
+    /// 切断三角形数は CutFacePrefixSumJob の実行時に決まるため、IJobParallelForDefer として CutFaces のリストで
+    /// スケジュールし、配列は AsDeferredJobArray() で受け取る。
+    /// </summary>
     [BurstCompile]
-    public struct TriangleCutJob : IJobParallelFor
+    public struct TriangleCutJob : IJobParallelForDefer
     {
         [ReadOnly] public NativeArray<int3> CutFaces;
         [ReadOnly] public NativeArray<int> CutStatus;
@@ -15,9 +20,11 @@ namespace UsefulToolkit.MeshCut
         [ReadOnly] public NativeArray<NativePlane> Blades;
         [ReadOnly] public NativeArray<int> TriangleObjectIndex;
 
-        [ReadOnly] public NativeArray<float3> BaseVertices;
-        [ReadOnly] public NativeArray<float3> BaseNormals;
-        [ReadOnly] public NativeArray<float2> BaseUvs;
+        // CutFaces の頂点は通し番号。ストア上の番号は ObjectStoreVertexOffset[オブジェクト] を足して求める
+        [ReadOnly] public NativeArray<int> ObjectStoreVertexOffset;
+        [ReadOnly] public NativeArray<float3> StoreVertices;
+        [ReadOnly] public NativeArray<float3> StoreNormals;
+        [ReadOnly] public NativeArray<float2> StoreUvs;
 
         [NativeDisableParallelForRestriction] [WriteOnly]
         public NativeArray<float3> NewVertices;
@@ -28,11 +35,12 @@ namespace UsefulToolkit.MeshCut
         [NativeDisableParallelForRestriction] [WriteOnly]
         public NativeArray<float2> NewUvs;
 
+        /// <summary> 新規頂点ごとの、切断した元の辺(通し番号の小さい方, 大きい方) </summary>
         [NativeDisableParallelForRestriction] [WriteOnly]
-        public NativeArray<NewTriangle> NewTriangles;
+        public NativeArray<int2> NewVertexEdge;
 
         [NativeDisableParallelForRestriction] [WriteOnly]
-        public NativeParallelMultiHashMap<int, int2>.ParallelWriter CutEdges;
+        public NativeArray<NewTriangle> NewTriangles;
 
         /// <summary>
         /// 切断処理を行う
@@ -42,7 +50,9 @@ namespace UsefulToolkit.MeshCut
         {
             int3 face = CutFaces[index]; //処理する三角形を取得
             int status = CutStatus[index]; //どの頂点が孤立しているかの情報を取得する
-            NativePlane blade = Blades[TriangleObjectIndex[index]];
+            int objIndex = TriangleObjectIndex[index];
+            NativePlane blade = Blades[objIndex];
+            int storeVertexOffset = ObjectStoreVertexOffset[objIndex];
             int submesh = CutFaceSubmeshId[index];
 
             //計算に適切な順番に頂点をソートするための情報を取得
@@ -54,22 +64,14 @@ namespace UsefulToolkit.MeshCut
             int indexB = face[order.y];
             int indexC = face[order.z];
 
-            //孤立頂点からそれぞれの頂点へのベクトルと面がどの位置で接触しているのかを調べる
-            float alphaAtoB = Intersect(BaseVertices[indexA], BaseVertices[indexB], blade);
-            float alphaAtoC = Intersect(BaseVertices[indexA], BaseVertices[indexC], blade);
-
-            //lerp関数で新規頂点座標を取得する
+            //孤立頂点から残り2頂点への辺(A-B, A-C)と刃の交点を新規頂点として求める
             int vertIndexStart = index * 2;
-            NewVertices[vertIndexStart + 0] = math.lerp(BaseVertices[indexA], BaseVertices[indexB], alphaAtoB);
-            NewVertices[vertIndexStart + 1] = math.lerp(BaseVertices[indexA], BaseVertices[indexC], alphaAtoC);
+            WriteEdgeIntersection(indexA + storeVertexOffset, indexB + storeVertexOffset, blade, vertIndexStart + 0);
+            WriteEdgeIntersection(indexA + storeVertexOffset, indexC + storeVertexOffset, blade, vertIndexStart + 1);
 
-            //lerp関数での新規法線を取得
-            NewNormals[vertIndexStart + 0] = math.lerp(BaseNormals[indexA], BaseNormals[indexB], alphaAtoB);
-            NewNormals[vertIndexStart + 1] = math.lerp(BaseNormals[indexA], BaseNormals[indexC], alphaAtoC);
-
-            //lerp関数で新規Uv座標を取得
-            NewUvs[vertIndexStart + 0] = math.lerp(BaseUvs[indexA], BaseUvs[indexB], alphaAtoB);
-            NewUvs[vertIndexStart + 1] = math.lerp(BaseUvs[indexA], BaseUvs[indexC], alphaAtoC);
+            // 同じ辺を共有する隣の三角形も同じ交点を作るため、辺を向きのない組として記録しておく(DistributeAndCapJob の重複除去用)
+            NewVertexEdge[vertIndexStart + 0] = new int2(math.min(indexA, indexB), math.max(indexA, indexB));
+            NewVertexEdge[vertIndexStart + 1] = new int2(math.min(indexA, indexC), math.max(indexA, indexC));
 
             //後に再構築するために古いインデックスと新しいインデックスを区別する
             //元からあった頂点はインデックスに一律で1を足して-を付ける。
@@ -103,12 +105,37 @@ namespace UsefulToolkit.MeshCut
                 Vertex1 = newV2, Vertex2 = oldB, Vertex3 = oldC,
                 Submesh = submesh, Side = sideBC
             };
+        }
 
-            //切断後の辺を登録する。
-            int startVertex = isFront ? newV1 : newV2;
-            int endVertex = isFront ? newV2 : newV1;
-            CutEdges.Add(TriangleObjectIndex[index], new(startVertex, endVertex));
-            CutEdges.Add(TriangleObjectIndex[index], new(endVertex, startVertex));
+        /// <summary>
+        /// 辺(ストア上の頂点番号 index0-index1)と刃の交点の座標・法線・UVを NewVertices 等の outIndex へ書き込む。
+        /// 端点は座標の辞書順に並べ替えてから補間する。
+        /// 同じ辺を共有する隣の三角形では孤立頂点が反対側の端点になり、補間の向きが逆になる。
+        /// 向きが違うと交点が最後の桁でずれ、DistributeAndCapJob の量子化の境目をまたいだときに
+        /// 断面ループが途切れてキャップが生成されなくなるため、向きを揃えてビット単位で同じ値にしている。
+        /// </summary>
+        private void WriteEdgeIntersection(int index0, int index1, NativePlane blade, int outIndex)
+        {
+            if (IsLexicographicallyLess(StoreVertices[index1], StoreVertices[index0]))
+            {
+                (index0, index1) = (index1, index0);
+            }
+
+            float3 p0 = StoreVertices[index0];
+            float3 p1 = StoreVertices[index1];
+            float alpha = Intersect(p0, p1, blade);
+
+            NewVertices[outIndex] = math.lerp(p0, p1, alpha);
+            NewNormals[outIndex] = math.lerp(StoreNormals[index0], StoreNormals[index1], alpha);
+            NewUvs[outIndex] = math.lerp(StoreUvs[index0], StoreUvs[index1], alpha);
+        }
+
+        /// <summary> a が b より辞書順(x→y→z)で小さければ true。座標が完全に同じなら false。 </summary>
+        private static bool IsLexicographicallyLess(float3 a, float3 b)
+        {
+            if (a.x != b.x) return a.x < b.x;
+            if (a.y != b.y) return a.y < b.y;
+            return a.z < b.z;
         }
 
         /// <summary>

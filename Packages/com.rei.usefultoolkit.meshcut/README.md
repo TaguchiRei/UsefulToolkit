@@ -67,6 +67,14 @@ Burst / Collections / Mathematics と Framework パッケージは、本パッ�
 まだ切断可能な `CuttableObject` が参照するメッシュだけを残してストアを作り直します。
 手動で行いたい場合は `MeshDataCache.Rebuild()` を呼んでください。
 
+### ストアを読む Job との関係
+
+切断の Job はストアのデータを複製せず、直接読みます。ストアの `NativeList` は追加登録や再構築で中身の位置が変わるため、
+`MeshDataCache` は読み取り中の Job を記録しておき(`AddStoreReader`)、ストアを変更・破棄する処理
+(`Initialize` / `Rebuild` / `Unload` / 追加登録 / 破棄)の前に完了を待ちます(`CompleteStoreReaders`)。
+自前でストアを読む Job を書く場合や、ストアを直接変更する場合も、この2つを使ってください。
+別の刃の切断が進行中にストアを変更すると、その切断の Job が終わるまでメインスレッドが待ちます。
+
 ## 使い方
 
 シーンに置いた `CutBlade` (`MultiCutBlade`) を使う場合、インスペクタの右クリックメニュー「切断」で、
@@ -107,8 +115,25 @@ Renderer のマテリアル配列の末尾に断面マテリアルを追加す�
 
 ### 処理時間の計測
 
-`MultiCutBlade` の「Enable Profile Log」を有効にすると、各処理段階の所要時間が Console に出力されます。
-`MultiMeshCut` を直接使う場合は `EnableProfileLog` を `true` にしてください。
+`MultiCutBlade` の「Enable Profile Log」を有効にすると、切断のたびに全処理段階の計測結果が 1 つの表として Console に出力されます。
+`MultiMeshCut` を直接使う場合は `EnableProfileLog` を `true` にしてください(その場合、表は切断処理のぶんだけになります)。
+
+表の各行は 1 つの処理段階で、次の値を持ちます。
+
+| 列 | 意味 |
+|---|---|
+| 種別 | `Main`(メインスレッド) / `Job`(ワーカースレッド) / `BG`(バックグラウンドスレッド) |
+| 待ち | 実行を要求(Job のスケジュール・スレッド切り替え・待機開始)してから、実際に実行が始まるまで |
+| 実行 | 実行していた時間。Job はワーカー上で最初に動き始めてから最後に終わるまで |
+| 検知遅れ | 実行が終わってから、メインスレッドが完了に気付くまで |
+| フレーム | 計測開始から数えた、その段階を検知したフレーム数 |
+
+`└` で始まる行は直前の行の内訳で、合計には含みません。合計行の「何も実行していない時間」は、
+経過時間からメインスレッドとワーカーの実行時間を引いたもので、フレームの切り替わり待ちなどに使われた時間です。
+
+計測を有効にすると、Job の前後に時刻を記録するだけの Job が 1 つずつ挟まります。無効のときは何も挟まりません。
+結果はコードからも `MultiCutBlade.LastProfile` / `MultiMeshCut.LastProfile` で取得できます。
+Console に出さずに結果だけ取りたい場合は `MultiCutBlade.CollectProfile` を `true` にしてください。
 
 ## API
 
@@ -122,12 +147,31 @@ Renderer のマテリアル配列の末尾に断面マテリアルを追加す�
 | `List<List<Vector3>> SamplingPoints` | コライダー生成用のサンプリング点(元オブジェクトのローカル空間)。添字は `CutMesh` と同じ |
 | `void SetBatch(int)` | 頂点/三角形単位Jobの `innerloopBatchCount`。オブジェクト単位のJobはワーカー数から自動算出されます |
 | `void SetSamplingCount(int)` | サンプリング点数 |
-| `bool EnableProfileLog` | 処理時間ログの出力 |
+| `bool EnableProfileLog` | 処理時間の計測と、表の Console 出力 |
+| `MeshCutProfile LastProfile` | 最後に計測した切断の結果 |
 
 ### MultiCutBlade
 
 自分自身の Transform を刃として扱います。`transform.position` が平面上の点、`transform.up` が法線です。
 `ExecuteCut(CuttableObject[])` で切断からプールを使った破片への反映までを行います。
+
+| メンバ | 説明 |
+|---|---|
+| `UniTask ExecuteCut(CuttableObject[])` | 切断し、結果を破片へ反映します |
+| `bool EnableProfileLog` | 処理時間の計測と、表の Console 出力(Inspector の「Enable Profile Log」と同じ) |
+| `bool CollectProfile` | Console へ出さずに計測だけを行う |
+| `MeshCutProfile LastProfile` | 最後に計測した `ExecuteCut` の結果。プール待ち・切断・破片反映の全段階を含みます |
+
+### MeshCutProfile
+
+| メンバ | 説明 |
+|---|---|
+| `IReadOnlyList<MeshCutStageRecord> Stages` | 段階ごとの結果(名前・種別・待ち・実行・検知遅れ・フレーム) |
+| `IReadOnlyList<MeshCutProfileInfo> Infos` | 対象数・頂点数・フラグメントバッファ確保量などの付帯情報 |
+| `double ElapsedMs` / `int ElapsedFrames` | 全体の経過時間とフレーム数 |
+| `double MainExecuteMs` / `WorkerExecuteMs` / `IdleMs` | メイン実行・ワーカー実行・何も実行していない時間 |
+| `static MeshCutProfile Median(IReadOnlyList<MeshCutProfile>, string)` | 複数回の結果から各値の中央値をとります |
+| `string ToString()` | Console 向けの表 |
 
 ### CuttableObject
 
@@ -139,9 +183,18 @@ Renderer のマテリアル配列の末尾に断面マテリアルを追加す�
 | `void SetRegisteredMesh(int)` | メッシュIDを設定し切断可能にする |
 | `void DisableCutting()` | これ以上切断できない状態にする |
 | `void InheritCutSettings(CuttableObject)` | 切断元から `CanMultiCut` を引き継ぐ |
+| `ColliderClusterSettings ColliderSettings` | 球コライダーを求めるときの設定値(球の数・縮小率・最大半径など) |
+| `void SetupCollider(List<Vector3>)` | サンプリング点から球コライダーを求めて配置する(破片1つぶん) |
+| `void ApplyColliderSpheres(NativeArray<float4>, int)` | `ColliderClusterJob` が求めた球をコライダーへ反映する |
+| `void SetCutMesh(Mesh)` | 切断で生成されたメッシュを表示し、持ち主になる。以前に持っていたメッシュは破棄する |
 
-切断対象および破片。`SetupCollider(List<Vector3>)` でサンプリング点の k-means クラスタリング結果から
-球コライダーを配置します。`_colliderNum` は 7 以上である必要があります。
+`MultiMeshCut.CutMesh` のメッシュは切断のたびに新しく生成されます。自前で反映処理を書く場合は `SetCutMesh` で破片に渡すか、
+不要になった時点で自分で `Destroy` してください(放置すると `Resources.UnloadUnusedAssets` まで解放されません)。
+`SetCutMesh` には切断で生成したメッシュだけを渡してください。共有アセットを渡すと、差し替え時にそれごと破棄されます。
+
+切断対象および破片。サンプリング点を k-means でクラスタリングした結果から球コライダーを配置します。
+クラスタリングは Burst の `ColliderClusterJob` で行い、`MultiCutBlade` は全破片ぶんをまとめて並列に計算します。
+`_colliderNum` は 7 以上である必要があります。
 
 `MultiMeshCut.SamplingPoints` が返す点は**元オブジェクトのローカル空間**の座標です(切断はローカル空間で行われるため)。
 破片の Transform は切断元と同一に設定されるので、`SetupCollider` はこれを変換せずそのまま
@@ -149,5 +202,6 @@ Renderer のマテリアル配列の末尾に断面マテリアルを追加す�
 
 ## 既知の制限
 
-- 1 回の切断が完了するまでに最低 6 フレームかかります(処理段階ごとに Job の完了待ちを挟むため)。
-- 中間バッファは最悪ケースの容量を毎回確保するため、頂点数の多いメッシュではメモリのスパイクが大きくなります。
+- 切断結果を受け取れるのは、切断を開始した次のフレームです(全 Job を 1 本の依存チェーンで実行し、完了を 1 回だけ待つため)。
+- 切断のたびに、切断対象の頂点・三角形の合計に比例する中間バッファを確保します(切断対象の頂点・三角形データの複製と、
+  破片用のバッファ)。破片用のバッファは実際に必要な量から求めますが、切断面付近の三角形については上限で見積もります。
