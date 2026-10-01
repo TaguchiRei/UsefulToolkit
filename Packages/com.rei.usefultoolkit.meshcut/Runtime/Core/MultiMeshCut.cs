@@ -184,6 +184,7 @@ namespace UsefulToolkit.MeshCut
                 context.NewVertices = new NativeList<float3>(Allocator.Persistent);
                 context.NewNormals = new NativeList<float3>(Allocator.Persistent);
                 context.NewUvs = new NativeList<float2>(Allocator.Persistent);
+                context.NewVertexEdge = new NativeList<int2>(Allocator.Persistent);
                 context.NewTriangles = new NativeList<NewTriangle>(Allocator.Persistent);
 
                 context.CapClosedLoopCount = new NativeArray<int>(objectCount, Allocator.Persistent);
@@ -275,6 +276,7 @@ namespace UsefulToolkit.MeshCut
                     NewVertices = context.NewVertices,
                     NewNormals = context.NewNormals,
                     NewUvs = context.NewUvs,
+                    NewVertexEdge = context.NewVertexEdge,
                     NewTriangles = context.NewTriangles
                 };
 
@@ -350,6 +352,7 @@ namespace UsefulToolkit.MeshCut
                     NewVertices = context.NewVertices.AsDeferredJobArray(),
                     NewNormals = context.NewNormals.AsDeferredJobArray(),
                     NewUvs = context.NewUvs.AsDeferredJobArray(),
+                    NewVertexEdge = context.NewVertexEdge.AsDeferredJobArray(),
                     NewTriangles = context.NewTriangles.AsDeferredJobArray()
                 };
 
@@ -367,6 +370,7 @@ namespace UsefulToolkit.MeshCut
                     NewVertices = context.NewVertices.AsDeferredJobArray(),
                     NewNormals = context.NewNormals.AsDeferredJobArray(),
                     NewUvs = context.NewUvs.AsDeferredJobArray(),
+                    NewVertexEdge = context.NewVertexEdge.AsDeferredJobArray(),
                     ObjectStoreVertexOffset = context.ObjectStoreVertexOffset,
                     StoreVertices = storeVertices,
                     StoreNormals = storeNormals,

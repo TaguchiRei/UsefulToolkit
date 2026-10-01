@@ -35,6 +35,10 @@ namespace UsefulToolkit.MeshCut
         [NativeDisableParallelForRestriction] [WriteOnly]
         public NativeArray<float2> NewUvs;
 
+        /// <summary> 新規頂点ごとの、切断した元の辺(通し番号の小さい方, 大きい方) </summary>
+        [NativeDisableParallelForRestriction] [WriteOnly]
+        public NativeArray<int2> NewVertexEdge;
+
         [NativeDisableParallelForRestriction] [WriteOnly]
         public NativeArray<NewTriangle> NewTriangles;
 
@@ -64,6 +68,10 @@ namespace UsefulToolkit.MeshCut
             int vertIndexStart = index * 2;
             WriteEdgeIntersection(indexA + storeVertexOffset, indexB + storeVertexOffset, blade, vertIndexStart + 0);
             WriteEdgeIntersection(indexA + storeVertexOffset, indexC + storeVertexOffset, blade, vertIndexStart + 1);
+
+            // 同じ辺を共有する隣の三角形も同じ交点を作るため、辺を向きのない組として記録しておく(DistributeAndCapJob の重複除去用)
+            NewVertexEdge[vertIndexStart + 0] = new int2(math.min(indexA, indexB), math.max(indexA, indexB));
+            NewVertexEdge[vertIndexStart + 1] = new int2(math.min(indexA, indexC), math.max(indexA, indexC));
 
             //後に再構築するために古いインデックスと新しいインデックスを区別する
             //元からあった頂点はインデックスに一律で1を足して-を付ける。

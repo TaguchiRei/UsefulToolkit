@@ -25,6 +25,7 @@ namespace UsefulToolkit.MeshCut
         public NativeList<float3> NewVertices;
         public NativeList<float3> NewNormals;
         public NativeList<float2> NewUvs;
+        public NativeList<int2> NewVertexEdge;
         public NativeList<NewTriangle> NewTriangles;
 
         public void Execute()
@@ -45,6 +46,7 @@ namespace UsefulToolkit.MeshCut
             NewVertices.ResizeUninitialized(total * 2);
             NewNormals.ResizeUninitialized(total * 2);
             NewUvs.ResizeUninitialized(total * 2);
+            NewVertexEdge.ResizeUninitialized(total * 2);
             NewTriangles.ResizeUninitialized(total * 3);
         }
     }

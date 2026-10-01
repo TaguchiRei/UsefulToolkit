@@ -58,6 +58,7 @@ namespace UsefulToolkit.MeshCut
         public NativeList<float3> NewVertices;
         public NativeList<float3> NewNormals;
         public NativeList<float2> NewUvs;
+        public NativeList<int2> NewVertexEdge; // per 新規頂点: 切断した元の辺(通し番号の小さい方, 大きい方)
         public NativeList<NewTriangle> NewTriangles;
 
         // ── 断面(キャップ)生成(DistributeAndCapJob)の結果 ──
@@ -163,6 +164,7 @@ namespace UsefulToolkit.MeshCut
             if (NewVertices.IsCreated) NewVertices.Dispose();
             if (NewNormals.IsCreated) NewNormals.Dispose();
             if (NewUvs.IsCreated) NewUvs.Dispose();
+            if (NewVertexEdge.IsCreated) NewVertexEdge.Dispose();
             if (NewTriangles.IsCreated) NewTriangles.Dispose();
 
             if (CapClosedLoopCount.IsCreated) CapClosedLoopCount.Dispose();

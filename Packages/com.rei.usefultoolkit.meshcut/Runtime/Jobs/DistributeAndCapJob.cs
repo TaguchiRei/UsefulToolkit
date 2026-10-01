@@ -19,6 +19,9 @@ namespace UsefulToolkit.MeshCut
         [ReadOnly] public NativeArray<NewTriangle> NewTriangles;
         [ReadOnly] public NativeArray<float3> NewVertices;
         [ReadOnly] public NativeArray<float3> NewNormals;
+
+        /// <summary> 新規頂点ごとの、切断した元の辺(通し番号の小さい方, 大きい方)。重複除去のキーに使う </summary>
+        [ReadOnly] public NativeArray<int2> NewVertexEdge;
         [ReadOnly] public NativeArray<float2> NewUvs;
 
         // 元からある頂点(NewTriangle の負の番号)は通し番号で、ストア上の番号は ObjectStoreVertexOffset を足して求める
@@ -80,7 +83,13 @@ namespace UsefulToolkit.MeshCut
                 backIdxCursor[s] = FragmentIndexCount[backFrag * MaxSubmeshSlots + s];
             }
 
-            // 1) 新規三角形をFront/Backへ振り分け(オブジェクト内は逐次処理なのでアトミック不要)
+            // 1) 新規三角形をFront/Backへ振り分け(オブジェクト内は逐次処理なのでアトミック不要)。
+            // 頂点は表裏それぞれで重複除去する。キーは、元からある頂点なら (通し番号, -1)、
+            // 新規頂点なら切断した元の辺 (小さい通し番号, 大きい通し番号)。
+            // 座標ではなく元の頂点番号で見るのは、UV の継ぎ目のように位置が同じでも属性の違う頂点をまとめないため
+            var frontVertexMap = new NativeHashMap<int2, int>(math.max(count * 4, 16), Allocator.Temp);
+            var backVertexMap = new NativeHashMap<int2, int>(math.max(count * 4, 16), Allocator.Temp);
+
             for (int i = 0; i < count; i++)
             {
                 int cutFaceIdx = start + i;
@@ -89,28 +98,21 @@ namespace UsefulToolkit.MeshCut
                 {
                     NewTriangle nt = NewTriangles[cutFaceIdx * 3 + k];
 
-                    float3 v1 = GetVertex(nt.Vertex1, storeVertexOffset);
-                    float3 v2 = GetVertex(nt.Vertex2, storeVertexOffset);
-                    float3 v3 = GetVertex(nt.Vertex3, storeVertexOffset);
-                    float3 n1 = GetNormal(nt.Vertex1, storeVertexOffset);
-                    float3 n2 = GetNormal(nt.Vertex2, storeVertexOffset);
-                    float3 n3 = GetNormal(nt.Vertex3, storeVertexOffset);
-                    float2 u1 = GetUv(nt.Vertex1, storeVertexOffset);
-                    float2 u2 = GetUv(nt.Vertex2, storeVertexOffset);
-                    float2 u3 = GetUv(nt.Vertex3, storeVertexOffset);
-
                     if (nt.Side == 1)
                     {
-                        frontVertCursor = AddFreshTriangle(frontFrag, nt.Submesh, v1, v2, v3, n1, n2, n3, u1, u2, u3,
-                            n1, frontVertCursor, frontIdxCursor);
+                        frontVertCursor = AddSideTriangle(frontFrag, nt, storeVertexOffset, frontVertexMap,
+                            frontVertCursor, frontIdxCursor);
                     }
                     else
                     {
-                        backVertCursor = AddFreshTriangle(backFrag, nt.Submesh, v1, v2, v3, n1, n2, n3, u1, u2, u3,
-                            n1, backVertCursor, backIdxCursor);
+                        backVertCursor = AddSideTriangle(backFrag, nt, storeVertexOffset, backVertexMap,
+                            backVertCursor, backIdxCursor);
                     }
                 }
             }
+
+            frontVertexMap.Dispose();
+            backVertexMap.Dispose();
 
             // 2) 切断面のループ探索(このオブジェクトのみのスクラッチデータ、Allocator.Temp)
             var posToRep = new NativeParallelHashMap<QuantKey, int>(64, Allocator.Temp);
@@ -255,22 +257,27 @@ namespace UsefulToolkit.MeshCut
             );
         }
 
+        /// <summary>
+        /// 閉じたループをファン三角形で塞ぐ。頂点はループの各頂点に1つずつと中心に1つを追加し、三角形間で共有する。
+        /// 断面の頂点は法線が側面と異なるため、側面の頂点とは共有しない。
+        /// </summary>
         /// <returns>更新後の頂点カーソル</returns>
         private int FillCapFan(
             int objIndex, NativeList<int> loop, int fragIdx, int capSubmesh, bool isFront,
             int vertCursor, NativeArray<int> idxCursor)
         {
-            if (loop.Length < 3) return vertCursor;
+            int loopLength = loop.Length;
+            if (loopLength < 3) return vertCursor;
 
             NativePlane blade = Blades[objIndex];
 
             float3 center = float3.zero;
-            for (int i = 0; i < loop.Length; i++)
+            for (int i = 0; i < loopLength; i++)
             {
                 center += NewVertices[loop[i]];
             }
 
-            center /= loop.Length;
+            center /= loopLength;
 
             float3 normal = blade.Normal;
 
@@ -283,88 +290,112 @@ namespace UsefulToolkit.MeshCut
 
             float3 faceNormal = isFront ? -blade.Normal : blade.Normal;
 
-            for (int i = 0; i < loop.Length; i++)
+            // ループの i 番目の頂点を baseIndex + i、中心を baseIndex + loopLength に置く
+            int2 vRange = FragmentVertexRange[fragIdx];
+            int baseIndex = vertCursor;
+
+            for (int i = 0; i < loopLength; i++)
             {
-                int currentIndex = loop[i];
-                int nextIndex = loop[(i + 1) % loop.Length];
+                float3 v = NewVertices[loop[i]];
+                float3 d = v - center;
 
-                float3 v0 = NewVertices[currentIndex];
-                float3 v1 = NewVertices[nextIndex];
-                float3 v2 = center;
-
-                float3 d0 = v0 - center;
-                float3 d1 = v1 - center;
-
-                float2 uv0 = new float2(0.5f + math.dot(d0, tangent), 0.5f + math.dot(d0, bitangent));
-                float2 uv1 = new float2(0.5f + math.dot(d1, tangent), 0.5f + math.dot(d1, bitangent));
-                float2 uv2 = new float2(0.5f, 0.5f);
-
-                vertCursor = AddFreshTriangle(
-                    fragIdx, capSubmesh,
-                    v0, v1, v2,
-                    faceNormal, faceNormal, faceNormal,
-                    uv0, uv1, uv2,
-                    faceNormal, vertCursor, idxCursor);
+                WriteVertex(vRange.x + baseIndex + i, v, faceNormal,
+                    new float2(0.5f + math.dot(d, tangent), 0.5f + math.dot(d, bitangent)));
             }
+
+            int centerIndex = baseIndex + loopLength;
+            WriteVertex(vRange.x + centerIndex, center, faceNormal, new float2(0.5f, 0.5f));
+
+            for (int i = 0; i < loopLength; i++)
+            {
+                int next = (i + 1) % loopLength;
+
+                AddTriangleIndices(fragIdx, capSubmesh,
+                    NewVertices[loop[i]], NewVertices[loop[next]], center,
+                    baseIndex + i, baseIndex + next, centerIndex,
+                    faceNormal, idxCursor);
+            }
+
+            return centerIndex + 1;
+        }
+
+        /// <summary>
+        /// 側面の新規三角形1つを、頂点を重複除去しながら追加する。更新後の頂点カーソルを返す。
+        /// 三角形の向きは、1つ目の頂点の法線と面の向きが逆なら裏返す。
+        /// </summary>
+        private int AddSideTriangle(
+            int fragIdx, NewTriangle nt, int storeVertexOffset, NativeHashMap<int2, int> vertexMap,
+            int vertCursor, NativeArray<int> idxCursor)
+        {
+            int i1 = GetOrAddSideVertex(fragIdx, nt.Vertex1, storeVertexOffset, vertexMap, ref vertCursor);
+            int i2 = GetOrAddSideVertex(fragIdx, nt.Vertex2, storeVertexOffset, vertexMap, ref vertCursor);
+            int i3 = GetOrAddSideVertex(fragIdx, nt.Vertex3, storeVertexOffset, vertexMap, ref vertCursor);
+
+            AddTriangleIndices(fragIdx, nt.Submesh,
+                GetVertex(nt.Vertex1, storeVertexOffset),
+                GetVertex(nt.Vertex2, storeVertexOffset),
+                GetVertex(nt.Vertex3, storeVertexOffset),
+                i1, i2, i3,
+                GetNormal(nt.Vertex1, storeVertexOffset), idxCursor);
 
             return vertCursor;
         }
 
-        /// <summary> dedupなしで3頂点を追加する。更新後の頂点カーソルを返す。 </summary>
-        private int AddFreshTriangle(
+        /// <summary>
+        /// 側面の頂点を表す番号(負なら元からある頂点、0以上なら新規頂点)を、フラグメント内の頂点番号へ変換する。
+        /// まだ追加していなければ追加する。
+        /// </summary>
+        private int GetOrAddSideVertex(
+            int fragIdx, int vertexRef, int storeVertexOffset, NativeHashMap<int2, int> vertexMap, ref int vertCursor)
+        {
+            int2 key = vertexRef < 0 ? new int2(-(vertexRef + 1), -1) : NewVertexEdge[vertexRef];
+
+            if (vertexMap.TryGetValue(key, out int existing)) return existing;
+
+            int newIndex = vertCursor;
+            WriteVertex(FragmentVertexRange[fragIdx].x + newIndex,
+                GetVertex(vertexRef, storeVertexOffset),
+                GetNormal(vertexRef, storeVertexOffset),
+                GetUv(vertexRef, storeVertexOffset));
+
+            vertexMap.Add(key, newIndex);
+            vertCursor++;
+
+            return newIndex;
+        }
+
+        private void WriteVertex(int flatIndex, float3 position, float3 normal, float2 uv)
+        {
+            FragmentVerticesFlat[flatIndex] = position;
+            FragmentNormalsFlat[flatIndex] = normal;
+            FragmentUvsFlat[flatIndex] = uv;
+        }
+
+        /// <summary>
+        /// 三角形のインデックスを submesh のスロットへ追加する。
+        /// 頂点座標から求めた面の向きが faceNormal と逆なら、頂点の順番を逆にして裏返す。
+        /// </summary>
+        private void AddTriangleIndices(
             int fragIdx, int submesh,
             float3 v1, float3 v2, float3 v3,
-            float3 n1, float3 n2, float3 n3,
-            float2 u1, float2 u2, float2 u3,
-            float3 faceNormal, int vertCursor, NativeArray<int> idxCursor)
+            int i1, int i2, int i3,
+            float3 faceNormal, NativeArray<int> idxCursor)
         {
             float3 calculatedNormal = math.cross(v2 - v1, v3 - v1);
 
-            int2 vRange = FragmentVertexRange[fragIdx];
-            int baseIndex = vertCursor;
-            int vBase = vRange.x + baseIndex;
-
             if (math.dot(calculatedNormal, faceNormal) < 0f)
             {
-                FragmentVerticesFlat[vBase + 0] = v3;
-                FragmentVerticesFlat[vBase + 1] = v2;
-                FragmentVerticesFlat[vBase + 2] = v1;
-
-                FragmentNormalsFlat[vBase + 0] = n3;
-                FragmentNormalsFlat[vBase + 1] = n2;
-                FragmentNormalsFlat[vBase + 2] = n1;
-
-                FragmentUvsFlat[vBase + 0] = u3;
-                FragmentUvsFlat[vBase + 1] = u2;
-                FragmentUvsFlat[vBase + 2] = u1;
+                (i1, i3) = (i3, i1);
             }
-            else
-            {
-                FragmentVerticesFlat[vBase + 0] = v1;
-                FragmentVerticesFlat[vBase + 1] = v2;
-                FragmentVerticesFlat[vBase + 2] = v3;
-
-                FragmentNormalsFlat[vBase + 0] = n1;
-                FragmentNormalsFlat[vBase + 1] = n2;
-                FragmentNormalsFlat[vBase + 2] = n3;
-
-                FragmentUvsFlat[vBase + 0] = u1;
-                FragmentUvsFlat[vBase + 1] = u2;
-                FragmentUvsFlat[vBase + 2] = u3;
-            }
-
-            vertCursor += 3;
 
             int2 idxRange = FragmentIndexRange[fragIdx * MaxSubmeshSlots + submesh];
             int cursor = idxCursor[submesh];
 
-            FragmentIndicesFlat[idxRange.x + cursor + 0] = baseIndex + 0;
-            FragmentIndicesFlat[idxRange.x + cursor + 1] = baseIndex + 1;
-            FragmentIndicesFlat[idxRange.x + cursor + 2] = baseIndex + 2;
+            FragmentIndicesFlat[idxRange.x + cursor + 0] = i1;
+            FragmentIndicesFlat[idxRange.x + cursor + 1] = i2;
+            FragmentIndicesFlat[idxRange.x + cursor + 2] = i3;
 
             idxCursor[submesh] = cursor + 3;
-
-            return vertCursor;
         }
 
         // index が負なら元からある頂点(通し番号 -(index + 1))、0以上なら TriangleCutJob が生成した新規頂点
