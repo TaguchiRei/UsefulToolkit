@@ -54,15 +54,13 @@ namespace UsefulToolkit.Editor.Initialize
                 }
             }
 
-            string saveDirectory = SelectSaveDirectory();
-            if (saveDirectory == null) return;
-
-            string filePath = BuildFilePath(scene, saveDirectory);
-
-            if (File.Exists(filePath) &&
-                !EditorUtility.DisplayDialog("確認", $"{filePath} は既に存在します。上書きしますか？", "上書き", "中止"))
+            // 生成済みのCompositorがあればそのフォルダを更新対象とし、初回のみ保存先を選ばせる。
+            string saveDirectory = PersistentSceneCreator.FindExistingCompositorDirectory(
+                scene.name, scene.path, out bool found);
+            if (!found)
             {
-                return;
+                saveDirectory = SelectSaveDirectory();
+                if (saveDirectory == null) return;
             }
 
             var result = GenerateTo(scene, saveDirectory);

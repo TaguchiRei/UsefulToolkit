@@ -50,6 +50,12 @@ namespace UsefulToolkit.Editor.GitSupport
                 return paths;
             }
 
+            //Assets以下の保存が含まれない場合はUnityによる自動保存なのでそのまま通す
+            if (!Array.Exists(paths, IsUnderAssets))
+            {
+                return paths;
+            }
+
             var currentBranch = BranchService.GetBranchName().ToLower();
             var warningBranch = setting.WarningBranches;
 
@@ -72,7 +78,16 @@ namespace UsefulToolkit.Editor.GitSupport
                 }
             }
 
-            return save ? paths : Array.Empty<string>();
+            //保存しない場合もAssets以下以外のパスは保存対象に残す
+            return save ? paths : Array.FindAll(paths, path => !IsUnderAssets(path));
+        }
+
+        /// <summary>
+        /// パスがAssetsフォルダ以下を指しているかを返す
+        /// </summary>
+        private static bool IsUnderAssets(string path)
+        {
+            return path.StartsWith("Assets/", StringComparison.Ordinal);
         }
     }
 }
