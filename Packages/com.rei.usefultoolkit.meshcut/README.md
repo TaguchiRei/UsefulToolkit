@@ -78,7 +78,8 @@ Burst / Collections / Mathematics と Framework パッケージは、本パッ�
 ## 使い方
 
 シーンに置いた `CutBlade` (`MultiCutBlade`) を使う場合、インスペクタの右クリックメニュー「切断」で、
-`BoxCollider` の範囲内にある `CuttableObject` をまとめて切断できます。スクリプトからは以下のように呼びます。
+`BoxCollider` の範囲内にある `CuttableObject` をまとめて切断できます(切断結果の組が Console に出力されます)。
+スクリプトからは以下のように呼びます。
 
 ```csharp
 using UsefulToolkit.MeshCut;
@@ -87,9 +88,28 @@ using UsefulToolkit.MeshCut;
 
 private async void Cut(CuttableObject[] targets)
 {
-    await _blade.ExecuteCut(targets);
+    MultiCutResult[] results = await _blade.ExecuteCut(targets);
+
+    foreach (MultiCutResult result in results)
+    {
+        // result.Original : 切断した元の対象(非アクティブ、もう切れない)
+        // result.Front    : 刃の法線(transform.up)の側の破片
+        // result.Back     : 法線と反対の側の破片
+    }
 }
 ```
+
+`ExecuteCut` は、すべての破片への反映(Transform・メッシュ・マテリアル・アクティブ化・球コライダー・切断設定の引き継ぎ・
+物理の初速)が終わってから、実際に切断した対象ごとの組を返します。並び順は、渡した `targets` から切断できない対象
+(null、`IsCuttable` が false)を除いた順です。何も切断しなかった場合(対象が空、すべて除外、破片の不足)は空の配列を返します。
+戻り値が不要なら、これまでどおり `await _blade.ExecuteCut(targets);` と書けます。
+
+#### 結果の参照の扱い
+
+返された破片は、そのあとも使い続けられる保証はありません。プール(`MeshCutObjectPool`)は固定長のリングバッファで、
+破片を取り出すたびに先頭を一周させるため、後の切断で同じ破片が回収され、別の破片として使い回されることがあります。
+そのときは回収される破片の `ReuseAction` が呼ばれるので、結果を保持する場合はここで参照を手放してください。
+元の対象がプールの破片だった場合(何回でも切断できる破片を切り直した場合)も、その対象はプールへ返されるので、同じように使い回されます。
 
 切断処理だけを使い、破片への反映を自前で行う場合は `MultiMeshCut` を直接使います。
 
@@ -157,10 +177,20 @@ Console に出さずに結果だけ取りたい場合は `MultiCutBlade.CollectP
 
 | メンバ | 説明 |
 |---|---|
-| `UniTask ExecuteCut(CuttableObject[])` | 切断し、結果を破片へ反映します |
+| `UniTask<MultiCutResult[]> ExecuteCut(CuttableObject[])` | 切断し、結果を破片へ反映します。反映が終わってから、切断した対象ごとの組を返します(何も切断しなければ空の配列) |
 | `bool EnableProfileLog` | 処理時間の計測と、表の Console 出力(Inspector の「Enable Profile Log」と同じ) |
 | `bool CollectProfile` | Console へ出さずに計測だけを行う |
 | `MeshCutProfile LastProfile` | 最後に計測した `ExecuteCut` の結果。プール待ち・切断・破片反映の全段階を含みます |
+
+### MultiCutResult
+
+`MultiCutBlade.ExecuteCut` で 1 つの対象を切断した結果です(`readonly struct`)。参照の扱いは「結果の参照の扱い」を参照してください。
+
+| メンバ | 説明 |
+|---|---|
+| `CuttableObject Original` | 切断した元の対象。切断後は非アクティブで、もう切れない |
+| `CuttableObject Front` | 刃の法線(`transform.up`)の側の破片。`MultiMeshCut.CutMesh[i*2]` に当たる |
+| `CuttableObject Back` | 刃の法線と反対の側の破片。`MultiMeshCut.CutMesh[i*2+1]` に当たる |
 
 ### MeshCutProfile
 

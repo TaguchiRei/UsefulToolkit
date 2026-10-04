@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Cysharp.Threading.Tasks;
@@ -68,7 +69,11 @@ namespace UsefulToolkit.MeshCut
 
             if (cuttables.Count > 0)
             {
-                await ExecuteCut(cuttables.ToArray());
+                Vector3 bladePosition = transform.position;
+                Vector3 bladeNormal = transform.up;
+
+                MultiCutResult[] results = await ExecuteCut(cuttables.ToArray());
+                LogResults(results, bladePosition, bladeNormal);
             }
             else
             {
@@ -77,14 +82,61 @@ namespace UsefulToolkit.MeshCut
         }
 
         /// <summary>
+        /// 切断結果の組ごとに、元の対象と表裏の破片の名前・アクティブ状態と、
+        /// 各破片の Renderer の中心が刃の平面のどちら側にあるかを Console へ出力します。
+        /// </summary>
+        private static void LogResults(MultiCutResult[] results, Vector3 bladePosition, Vector3 bladeNormal)
+        {
+            var builder = new System.Text.StringBuilder();
+            builder.AppendLine($"[UsefulToolkit.MeshCut] 切断結果 {results.Length} 組");
+
+            for (int i = 0; i < results.Length; i++)
+            {
+                MultiCutResult result = results[i];
+                builder.AppendLine(
+                    $"  [{i}] 元: {DescribeObject(result.Original)} / 表: {DescribeFragment(result.Front, bladePosition, bladeNormal)} / 裏: {DescribeFragment(result.Back, bladePosition, bladeNormal)}");
+            }
+
+            Debug.Log(builder.ToString());
+        }
+
+        private static string DescribeObject(CuttableObject obj)
+        {
+            if (obj == null) return "null";
+
+            return $"{obj.name}(active={obj.gameObject.activeSelf}, cuttable={obj.IsCuttable})";
+        }
+
+        /// <summary>
+        /// 破片の説明に、有効な球コライダーの数と、Renderer の中心が刃の法線の側(+)か反対の側(-)かを付け足します。
+        /// </summary>
+        private static string DescribeFragment(CuttableObject fragment, Vector3 bladePosition, Vector3 bladeNormal)
+        {
+            if (fragment == null || fragment.Renderer == null) return DescribeObject(fragment);
+
+            int enabledColliders = 0;
+            foreach (SphereCollider col in fragment.GetComponents<SphereCollider>())
+            {
+                if (col.enabled) enabledColliders++;
+            }
+
+            float side = Vector3.Dot(fragment.Renderer.bounds.center - bladePosition, bladeNormal);
+            return $"{DescribeObject(fragment)}[colliders={enabledColliders}, side={(side >= 0f ? "+" : "-")}]";
+        }
+
+        /// <summary>
         /// 指定した複数のオブジェクトを一枚の刃で一括切断します
         /// </summary>
-        public async UniTask ExecuteCut(CuttableObject[] targets)
+        /// <returns>
+        /// 実際に切断した対象ごとの、元の対象と表裏の破片の組。並び順は切断できない対象を除いた後の targets の順。
+        /// すべての破片への反映が終わってから返します。何も切断しなかった場合は空の配列(null ではない)。
+        /// </returns>
+        public async UniTask<MultiCutResult[]> ExecuteCut(CuttableObject[] targets)
         {
-            if (targets == null || targets.Length == 0) return;
+            if (targets == null || targets.Length == 0) return Array.Empty<MultiCutResult>();
 
             targets = FilterCuttable(targets);
-            if (targets.Length == 0) return;
+            if (targets.Length == 0) return Array.Empty<MultiCutResult>();
 
             MeshCutProfiler profiler = _enableProfileLog || CollectProfile
                 ? new MeshCutProfiler()
@@ -120,8 +172,10 @@ namespace UsefulToolkit.MeshCut
                 {
                     Debug.LogError(
                         $"[UsefulToolkit.MeshCut] 破片が不足しています。必要数 {requiredCount} に対し取得数 {fragmentStubs.Count}。プールの生成数を増やしてください。");
-                    return;
+                    return Array.Empty<MultiCutResult>();
                 }
+
+                var results = new MultiCutResult[targets.Length];
 
                 // 全破片の球コライダーを ColliderClusterJob でまとめて求める。
                 // 設定値は破片側(プールの CuttableObject)のものを使うため、破片を取得した後に行う
@@ -165,6 +219,8 @@ namespace UsefulToolkit.MeshCut
 
                     applyTicks += Stopwatch.GetTimestamp() - itemStart;
 
+                    results[i] = new MultiCutResult(target, frontData, backData);
+
                     if (await CheckTime(frameStopwatch, _LimitMs))
                     {
                         yieldCount++;
@@ -186,6 +242,8 @@ namespace UsefulToolkit.MeshCut
                         Debug.Log(LastProfile.ToString());
                     }
                 }
+
+                return results;
             }
             finally
             {

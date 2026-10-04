@@ -42,6 +42,11 @@
 
 ### Added
 
+- `MultiCutBlade.ExecuteCut` が、切断した対象ごとの元の対象と表裏の破片の組(`MultiCutResult[]`)を返すようにしました。
+  戻り値は `UniTask` から `UniTask<MultiCutResult[]>` に変わりましたが、`await ExecuteCut(...)` の呼び出しはそのまま動きます。
+  すべての破片への反映が終わってから返し、何も切断しなかった場合は空の配列を返します。
+  - インスペクタの右クリックメニュー「切断」は、切断結果の組を Console に出力するようになりました。
+- `MultiCutResult`
 - `MeshCutProfile` / `MeshCutStageRecord` / `MeshCutProfileInfo` / `MeshCutStageKind`
 - `MultiMeshCut.LastProfile`、`MultiCutBlade.LastProfile` / `EnableProfileLog` / `CollectProfile`
 - 計測結果の付帯情報に、閉じた断面ループ数・途切れた断面ループ区間数・断面が生成されなかった対象数を追加しました。
