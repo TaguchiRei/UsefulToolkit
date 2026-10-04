@@ -6,7 +6,10 @@ namespace UsefulToolkit.MeshCut
     /// </summary>
     public readonly struct MultiCutResult
     {
-        /// <summary> 切断した元の対象。切断後は非アクティブで、もう切れない </summary>
+        /// <summary>
+        /// 切断した元の対象。切断後は非アクティブで、もう切れない。
+        /// ただし元の対象がプールの破片で、同じ切断の中で別の組の Front / Back として使い回された場合は、その破片として有効になっている
+        /// </summary>
         public CuttableObject Original { get; }
 
         /// <summary> 刃の法線(transform.up)の側の破片 </summary>

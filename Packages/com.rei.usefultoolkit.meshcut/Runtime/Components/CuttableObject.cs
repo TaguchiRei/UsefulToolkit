@@ -94,6 +94,12 @@ namespace UsefulToolkit.MeshCut
             _canMultiCut = source._canMultiCut;
         }
 
+        /// <summary> 切断元から読み取っておいた CanMultiCut を引き継ぎます。 </summary>
+        internal void InheritCutSettings(bool canMultiCut)
+        {
+            _canMultiCut = canMultiCut;
+        }
+
         [SerializeField, Tooltip("複数回の切断を許可するか")]
         private bool _canMultiCut;
 
