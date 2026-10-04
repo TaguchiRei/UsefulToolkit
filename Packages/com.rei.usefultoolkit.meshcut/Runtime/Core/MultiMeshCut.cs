@@ -509,6 +509,12 @@ namespace UsefulToolkit.MeshCut
                     MeshUpdateFlags.DontValidateIndices);
                 context.HasWritableMeshData = false;
 
+                // ApplyAndDisposeWritableMeshData はメッシュ全体の bounds を更新しないため、サブメッシュの bounds から設定する
+                for (int i = 0; i < fragmentCount; i++)
+                {
+                    ApplyBoundsFromSubMeshes(resultMeshes[i]);
+                }
+
                 profiler.EndMain(applyStage);
 
                 CutMesh = resultMeshes;
@@ -538,6 +544,38 @@ namespace UsefulToolkit.MeshCut
                 {
                     profiler.Dispose();
                 }
+            }
+        }
+
+        /// <summary>
+        /// インデックスを持つサブメッシュの bounds を合わせたものを、メッシュ全体の bounds に設定します。
+        /// インデックスが0件のサブメッシュは bounds が原点の大きさ0になるため含めません。
+        /// すべてのサブメッシュが0件のときは bounds を変更しません。
+        /// </summary>
+        private static void ApplyBoundsFromSubMeshes(Mesh mesh)
+        {
+            bool hasBounds = false;
+            Bounds bounds = default;
+
+            for (int s = 0; s < mesh.subMeshCount; s++)
+            {
+                SubMeshDescriptor descriptor = mesh.GetSubMesh(s);
+                if (descriptor.indexCount == 0) continue;
+
+                if (hasBounds)
+                {
+                    bounds.Encapsulate(descriptor.bounds);
+                }
+                else
+                {
+                    bounds = descriptor.bounds;
+                    hasBounds = true;
+                }
+            }
+
+            if (hasBounds)
+            {
+                mesh.bounds = bounds;
             }
         }
 
