@@ -42,6 +42,11 @@
 
 ### Added
 
+- `MultiCutBlade.ExecuteCut` が、切断した対象ごとの元の対象と表裏の破片の組(`MultiCutResult[]`)を返すようにしました。
+  戻り値は `UniTask` から `UniTask<MultiCutResult[]>` に変わりましたが、`await ExecuteCut(...)` の呼び出しはそのまま動きます。
+  すべての破片への反映が終わってから返し、何も切断しなかった場合は空の配列を返します。
+  - インスペクタの右クリックメニュー「切断」は、切断結果の組を Console に出力するようになりました。
+- `MultiCutResult`
 - `MeshCutProfile` / `MeshCutStageRecord` / `MeshCutProfileInfo` / `MeshCutStageKind`
 - `MultiMeshCut.LastProfile`、`MultiCutBlade.LastProfile` / `EnableProfileLog` / `CollectProfile`
 - 計測結果の付帯情報に、閉じた断面ループ数・途切れた断面ループ区間数・断面が生成されなかった対象数を追加しました。
@@ -50,6 +55,10 @@
 
 ### Fixed
 
+- 何回でも切断できる破片を切り直したとき、プールが 1 回の切断の中で一周して、切断元の破片が同じ切断の破片として配られると、
+  破片の位置・マテリアル・速度・切断設定が別の対象のものになったり、反映したばかりの破片が非アクティブにされたりしていた問題。
+  `MultiCutBlade` は、破片を取り出す前に切断元の Transform・マテリアル・`CanMultiCut`・速度を読み取っておいて反映に使い、
+  既に破片として反映した切断元は非アクティブにしないようにしました。
 - 断面ループが閉じずにキャップが生成されなかったフラグメント(末尾のサブメッシュが0件)があると、
   `FinalizeMeshes` の `NativeArray.Copy` が範囲外例外を投げて切断全体が失敗していた問題。
   0件のコピーを行わないようにしました(頂点数0のフラグメントも同様)。

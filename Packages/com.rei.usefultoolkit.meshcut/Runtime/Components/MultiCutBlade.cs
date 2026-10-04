@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Cysharp.Threading.Tasks;
@@ -68,7 +69,11 @@ namespace UsefulToolkit.MeshCut
 
             if (cuttables.Count > 0)
             {
-                await ExecuteCut(cuttables.ToArray());
+                Vector3 bladePosition = transform.position;
+                Vector3 bladeNormal = transform.up;
+
+                MultiCutResult[] results = await ExecuteCut(cuttables.ToArray());
+                LogResults(results, bladePosition, bladeNormal);
             }
             else
             {
@@ -77,14 +82,61 @@ namespace UsefulToolkit.MeshCut
         }
 
         /// <summary>
+        /// 切断結果の組ごとに、元の対象と表裏の破片の名前・アクティブ状態と、
+        /// 各破片の Renderer の中心が刃の平面のどちら側にあるかを Console へ出力します。
+        /// </summary>
+        private static void LogResults(MultiCutResult[] results, Vector3 bladePosition, Vector3 bladeNormal)
+        {
+            var builder = new System.Text.StringBuilder();
+            builder.AppendLine($"[UsefulToolkit.MeshCut] 切断結果 {results.Length} 組");
+
+            for (int i = 0; i < results.Length; i++)
+            {
+                MultiCutResult result = results[i];
+                builder.AppendLine(
+                    $"  [{i}] 元: {DescribeObject(result.Original)} / 表: {DescribeFragment(result.Front, bladePosition, bladeNormal)} / 裏: {DescribeFragment(result.Back, bladePosition, bladeNormal)}");
+            }
+
+            Debug.Log(builder.ToString());
+        }
+
+        private static string DescribeObject(CuttableObject obj)
+        {
+            if (obj == null) return "null";
+
+            return $"{obj.name}(active={obj.gameObject.activeSelf}, cuttable={obj.IsCuttable})";
+        }
+
+        /// <summary>
+        /// 破片の説明に、有効な球コライダーの数と、Renderer の中心が刃の法線の側(+)か反対の側(-)かを付け足します。
+        /// </summary>
+        private static string DescribeFragment(CuttableObject fragment, Vector3 bladePosition, Vector3 bladeNormal)
+        {
+            if (fragment == null || fragment.Renderer == null) return DescribeObject(fragment);
+
+            int enabledColliders = 0;
+            foreach (SphereCollider col in fragment.GetComponents<SphereCollider>())
+            {
+                if (col.enabled) enabledColliders++;
+            }
+
+            float side = Vector3.Dot(fragment.Renderer.bounds.center - bladePosition, bladeNormal);
+            return $"{DescribeObject(fragment)}[colliders={enabledColliders}, side={(side >= 0f ? "+" : "-")}]";
+        }
+
+        /// <summary>
         /// 指定した複数のオブジェクトを一枚の刃で一括切断します
         /// </summary>
-        public async UniTask ExecuteCut(CuttableObject[] targets)
+        /// <returns>
+        /// 実際に切断した対象ごとの、元の対象と表裏の破片の組。並び順は切断できない対象を除いた後の targets の順。
+        /// すべての破片への反映が終わってから返します。何も切断しなかった場合は空の配列(null ではない)。
+        /// </returns>
+        public async UniTask<MultiCutResult[]> ExecuteCut(CuttableObject[] targets)
         {
-            if (targets == null || targets.Length == 0) return;
+            if (targets == null || targets.Length == 0) return Array.Empty<MultiCutResult>();
 
             targets = FilterCuttable(targets);
-            if (targets.Length == 0) return;
+            if (targets.Length == 0) return Array.Empty<MultiCutResult>();
 
             MeshCutProfiler profiler = _enableProfileLog || CollectProfile
                 ? new MeshCutProfiler()
@@ -112,6 +164,16 @@ namespace UsefulToolkit.MeshCut
                 // プールから必要な数だけ破片オブジェクトを一括取得
                 // ターゲット1つにつき前後2つの破片が必要
                 int getStage = profiler.BeginMain("破片取得");
+
+                // 切断元がプールの破片だと、GetObjects でリサイクル(非アクティブ化)されたうえ、
+                // 反映中に別の対象の破片として上書きされることがある。
+                // そのため、反映で読む切断元の値は GetObjects の前に取っておく
+                var originals = new OriginalSnapshot[targets.Length];
+                for (int i = 0; i < targets.Length; i++)
+                {
+                    originals[i] = new OriginalSnapshot(targets[i]);
+                }
+
                 int requiredCount = targets.Length * 2;
                 var fragmentStubs = _pool.GetObjects(requiredCount);
                 profiler.EndMain(getStage);
@@ -120,8 +182,10 @@ namespace UsefulToolkit.MeshCut
                 {
                     Debug.LogError(
                         $"[UsefulToolkit.MeshCut] 破片が不足しています。必要数 {requiredCount} に対し取得数 {fragmentStubs.Count}。プールの生成数を増やしてください。");
-                    return;
+                    return Array.Empty<MultiCutResult>();
                 }
+
+                var results = new MultiCutResult[targets.Length];
 
                 // 全破片の球コライダーを ColliderClusterJob でまとめて求める。
                 // 設定値は破片側(プールの CuttableObject)のものを使うため、破片を取得した後に行う
@@ -145,25 +209,34 @@ namespace UsefulToolkit.MeshCut
                     // Front側 (index: i*2)
                     var frontData = fragmentStubs[i * 2];
                     ApplyResult(frontData, _slicer.CutMesh[i * 2], colliderSpheres, colliderSphereStart[i * 2],
-                        target, _slicer.FragmentMeshIds[i * 2], ref colliderTicks);
+                        originals[i], _slicer.FragmentMeshIds[i * 2], ref colliderTicks);
 
                     // Back側 (index: i*2 + 1)
                     var backData = fragmentStubs[i * 2 + 1];
                     ApplyResult(backData, _slicer.CutMesh[i * 2 + 1], colliderSpheres, colliderSphereStart[i * 2 + 1],
-                        target, _slicer.FragmentMeshIds[i * 2 + 1], ref colliderTicks);
+                        originals[i], _slicer.FragmentMeshIds[i * 2 + 1], ref colliderTicks);
 
-                    // 元のオブジェクトは消費済み。非アクティブ化し、二度と切断対象にならないようにする
-                    target.DisableCutting();
-                    target.gameObject.SetActive(false);
+                    // 切断元が今回配った破片そのもの(プールが一周した場合)で、既に破片として反映済みなら、
+                    // 新しい破片として生きているので触らない
+                    int reusedIndex = fragmentStubs.IndexOf(target);
+                    if (reusedIndex < 0 || reusedIndex > i * 2 + 1)
+                    {
+                        // 元のオブジェクトは消費済み。非アクティブ化し、二度と切断対象にならないようにする。
+                        // 後で破片として反映される場合は、その反映で再びアクティブ化・切断可否の設定が行われる
+                        target.DisableCutting();
+                        target.gameObject.SetActive(false);
+                    }
 
                     // 切断元が破片だった場合、スロットを塞いだままにしないようプールへ返す。
-                    // 今回配った破片そのものだった場合(プールが一周した場合)は返してはいけない
-                    if (!fragmentStubs.Contains(target))
+                    // 今回配った破片そのものだった場合は返してはいけない
+                    if (reusedIndex < 0)
                     {
                         _pool.TryReleaseObject(target);
                     }
 
                     applyTicks += Stopwatch.GetTimestamp() - itemStart;
+
+                    results[i] = new MultiCutResult(target, frontData, backData);
 
                     if (await CheckTime(frameStopwatch, _LimitMs))
                     {
@@ -186,6 +259,8 @@ namespace UsefulToolkit.MeshCut
                         Debug.Log(LastProfile.ToString());
                     }
                 }
+
+                return results;
             }
             finally
             {
@@ -271,6 +346,7 @@ namespace UsefulToolkit.MeshCut
 
         /// <param name="colliderSpheres">ComputeColliderSpheres が求めた全破片の球</param>
         /// <param name="sphereStart">この破片の球の colliderSpheres 上の先頭位置</param>
+        /// <param name="original">破片を取得する前に読み取っておいた切断元の値</param>
         /// <param name="fragmentMeshId">
         /// 再切断用にストアへ登録されたメッシュID。登録されていない(＝もう切れない)場合は -1。
         /// </param>
@@ -280,29 +356,25 @@ namespace UsefulToolkit.MeshCut
             Mesh mesh,
             NativeArray<float4> colliderSpheres,
             int sphereStart,
-            CuttableObject original,
+            in OriginalSnapshot original,
             int fragmentMeshId,
             ref long colliderTicks)
         {
             GameObject fragObj = cuttable.gameObject;
 
             // Transform同期
-            fragObj.transform.SetPositionAndRotation(
-                original.transform.position,
-                original.transform.rotation
-            );
-            fragObj.transform.localScale = original.transform.localScale;
+            fragObj.transform.SetPositionAndRotation(original.Position, original.Rotation);
+            fragObj.transform.localScale = original.LocalScale;
 
             // メッシュ設定。この破片が前回の切断で持っていたメッシュはここで破棄される
             cuttable.SetCutMesh(mesh);
 
             // マテリアルコピー処理
-            var originalRenderer = original.Renderer;
             var fragmentRenderer = cuttable.Renderer;
 
-            if (originalRenderer != null && fragmentRenderer != null)
+            if (original.Materials != null && fragmentRenderer != null)
             {
-                Material[] originalMaterials = originalRenderer.sharedMaterials;
+                Material[] originalMaterials = original.Materials;
 
                 // 断面サブメッシュは常に最後。未切断のメッシュを切ったときだけ1つ増え、
                 // 既に断面を持つ破片を切り直したときは同じ数のままになる
@@ -328,7 +400,7 @@ namespace UsefulToolkit.MeshCut
             colliderTicks += Stopwatch.GetTimestamp() - colliderStart;
 
             // 切断可否の引き継ぎ。何回でも切断可能なものだけが新しいMeshIdを持つ
-            cuttable.InheritCutSettings(original);
+            cuttable.InheritCutSettings(original.CanMultiCut);
 
             if (fragmentMeshId >= 0)
             {
@@ -341,10 +413,42 @@ namespace UsefulToolkit.MeshCut
             }
 
             // 物理初速の継承
-            if (original.Rig && cuttable.Rig)
+            if (original.HasRig && cuttable.Rig)
             {
-                cuttable.Rig.linearVelocity = original.Rig.linearVelocity;
-                cuttable.Rig.angularVelocity = original.Rig.angularVelocity;
+                cuttable.Rig.linearVelocity = original.LinearVelocity;
+                cuttable.Rig.angularVelocity = original.AngularVelocity;
+            }
+        }
+
+        /// <summary> 破片への反映で使う、切断元の Transform・マテリアル・切断設定・速度の値 </summary>
+        private readonly struct OriginalSnapshot
+        {
+            public readonly Vector3 Position;
+            public readonly Quaternion Rotation;
+            public readonly Vector3 LocalScale;
+
+            /// <summary> 切断元の Renderer の sharedMaterials。Renderer が無ければ null </summary>
+            public readonly Material[] Materials;
+
+            public readonly bool CanMultiCut;
+            public readonly bool HasRig;
+            public readonly Vector3 LinearVelocity;
+            public readonly Vector3 AngularVelocity;
+
+            public OriginalSnapshot(CuttableObject original)
+            {
+                Transform t = original.transform;
+                Position = t.position;
+                Rotation = t.rotation;
+                LocalScale = t.localScale;
+
+                Materials = original.Renderer != null ? original.Renderer.sharedMaterials : null;
+
+                CanMultiCut = original.CanMultiCut;
+
+                HasRig = original.Rig;
+                LinearVelocity = HasRig ? original.Rig.linearVelocity : Vector3.zero;
+                AngularVelocity = HasRig ? original.Rig.angularVelocity : Vector3.zero;
             }
         }
 
