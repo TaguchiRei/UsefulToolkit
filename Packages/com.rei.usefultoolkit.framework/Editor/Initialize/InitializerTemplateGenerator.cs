@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UsefulToolkit.Editor.ProjectSettings;
+using UsefulToolkit.Editor.Utility;
 
 namespace UsefulToolkit.Editor.Initialize
 {
@@ -44,11 +45,11 @@ namespace UsefulToolkit.Editor.Initialize
             string scenePath = PersistentSceneCreator.FindExistingPersistentScenePath();
             if (string.IsNullOrEmpty(scenePath))
             {
-                EditorUtility.DisplayDialog(
+                EditorPrompt.Notify(
                     "エラー",
                     "UsefulToolkitRuntimeInitializer を持つ常駐シーンが見つかりませんでした。\n" +
                     "先に UsefulToolkit/Scene/GenerateUsefulPersistentScene で常駐シーンを作成してください。",
-                    "OK");
+                    LogType.Error);
                 return;
             }
 
@@ -62,20 +63,21 @@ namespace UsefulToolkit.Editor.Initialize
             // その所在が分からない状態で生成すると別アセンブリに落ちてコンパイルできない。
             if (!compositorFound)
             {
-                EditorUtility.DisplayDialog(
+                EditorPrompt.Notify(
                     "エラー",
                     $"常駐シーンの Compositor [{compositorClassName}] が見つかりませんでした。\n" +
                     "先に UsefulToolkit/Scene/GenerateUsefulPersistentScene を実行して Compositor を生成してください。",
-                    "OK");
+                    LogType.Error);
                 return;
             }
 
-            if (!EditorUtility.DisplayDialog(
+            if (!EditorPrompt.Confirm(
+                    "Initializers.Generate",
                     "Initializerの生成",
                     $"生成先 : {saveDirectory}\n常駐シーン : {sceneName}\n\n" +
                     "このフォルダへ Initializer のソースを生成します。\n" +
                     "既存ファイルは上書きしません。",
-                    "生成", "キャンセル"))
+                    "生成", "キャンセル", true))
             {
                 return;
             }
@@ -87,14 +89,13 @@ namespace UsefulToolkit.Editor.Initialize
                   "作り直す場合はファイルを削除してから再実行してください。\n\n"
                 : string.Empty;
 
-            EditorUtility.DisplayDialog(
+            EditorPrompt.Notify(
                 "生成完了",
                 $"宣言された Initializer : {result.ClassNames.Count} 種類\n" +
                 $"新規に書き出したファイル : {result.WrittenCount} 件\n\n" +
                 skippedNote +
                 "この後 UsefulToolkit/Scene/GenerateUsefulPersistentScene を実行して、\n" +
-                "生成した Initializer の取り付けと Compositor の再生成を行ってください。",
-                "OK");
+                "生成した Initializer の取り付けと Compositor の再生成を行ってください。");
         }
 
         /// <summary>
