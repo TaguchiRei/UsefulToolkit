@@ -28,8 +28,10 @@ namespace UsefulToolkit.MeshCut
             position = math.mul(invRot, position);
             position *= reciprocal;
 
+            // 法線は位置と逆に拡大率を掛けて変換する(逆転置行列による変換)。
+            // 断面生成は単位長の法線を前提にしているため正規化する
             float3 normal = math.mul(invRot, WorldBlade.Normal);
-            normal *= reciprocal;
+            normal = math.normalize(normal * t.Scale);
 
             Blades[index] = new NativePlane(position, normal);
         }
