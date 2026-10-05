@@ -54,7 +54,11 @@ namespace UsefulToolkit.MeshCut
         }
 
         /// <summary> メッシュを登録し、割り当てられたメッシュIDを返す </summary>
-        public int Add(Mesh mesh)
+        /// <param name="capSubmesh">
+        /// 断面サブメッシュの番号。未切断のメッシュは -1。
+        /// 切断で生成したメッシュを登録するときは最後のサブメッシュを渡し、次の切断で断面がそこへ追記されるようにする。
+        /// </param>
+        public int Add(Mesh mesh, int capSubmesh = -1)
         {
             int vStart = Vertices.Length;
             Vector3[] verts = mesh.vertices;
@@ -88,9 +92,7 @@ namespace UsefulToolkit.MeshCut
             MeshVertexRange.Add(new int2(vStart, vertexCount));
             MeshTriangleRange.Add(new int2(tStart, Triangles.Length - tStart));
             MeshSubmeshCount.Add(subCount);
-
-            // 未切断のメッシュには断面サブメッシュが無い
-            MeshCapSubmesh.Add(-1);
+            MeshCapSubmesh.Add(capSubmesh);
 
             return MeshVertexRange.Length - 1;
         }

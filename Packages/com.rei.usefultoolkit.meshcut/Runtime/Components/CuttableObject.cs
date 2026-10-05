@@ -59,6 +59,9 @@ namespace UsefulToolkit.MeshCut
             Mesh.sharedMesh = mesh;
         }
 
+        /// <summary> 表示中のメッシュが、切断で生成されこのオブジェクトが持ち主になっているものか </summary>
+        internal bool ShowsOwnedCutMesh => _ownedCutMesh != null && Mesh != null && Mesh.sharedMesh == _ownedCutMesh;
+
         private void OnDestroy()
         {
             if (_ownedCutMesh != null)
@@ -124,8 +127,22 @@ namespace UsefulToolkit.MeshCut
 
         private List<SphereCollider> _colliders;
 
+        private bool _initialized;
+
         private void Awake()
         {
+            EnsureInitialized();
+        }
+
+        /// <summary>
+        /// 球コライダーの用意と参照の補完を1回だけ行います。
+        /// 一度もアクティブになっていないオブジェクトは Awake が走っていないため、非アクティブのまま扱う操作からも呼びます。
+        /// </summary>
+        internal void EnsureInitialized()
+        {
+            if (_initialized) return;
+            _initialized = true;
+
             _colliders = new List<SphereCollider>(_colliderNum);
 
             for (int i = 0; i < _colliderNum; i++)
