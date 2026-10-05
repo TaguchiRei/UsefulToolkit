@@ -30,7 +30,7 @@ namespace UsefulToolkit.BlackBoard.Scene
         public int ActiveScene => _loadedScenes.ActiveScene;
         public IReadOnlyList<int> AdditiveScenes => _loadedScenes.AdditiveScenes;
 
-        private readonly IBlackBoard _blackBoard;
+        private readonly IBlackBoardController _blackBoardController;
         private readonly LoadedSceneSet _loadedScenes;
         private readonly SceneLoadRequester _loadRequester;
 
@@ -40,15 +40,15 @@ namespace UsefulToolkit.BlackBoard.Scene
         private readonly ActionEntryList _activeSceneChangedActions = new();
         private readonly ActionEntryList<SceneLoadPhase> _phaseChangedActions = new();
 
-        /// <param name="blackBoard">シーンのアンロードを通知する先</param>
+        /// <param name="blackBoardController">シーンのアンロードを通知する先</param>
         /// <param name="persistentSceneIds">
         /// 常駐シーンのビルドインデックス。アクティブシーンにはできず、アンロードや降格の対象にもならない。
         /// 常に「ロード済み」として扱う。
         /// </param>
-        /// <exception cref="ArgumentNullException">blackBoardがnullのときに出力</exception>
-        public SceneState(IBlackBoard blackBoard, IReadOnlyList<int> persistentSceneIds = null)
+        /// <exception cref="ArgumentNullException">blackBoardControllerがnullのときに出力</exception>
+        public SceneState(IBlackBoardController blackBoardController, IReadOnlyList<int> persistentSceneIds = null)
         {
-            _blackBoard = blackBoard ?? throw new ArgumentNullException(nameof(blackBoard));
+            _blackBoardController = blackBoardController ?? throw new ArgumentNullException(nameof(blackBoardController));
             _loadedScenes = new LoadedSceneSet(persistentSceneIds);
             _loadRequester = new SceneLoadRequester(this);
         }
@@ -402,7 +402,7 @@ namespace UsefulToolkit.BlackBoard.Scene
                 if (unloadedScenes.Count > 0)
                 {
                     // Stateに登録されたActionを実行し終えてから、各ChildBoardのシーンスコープを解除する
-                    _blackBoard.OnSceneChanged(unloadedScenes);
+                    _blackBoardController.OnSceneChanged(unloadedScenes);
                 }
 
                 return unloadedScenes.Count == sceneIds.Length;
@@ -514,7 +514,7 @@ namespace UsefulToolkit.BlackBoard.Scene
                 if (unloadedScenes.Count > 0)
                 {
                     // Stateに登録されたActionを実行し終えてから、各ChildBoardのシーンスコープを解除する
-                    _blackBoard.OnSceneChanged(unloadedScenes);
+                    _blackBoardController.OnSceneChanged(unloadedScenes);
                 }
 
                 return unloadedScenes.Count == additiveScenes.Length;

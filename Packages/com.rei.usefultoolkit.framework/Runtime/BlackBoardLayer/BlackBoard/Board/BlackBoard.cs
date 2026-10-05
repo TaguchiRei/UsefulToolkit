@@ -8,7 +8,7 @@ namespace UsefulToolkit.BlackBoard.BlackBoard
     /// ChildBoardを型ごとに登録・取得する最上位のBlackBoard本体。
     /// シーンごとに1インスタンス、InitializationのContainer/Compositorが生成・登録する。
     /// </summary>
-    public sealed class BlackBoard : IBlackBoard
+    public sealed class BlackBoard : IBlackBoard, IBlackBoardController
     {
         private readonly Dictionary<Type, ChildStateBoardBase> _stateChildBoards = new();
         private readonly Dictionary<Type, ChildEventBoardBase> _eventChildBoards = new();

@@ -26,9 +26,10 @@ namespace UsefulToolkit.Initialization
         /// Initializedは立てないまま抜ける。その場合、ロード/アンロードの要求はエラーログを出して失敗する。
         /// </summary>
         /// <param name="blackBoard">SceneStateの登録先</param>
-        public override void Initialize(IBlackBoard blackBoard)
+        /// <param name="blackBoardController">SceneStateがシーンのアンロードを通知する先</param>
+        internal void Initialize(IBlackBoard blackBoard, IBlackBoardController blackBoardController)
         {
-            var sceneState = new SceneState(blackBoard, CollectPersistentSceneIds());
+            var sceneState = new SceneState(blackBoardController, CollectPersistentSceneIds());
             blackBoard.GetSceneBoard().RegisterGameState<ISceneState>(sceneState);
 
             if (_sceneLoader == null)
@@ -40,7 +41,17 @@ namespace UsefulToolkit.Initialization
             _sceneLoader.Initialize();
             sceneState.RegisterSceneLoader(_sceneLoader.LoadScenesAsync, _sceneLoader.UnLoadScenesAsync);
 
-            base.Initialize(blackBoard);
+            Initialized = true;
+        }
+
+        /// <summary>
+        /// 取得面だけではSceneStateを生成できない為、何も初期化せずにエラーログを出す。
+        /// 初期化はRootGameCompositorが<see cref="Initialize(IBlackBoard, IBlackBoardController)"/>で行う。
+        /// </summary>
+        public override void Initialize(IBlackBoard blackBoard)
+        {
+            UsefulLogger.LogError(
+                "UsefulToolkitRuntimeInitializerはRootGameCompositorからのみ初期化されます。", this);
         }
 
         /// <summary>
