@@ -38,9 +38,13 @@ Burst / Collections / Mathematics と Framework パッケージは、本パッ�
 
 ### 重要な制約
 
-切断対象は必ず `MeshDataCache` の子に配置してください。`MeshDataCache` は `Start()` で配下の
-`CuttableObject` を走査してメッシュを登録し、`MeshId` を割り振ります。子でないオブジェクトは
-`MeshId` が割り振られず、切断結果が壊れます。
+切断対象は必ず `MeshDataCache` に登録してください。登録されていないオブジェクトは `MeshId` が割り振られず、切断結果が壊れます。
+
+- `MeshDataCache` は `Start()` で配下の `CuttableObject` を走査してメッシュを登録し、`MeshId` を割り振ります。
+  走査するのは **`Start()` の時点でアクティブな子だけ**です。非アクティブな子は登録されません。
+- 実行中に足すオブジェクトや、プールで非アクティブのまま待たせるオブジェクトは、`MeshDataCache.Register(CuttableObject)` で登録してください。
+  `Register` は非アクティブなものや `MeshDataCache` の子でないものも登録でき、同じ共有メッシュ(プレハブのメッシュ等)を
+  何度登録してもストアへの追加は 1 回だけです。`MeshDataCache` の `Start()` より前には呼べません。
 
 ## 1回だけ切断 / 何回でも切断
 
@@ -59,6 +63,14 @@ Burst / Collections / Mathematics と Framework パッケージは、本パッ�
 
 断面サブメッシュは**常に最後のサブメッシュ**です。既に断面を持つ破片を切り直したときは新しいサブメッシュを
 足さずにそこへ追記するので、何度切ってもサブメッシュ数とドローコールは増えません。
+
+### 切断回数の上限
+
+**Can Multi Cut** が有効なオブジェクトは、**Max Cut Count** で部位の系統(そのオブジェクトと、そこから生まれた破片)ごとに
+切断できる回数の上限を決められます。0(既定値)は上限なしで、従来どおり何回でも切れます。上限は Can Multi Cut が無効のときは効きません(1回だけ切れます)。
+
+破片は切断元の上限と「切断元の回数 + 1」(`CutCount`)を引き継ぎます。引き継いだ回数が上限に達した破片はストアへ登録されず、
+もう切れません。たとえば上限 2 のオブジェクトを切ると回数 1 の破片ができてもう一度切れ、その破片を切ると回数 2 の破片ができて、それは切れません。
 
 ### ストアの自動再構築
 
@@ -196,6 +208,18 @@ Console に出さずに結果だけ取りたい場合は `MultiCutBlade.CollectP
 | `CuttableObject Front` | 刃の法線(`transform.up`)の側の破片。`MultiMeshCut.CutMesh[i*2]` に当たる |
 | `CuttableObject Back` | 刃の法線と反対の側の破片。`MultiMeshCut.CutMesh[i*2+1]` に当たる |
 
+### MeshDataCache
+
+| メンバ | 説明 |
+|---|---|
+| `static MeshDataCache Instance` | シーンの `MeshDataCache`。`Start()` で設定される |
+| `void Initialize()` | 配下のアクティブな `CuttableObject` を走査してストアを作り直す(`Start()` で呼ばれる) |
+| `bool Register(CuttableObject)` | 実行中に 1 つの `CuttableObject` を登録し、切断できる状態にする。非アクティブなものも登録できる。ストアが無い、メッシュが無いときは false |
+| `void RegisterUser(CuttableObject)` | 追加登録されたメッシュを持つ `CuttableObject` を、再構築の対象として記録する |
+| `void Rebuild()` / `void RebuildIfNeeded()` | 切断できる `CuttableObject` が参照するメッシュだけを残してストアを作り直す |
+| `void AddStoreReader(JobHandle)` / `void CompleteStoreReaders()` | ストアを読む Job の記録と、その完了待ち |
+| `void Unload()` | ストアを解放する |
+
 ### MeshCutProfile
 
 | メンバ | 説明 |
@@ -211,20 +235,54 @@ Console に出さずに結果だけ取りたい場合は `MultiCutBlade.CollectP
 
 | メンバ | 説明 |
 |---|---|
-| `bool IsCuttable` | 現在切断できるか。切断済み、または1回だけ切断可能なオブジェクトの破片は false |
+| `bool IsCuttable` | 現在切断できるか。切断済みのもの、もう一度は切断できない破片、`RestoreInitialShape` の後は false |
 | `bool CanMultiCut` | 何回でも切断できる設定か |
+| `int MaxCutCount` | 部位の系統ごとの切断回数の上限。0 は上限なし |
+| `int CutCount` | この部位の系統が、これまでに切断された回数 |
 | `int MeshId` | `NativeMeshDataStore` 上のメッシュID |
 | `void SetRegisteredMesh(int)` | メッシュIDを設定し切断可能にする |
 | `void DisableCutting()` | これ以上切断できない状態にする |
-| `void InheritCutSettings(CuttableObject)` | 切断元から `CanMultiCut` を引き継ぐ |
+| `void InheritCutSettings(CuttableObject)` | 切断元から `CanMultiCut` と上限を引き継ぎ、回数を切断元の回数 + 1 にする |
 | `ColliderClusterSettings ColliderSettings` | 球コライダーを求めるときの設定値(球の数・縮小率・最大半径など) |
 | `void SetupCollider(List<Vector3>)` | サンプリング点から球コライダーを求めて配置する(破片1つぶん) |
 | `void ApplyColliderSpheres(NativeArray<float4>, int)` | `ColliderClusterJob` が求めた球をコライダーへ反映する |
 | `void SetCutMesh(Mesh)` | 切断で生成されたメッシュを表示し、持ち主になる。以前に持っていたメッシュは破棄する |
+| `void AdoptCutShape(CuttableObject)` | 破片の切断後の形を自分に移す。下記参照 |
+| `void RestoreInitialShape()` | 初期化の時点の形に戻し、切断回数を 0 にする。下記参照 |
 
 `MultiMeshCut.CutMesh` のメッシュは切断のたびに新しく生成されます。自前で反映処理を書く場合は `SetCutMesh` で破片に渡すか、
 不要になった時点で自分で `Destroy` してください(放置すると `Resources.UnloadUnusedAssets` まで解放されません)。
 `SetCutMesh` には切断で生成したメッシュだけを渡してください。共有アセットを渡すと、差し替え時にそれごと破棄されます。
+
+#### 切断後の形を元のオブジェクトへ移す / 元に戻す
+
+切断した元のオブジェクト(例：敵の体に付いたままの部位)に、切断後の形を持たせたいときは `AdoptCutShape(fragment)` を使います。
+破片のメッシュ(持ち主ごと)、マテリアル、球コライダーの位置と大きさ、切断設定と回数、切断できるかどうかを移し、
+移した先が元から持っていたコライダー(プレハブに付けた `BoxCollider` など)は無効にします。
+移したあとの破片はメッシュの持ち主でなくなり、切断もできなくなるので、**そのままプールへ返して使い回してかまいません**(移した形は消えません)。
+破片の球コライダーの数が移す先より多いときは、移す先の球コライダーを増やします。
+
+`RestoreInitialShape()` は、初期化(`Awake`)の時点のメッシュとマテリアルに戻し、球コライダーを無効に、元から持っていたコライダーを初期の状態に戻し、
+切断回数を 0 にします。持ち主になっていた切断後のメッシュは破棄し、共有メッシュは破棄しません。
+戻したあとは切断できない状態なので、もう一度切れるようにするには `MeshDataCache.Register` で登録し直してください。
+
+どちらもアクティブ・非アクティブは変えません。呼び出し側で切り替えてください。
+
+```csharp
+MultiCutResult[] results = await _blade.ExecuteCut(new[] { part });
+MultiCutResult result = results[0];
+
+// 体に残す側の形を、元の部位へ移す(Original は非アクティブになっている)
+result.Original.AdoptCutShape(result.Front);
+result.Original.gameObject.SetActive(true);
+_pool.ReleaseObject(result.Front);
+
+// 敵をプールへ戻すとき
+part.RestoreInitialShape();
+MeshDataCache.Instance.Register(part);
+```
+
+#### 球コライダー
 
 切断対象および破片。サンプリング点を k-means でクラスタリングした結果から球コライダーを配置します。
 クラスタリングは Burst の `ColliderClusterJob` で行い、`MultiCutBlade` は全破片ぶんをまとめて並列に計算します。
