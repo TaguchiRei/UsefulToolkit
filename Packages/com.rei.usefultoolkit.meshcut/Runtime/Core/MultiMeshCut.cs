@@ -23,7 +23,7 @@ namespace UsefulToolkit.MeshCut
 
         /// <summary>
         /// フラグメントごとの、再切断用に登録されたメッシュID。添字は CutMesh と同じ。
-        /// 切断元が CanMultiCut でない場合、そのフラグメントは登録されないため -1 になる。
+        /// 切断元の破片がもう一度は切断できない(CuttableObject.CanCutFragments が false)場合、そのフラグメントは登録されないため -1 になる。
         /// </summary>
         public int[] FragmentMeshIds { private set; get; }
 
@@ -480,7 +480,7 @@ namespace UsefulToolkit.MeshCut
 
                 profiler.EndMain(convertStage);
 
-                // 何回でも切断可能なオブジェクトのフラグメントを、次の切断のためにストアへ登録する。
+                // もう一度切断できるフラグメントを、次の切断のためにストアへ登録する。
                 // 全てのJobが完了した後に行うこと(ストアのNativeListがリサイズされ、Jobが持つビューが無効になるため)
                 int registerStage = profiler.BeginMain("破片のストア登録");
                 MeshDataCache.Instance.CompleteStoreReaders();
@@ -618,7 +618,7 @@ namespace UsefulToolkit.MeshCut
         }
 
         /// <summary>
-        /// 切断元が CanMultiCut のオブジェクトについて、生成されたフラグメントをストアへ追加登録します。
+        /// 生まれる破片がもう一度切断できるオブジェクト(CanCutFragments)について、生成されたフラグメントをストアへ追加登録します。
         /// 登録しなかったフラグメントのIDは -1 になります。
         /// </summary>
         private static int[] RegisterMultiCutFragments(
@@ -634,7 +634,7 @@ namespace UsefulToolkit.MeshCut
 
             for (int objIndex = 0; objIndex < objectCount; objIndex++)
             {
-                if (!breakables[objIndex].CanMultiCut) continue;
+                if (!breakables[objIndex].CanCutFragments) continue;
 
                 // 断面スロットは常に最後のサブメッシュ
                 int capSlot = context.ObjectCapSlot[objIndex];
