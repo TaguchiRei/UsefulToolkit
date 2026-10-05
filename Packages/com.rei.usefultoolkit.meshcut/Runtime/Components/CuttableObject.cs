@@ -149,7 +149,25 @@ namespace UsefulToolkit.MeshCut
 
         private List<SphereCollider> _colliders;
 
+        /// <summary> 初期化の時点で自身に付いていたコライダー。切断後の形を移している間は無効にする </summary>
+        private Collider[] _ownColliders;
+
+        /// <summary> _ownColliders の、初期化の時点の有効・無効 </summary>
+        private bool[] _ownColliderEnabled;
+
+        /// <summary> 初期化の時点のメッシュ。RestoreInitialShape で戻す先 </summary>
+        private UnityEngine.Mesh _initialMesh;
+
+        /// <summary> 初期化の時点のマテリアル。RestoreInitialShape で戻す先 </summary>
+        private Material[] _initialMaterials;
+
+        private bool _initialCanMultiCut;
+        private int _initialMaxCutCount;
+
         private bool _initialized;
+
+        /// <summary> AdoptCutShape でマテリアルを写すときに使い回すバッファ </summary>
+        private static readonly List<Material> MaterialBuffer = new();
 
         private void Awake()
         {
@@ -157,7 +175,7 @@ namespace UsefulToolkit.MeshCut
         }
 
         /// <summary>
-        /// 球コライダーの用意と参照の補完を1回だけ行います。
+        /// 球コライダーの用意、参照の補完、初期の形の記録を1回だけ行います。
         /// 一度もアクティブになっていないオブジェクトは Awake が走っていないため、非アクティブのまま扱う操作からも呼びます。
         /// </summary>
         internal void EnsureInitialized()
@@ -165,17 +183,16 @@ namespace UsefulToolkit.MeshCut
             if (_initialized) return;
             _initialized = true;
 
-            _colliders = new List<SphereCollider>(_colliderNum);
-
-            for (int i = 0; i < _colliderNum; i++)
+            // 球コライダーを足す前に取り、プレハブ等で元から付いていたものだけを対象にする
+            _ownColliders = GetComponents<Collider>();
+            _ownColliderEnabled = new bool[_ownColliders.Length];
+            for (int i = 0; i < _ownColliders.Length; i++)
             {
-                var col = gameObject.AddComponent<SphereCollider>();
-
-                col.enabled = false;
-                col.sharedMaterial = _physicsMaterial;
-
-                _colliders.Add(col);
+                _ownColliderEnabled[i] = _ownColliders[i].enabled;
             }
+
+            _colliders = new List<SphereCollider>(_colliderNum);
+            AddSphereColliders(_colliderNum);
 
             if (Mesh == null)
             {
@@ -191,6 +208,166 @@ namespace UsefulToolkit.MeshCut
             {
                 TryGetComponent(out Renderer);
             }
+
+            _initialMesh = Mesh != null ? Mesh.sharedMesh : null;
+            _initialMaterials = Renderer != null ? Renderer.sharedMaterials : null;
+            _initialCanMultiCut = _canMultiCut;
+            _initialMaxCutCount = _maxCutCount;
+        }
+
+        private void AddSphereColliders(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                var col = gameObject.AddComponent<SphereCollider>();
+
+                col.enabled = false;
+                col.sharedMaterial = _physicsMaterial;
+
+                _colliders.Add(col);
+            }
+        }
+
+        private void DisableOwnColliders()
+        {
+            foreach (Collider col in _ownColliders)
+            {
+                if (col != null) col.enabled = false;
+            }
+        }
+
+        private void RestoreOwnColliders()
+        {
+            for (int i = 0; i < _ownColliders.Length; i++)
+            {
+                if (_ownColliders[i] != null) _ownColliders[i].enabled = _ownColliderEnabled[i];
+            }
+        }
+
+        /// <summary>
+        /// 切断で生まれた破片の形を自分に移します。
+        /// メッシュ(持ち主ごと)、マテリアル、球コライダー、切断設定と回数、切断できるかどうかを移し、自分が元から持っていたコライダーは無効にします。
+        /// 移したあとの破片はメッシュの持ち主でなくなり切断もできなくなるので、プールへ返して使い回しても移した形は消えません。
+        /// アクティブ・非アクティブは変えません。
+        /// </summary>
+        public void AdoptCutShape(CuttableObject fragment)
+        {
+            if (fragment == null || fragment == this) return;
+
+            EnsureInitialized();
+            fragment.EnsureInitialized();
+
+            if (fragment._ownedCutMesh != null)
+            {
+                SetCutMesh(fragment._ownedCutMesh);
+                fragment._ownedCutMesh = null;
+            }
+            else
+            {
+                // 破片が持ち主でないメッシュ(共有メッシュ)を表示しているときは、持ち主にならずに表示だけ移す
+                UnityEngine.Mesh owned = _ownedCutMesh;
+                _ownedCutMesh = null;
+                Mesh.sharedMesh = fragment.Mesh.sharedMesh;
+
+                if (owned != null)
+                {
+                    Destroy(owned);
+                }
+            }
+
+            if (Renderer != null && fragment.Renderer != null)
+            {
+                fragment.Renderer.GetSharedMaterials(MaterialBuffer);
+                Renderer.SetSharedMaterials(MaterialBuffer);
+                MaterialBuffer.Clear();
+            }
+
+            // 破片はプールのプレハブの設定で球を作るため、数が足りなければ自分の側を増やす
+            List<SphereCollider> sourceColliders = fragment._colliders;
+            if (sourceColliders.Count > _colliders.Count)
+            {
+                AddSphereColliders(sourceColliders.Count - _colliders.Count);
+            }
+
+            for (int i = 0; i < _colliders.Count; i++)
+            {
+                SphereCollider col = _colliders[i];
+
+                if (i >= sourceColliders.Count)
+                {
+                    col.enabled = false;
+                    continue;
+                }
+
+                SphereCollider source = sourceColliders[i];
+                col.center = source.center;
+                col.radius = source.radius;
+                col.enabled = source.enabled;
+            }
+
+            DisableOwnColliders();
+
+            _canMultiCut = fragment._canMultiCut;
+            _maxCutCount = fragment._maxCutCount;
+            _cutCount = fragment._cutCount;
+
+            if (fragment.IsCuttable)
+            {
+                SetRegisteredMesh(fragment.MeshId);
+
+                if (MeshDataCache.Instance != null)
+                {
+                    MeshDataCache.Instance.RegisterUser(this);
+                }
+            }
+            else
+            {
+                DisableCutting();
+            }
+
+            fragment.DisableCutting();
+        }
+
+        /// <summary>
+        /// 初期化の時点のメッシュとマテリアルに戻し、球コライダーを無効に、元から持っていたコライダーを初期の状態に戻します。
+        /// 切断設定は初期の値に、切断回数は0に戻ります。持ち主になっていた切断後のメッシュは破棄し、共有メッシュは破棄しません。
+        /// 戻したあとは切断できない状態になるので、切断できるようにするには MeshDataCache.Register で登録し直してください。
+        /// アクティブ・非アクティブは変えません。
+        /// </summary>
+        public void RestoreInitialShape()
+        {
+            EnsureInitialized();
+
+            UnityEngine.Mesh owned = _ownedCutMesh;
+            _ownedCutMesh = null;
+
+            if (Mesh != null)
+            {
+                Mesh.sharedMesh = _initialMesh;
+            }
+
+            if (owned != null)
+            {
+                Destroy(owned);
+            }
+
+            if (Renderer != null && _initialMaterials != null)
+            {
+                Renderer.sharedMaterials = _initialMaterials;
+            }
+
+            foreach (SphereCollider col in _colliders)
+            {
+                col.enabled = false;
+            }
+
+            RestoreOwnColliders();
+
+            _canMultiCut = _initialCanMultiCut;
+            _maxCutCount = _initialMaxCutCount;
+            _cutCount = 0;
+
+            DisableCutting();
         }
 
         /// <summary> この破片の球コライダーを ColliderClusterJob で求めるときの設定値 </summary>
@@ -254,13 +431,20 @@ namespace UsefulToolkit.MeshCut
         /// <summary>
         /// ColliderClusterJob が求めた球を球コライダーへ反映します。
         /// spheres[start] から ColliderSettings.ClusterCount 個を、自身の球コライダーに順に割り当てます。
-        /// 半径が負(ColliderClusterJob.Disabled)の球に対応するコライダーは無効にします。
+        /// 半径が負(ColliderClusterJob.Disabled)の球に対応するコライダーと、AdoptCutShape で ClusterCount を超えて増えたコライダーは無効にします。
         /// </summary>
         public void ApplyColliderSpheres(NativeArray<float4> spheres, int start)
         {
             for (int i = 0; i < _colliders.Count; i++)
             {
                 SphereCollider col = _colliders[i];
+
+                if (i >= _colliderNum)
+                {
+                    col.enabled = false;
+                    continue;
+                }
+
                 float4 sphere = spheres[start + i];
 
                 if (sphere.w < 0f)
