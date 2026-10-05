@@ -8,7 +8,7 @@ namespace UsefulToolkit.MeshCut
     /// <summary>
     /// 配下のCuttableObjectが参照するメッシュをユニーク登録し、各CuttableObjectにMeshIdを割り振る。
     /// 実データはNativeMeshDataStoreとしてNativeArrayにフラット化して保持するため、Jobから直接読める。
-    /// 切断対象のオブジェクトは必ずこのコンポーネントの子に配置すること。
+    /// Start の時点でアクティブな子だけが自動で登録される。実行中に足すものや非アクティブで待たせるものは Register で登録すること。
     ///
     /// 何回でも切断可能なオブジェクトの破片は実行時に追加登録されるため、ストアは切断のたびに伸びる。
     /// 一定量を超えたら、生存しているCuttableObjectが参照するメッシュだけを残して自動的に再構築する。
@@ -27,6 +27,9 @@ namespace UsefulToolkit.MeshCut
 
         /// <summary> MeshIdを持っているCuttableObject。ストア再構築時にIDを振り直す対象。 </summary>
         private readonly HashSet<CuttableObject> _users = new();
+
+        /// <summary> ストアへ登録済みの共有メッシュ(プレハブのメッシュ等)と、そのメッシュID </summary>
+        private Dictionary<Mesh, int> _sourceMeshIds = new();
 
         /// <summary> 再構築の要否を判断するための基準頂点数 </summary>
         private int _baselineVertexCount;
@@ -69,33 +72,74 @@ namespace UsefulToolkit.MeshCut
             Store?.Dispose();
             Store = new NativeMeshDataStore();
             _users.Clear();
+            _sourceMeshIds.Clear();
 
             var objects = GetComponentsInChildren<CuttableObject>();
-            List<Mesh> registeredMeshes = new();
 
             foreach (var cuttable in objects)
             {
                 var mesh = cuttable.Mesh.sharedMesh;
                 if (mesh == null) continue;
 
-                int index = registeredMeshes.IndexOf(mesh);
-
-                if (index == -1)
+                if (!_sourceMeshIds.TryGetValue(mesh, out int meshId))
                 {
-                    registeredMeshes.Add(mesh);
-                    cuttable.SetRegisteredMesh(Store.Add(mesh));
-                }
-                else
-                {
-                    cuttable.SetRegisteredMesh(index);
+                    meshId = Store.Add(mesh);
+                    _sourceMeshIds.Add(mesh, meshId);
                 }
 
+                cuttable.SetRegisteredMesh(meshId);
                 _users.Add(cuttable);
             }
 
             _baselineVertexCount = Store.Vertices.Length;
 
             Debug.Log($"[UsefulToolkit.MeshCut] Cache Completed. Cache Count: {Store.MeshCount}");
+        }
+
+        /// <summary>
+        /// 実行中に1つの CuttableObject を登録し、切断できる状態にします。
+        /// 非アクティブなものや、このコンポーネントの子でないものも登録できます。
+        /// 共有メッシュ(プレハブのメッシュ等)はストアへ1回だけ追加し、2回目以降は同じメッシュIDを使います。
+        /// </summary>
+        /// <returns>ストアがまだ無い、または表示中のメッシュが無いときは false</returns>
+        public bool Register(CuttableObject cuttable)
+        {
+            if (cuttable == null) return false;
+
+            if (Store == null)
+            {
+                Debug.LogError(
+                    $"[UsefulToolkit.MeshCut] ストアがまだ作られていないため {cuttable.name} を登録できません。MeshDataCache の Start の後で登録してください。");
+                return false;
+            }
+
+            cuttable.EnsureInitialized();
+
+            Mesh mesh = cuttable.Mesh != null ? cuttable.Mesh.sharedMesh : null;
+            if (mesh == null)
+            {
+                Debug.LogError($"[UsefulToolkit.MeshCut] {cuttable.name} に表示中のメッシュが無いため登録できません。");
+                return false;
+            }
+
+            int meshId;
+
+            if (cuttable.ShowsOwnedCutMesh)
+            {
+                // 切断で生成したメッシュは断面サブメッシュが最後にある。次の切断で断面を増やさずそこへ追記させる
+                CompleteStoreReaders();
+                meshId = Store.Add(mesh, mesh.subMeshCount - 1);
+            }
+            else if (!_sourceMeshIds.TryGetValue(mesh, out meshId))
+            {
+                CompleteStoreReaders();
+                meshId = Store.Add(mesh);
+                _sourceMeshIds.Add(mesh, meshId);
+            }
+
+            cuttable.SetRegisteredMesh(meshId);
+            _users.Add(cuttable);
+            return true;
         }
 
         /// <summary>
@@ -166,6 +210,18 @@ namespace UsefulToolkit.MeshCut
                 user.SetRegisteredMesh(idMap[user.MeshId]);
             }
 
+            // 使う者が残っている共有メッシュだけ、新しいIDで覚え直す
+            var sourceMeshIds = new Dictionary<Mesh, int>(_sourceMeshIds.Count);
+            foreach (KeyValuePair<Mesh, int> pair in _sourceMeshIds)
+            {
+                if (idMap.TryGetValue(pair.Value, out int newId))
+                {
+                    sourceMeshIds.Add(pair.Key, newId);
+                }
+            }
+
+            _sourceMeshIds = sourceMeshIds;
+
             int before = Store.MeshCount;
 
             Store.Dispose();
@@ -182,6 +238,7 @@ namespace UsefulToolkit.MeshCut
             Store?.Dispose();
             Store = null;
             _users.Clear();
+            _sourceMeshIds.Clear();
             _baselineVertexCount = 0;
             Debug.Log("[UsefulToolkit.MeshCut] キャッシュを解放しました。");
         }

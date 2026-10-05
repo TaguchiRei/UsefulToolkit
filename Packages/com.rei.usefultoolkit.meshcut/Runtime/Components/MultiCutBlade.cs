@@ -59,7 +59,7 @@ namespace UsefulToolkit.MeshCut
 
                 CuttableObject cuttable = obj.GetComponent<CuttableObject>();
 
-                // 1回だけ切断可能なオブジェクトから生まれた破片は、もう切れない
+                // 切断済みのものと、もう一度は切断できない破片は除く
                 if (cuttable != null && cuttable.IsCuttable)
                 {
                     cuttables.Add(cuttable);
@@ -399,8 +399,8 @@ namespace UsefulToolkit.MeshCut
             cuttable.ApplyColliderSpheres(colliderSpheres, sphereStart);
             colliderTicks += Stopwatch.GetTimestamp() - colliderStart;
 
-            // 切断可否の引き継ぎ。何回でも切断可能なものだけが新しいMeshIdを持つ
-            cuttable.InheritCutSettings(original.CanMultiCut);
+            // 切断設定と回数の引き継ぎ。もう一度切断できる破片だけが新しいMeshIdを持つ
+            cuttable.InheritCutSettings(original.CanMultiCut, original.MaxCutCount, original.CutCount);
 
             if (fragmentMeshId >= 0)
             {
@@ -420,7 +420,7 @@ namespace UsefulToolkit.MeshCut
             }
         }
 
-        /// <summary> 破片への反映で使う、切断元の Transform・マテリアル・切断設定・速度の値 </summary>
+        /// <summary> 破片への反映で使う、切断元の Transform・マテリアル・切断設定と回数・速度の値 </summary>
         private readonly struct OriginalSnapshot
         {
             public readonly Vector3 Position;
@@ -431,6 +431,8 @@ namespace UsefulToolkit.MeshCut
             public readonly Material[] Materials;
 
             public readonly bool CanMultiCut;
+            public readonly int MaxCutCount;
+            public readonly int CutCount;
             public readonly bool HasRig;
             public readonly Vector3 LinearVelocity;
             public readonly Vector3 AngularVelocity;
@@ -445,6 +447,8 @@ namespace UsefulToolkit.MeshCut
                 Materials = original.Renderer != null ? original.Renderer.sharedMaterials : null;
 
                 CanMultiCut = original.CanMultiCut;
+                MaxCutCount = original.MaxCutCount;
+                CutCount = original.CutCount;
 
                 HasRig = original.Rig;
                 LinearVelocity = HasRig ? original.Rig.linearVelocity : Vector3.zero;

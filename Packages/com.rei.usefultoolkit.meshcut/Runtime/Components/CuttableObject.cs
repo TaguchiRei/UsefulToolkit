@@ -22,6 +22,18 @@ namespace UsefulToolkit.MeshCut
 
         public bool CanMultiCut => _canMultiCut;
 
+        /// <summary> 部位の系統(この部位と、そこから生まれた破片)ごとの切断回数の上限。0は上限なし </summary>
+        public int MaxCutCount => _maxCutCount;
+
+        /// <summary> この部位の系統が、これまでに切断された回数 </summary>
+        public int CutCount => _cutCount;
+
+        /// <summary>
+        /// このオブジェクトを切断して生まれる破片が、もう一度切断できるか。
+        /// CanMultiCut が有効で、破片が引き継ぐ回数(CutCount + 1)が上限に達しないときに true。上限は CanMultiCut が有効なときだけ効く。
+        /// </summary>
+        internal bool CanCutFragments => _canMultiCut && (_maxCutCount <= 0 || _cutCount + 1 < _maxCutCount);
+
         public Rigidbody Rig;
         public Renderer Renderer;
 
@@ -59,6 +71,9 @@ namespace UsefulToolkit.MeshCut
             Mesh.sharedMesh = mesh;
         }
 
+        /// <summary> 表示中のメッシュが、切断で生成されこのオブジェクトが持ち主になっているものか </summary>
+        internal bool ShowsOwnedCutMesh => _ownedCutMesh != null && Mesh != null && Mesh.sharedMesh == _ownedCutMesh;
+
         private void OnDestroy()
         {
             if (_ownedCutMesh != null)
@@ -69,7 +84,7 @@ namespace UsefulToolkit.MeshCut
 
         /// <summary>
         /// NativeMeshDataStore に登録されたメッシュIDを設定し、切断可能な状態にします。
-        /// MeshDataCache の初期登録と、何回でも切断可能なオブジェクトの破片への引き継ぎで使います。
+        /// MeshDataCache への登録と、もう一度切断できる破片への引き継ぎで使います。
         /// </summary>
         public void SetRegisteredMesh(int meshId)
         {
@@ -79,29 +94,39 @@ namespace UsefulToolkit.MeshCut
 
         /// <summary>
         /// これ以上切断できない状態にします。
-        /// 1回だけ切断可能なオブジェクトから生まれた破片に対して使います。
+        /// 切断済みの元オブジェクトと、もう一度は切断できない破片に対して使います。
         /// </summary>
         public void DisableCutting()
         {
             IsCuttable = false;
         }
 
-        /// <summary> 切断元から切断に関する設定を引き継ぎます。 </summary>
+        /// <summary>
+        /// 切断元から切断に関する設定(CanMultiCut・切断回数の上限)を引き継ぎます。
+        /// 切断回数は切断元の回数 + 1 になります。
+        /// </summary>
         public void InheritCutSettings(CuttableObject source)
         {
             if (source == null) return;
 
-            _canMultiCut = source._canMultiCut;
+            InheritCutSettings(source._canMultiCut, source._maxCutCount, source._cutCount);
         }
 
-        /// <summary> 切断元から読み取っておいた CanMultiCut を引き継ぎます。 </summary>
-        internal void InheritCutSettings(bool canMultiCut)
+        /// <summary> 切断元から読み取っておいた設定を引き継ぎます。切断回数は sourceCutCount + 1 になります。 </summary>
+        internal void InheritCutSettings(bool canMultiCut, int maxCutCount, int sourceCutCount)
         {
             _canMultiCut = canMultiCut;
+            _maxCutCount = maxCutCount;
+            _cutCount = sourceCutCount + 1;
         }
 
         [SerializeField, Tooltip("複数回の切断を許可するか")]
         private bool _canMultiCut;
+
+        [SerializeField, Min(0), Tooltip("部位の系統(この部位と、そこから生まれた破片)を切断できる回数の上限。0は上限なし。Can Multi Cut が有効なときだけ効く")]
+        private int _maxCutCount;
+
+        private int _cutCount;
 
         [SerializeField] private PhysicsMaterial _physicsMaterial;
 
@@ -124,19 +149,50 @@ namespace UsefulToolkit.MeshCut
 
         private List<SphereCollider> _colliders;
 
+        /// <summary> 初期化の時点で自身に付いていたコライダー。切断後の形を移している間は無効にする </summary>
+        private Collider[] _ownColliders;
+
+        /// <summary> _ownColliders の、初期化の時点の有効・無効 </summary>
+        private bool[] _ownColliderEnabled;
+
+        /// <summary> 初期化の時点のメッシュ。RestoreInitialShape で戻す先 </summary>
+        private UnityEngine.Mesh _initialMesh;
+
+        /// <summary> 初期化の時点のマテリアル。RestoreInitialShape で戻す先 </summary>
+        private Material[] _initialMaterials;
+
+        private bool _initialCanMultiCut;
+        private int _initialMaxCutCount;
+
+        private bool _initialized;
+
+        /// <summary> AdoptCutShape でマテリアルを写すときに使い回すバッファ </summary>
+        private static readonly List<Material> MaterialBuffer = new();
+
         private void Awake()
         {
-            _colliders = new List<SphereCollider>(_colliderNum);
+            EnsureInitialized();
+        }
 
-            for (int i = 0; i < _colliderNum; i++)
+        /// <summary>
+        /// 球コライダーの用意、参照の補完、初期の形の記録を1回だけ行います。
+        /// 一度もアクティブになっていないオブジェクトは Awake が走っていないため、非アクティブのまま扱う操作からも呼びます。
+        /// </summary>
+        internal void EnsureInitialized()
+        {
+            if (_initialized) return;
+            _initialized = true;
+
+            // 球コライダーを足す前に取り、プレハブ等で元から付いていたものだけを対象にする
+            _ownColliders = GetComponents<Collider>();
+            _ownColliderEnabled = new bool[_ownColliders.Length];
+            for (int i = 0; i < _ownColliders.Length; i++)
             {
-                var col = gameObject.AddComponent<SphereCollider>();
-
-                col.enabled = false;
-                col.sharedMaterial = _physicsMaterial;
-
-                _colliders.Add(col);
+                _ownColliderEnabled[i] = _ownColliders[i].enabled;
             }
+
+            _colliders = new List<SphereCollider>(_colliderNum);
+            AddSphereColliders(_colliderNum);
 
             if (Mesh == null)
             {
@@ -152,6 +208,166 @@ namespace UsefulToolkit.MeshCut
             {
                 TryGetComponent(out Renderer);
             }
+
+            _initialMesh = Mesh != null ? Mesh.sharedMesh : null;
+            _initialMaterials = Renderer != null ? Renderer.sharedMaterials : null;
+            _initialCanMultiCut = _canMultiCut;
+            _initialMaxCutCount = _maxCutCount;
+        }
+
+        private void AddSphereColliders(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                var col = gameObject.AddComponent<SphereCollider>();
+
+                col.enabled = false;
+                col.sharedMaterial = _physicsMaterial;
+
+                _colliders.Add(col);
+            }
+        }
+
+        private void DisableOwnColliders()
+        {
+            foreach (Collider col in _ownColliders)
+            {
+                if (col != null) col.enabled = false;
+            }
+        }
+
+        private void RestoreOwnColliders()
+        {
+            for (int i = 0; i < _ownColliders.Length; i++)
+            {
+                if (_ownColliders[i] != null) _ownColliders[i].enabled = _ownColliderEnabled[i];
+            }
+        }
+
+        /// <summary>
+        /// 切断で生まれた破片の形を自分に移します。
+        /// メッシュ(持ち主ごと)、マテリアル、球コライダー、切断設定と回数、切断できるかどうかを移し、自分が元から持っていたコライダーは無効にします。
+        /// 移したあとの破片はメッシュの持ち主でなくなり切断もできなくなるので、プールへ返して使い回しても移した形は消えません。
+        /// アクティブ・非アクティブは変えません。
+        /// </summary>
+        public void AdoptCutShape(CuttableObject fragment)
+        {
+            if (fragment == null || fragment == this) return;
+
+            EnsureInitialized();
+            fragment.EnsureInitialized();
+
+            if (fragment._ownedCutMesh != null)
+            {
+                SetCutMesh(fragment._ownedCutMesh);
+                fragment._ownedCutMesh = null;
+            }
+            else
+            {
+                // 破片が持ち主でないメッシュ(共有メッシュ)を表示しているときは、持ち主にならずに表示だけ移す
+                UnityEngine.Mesh owned = _ownedCutMesh;
+                _ownedCutMesh = null;
+                Mesh.sharedMesh = fragment.Mesh.sharedMesh;
+
+                if (owned != null)
+                {
+                    Destroy(owned);
+                }
+            }
+
+            if (Renderer != null && fragment.Renderer != null)
+            {
+                fragment.Renderer.GetSharedMaterials(MaterialBuffer);
+                Renderer.SetSharedMaterials(MaterialBuffer);
+                MaterialBuffer.Clear();
+            }
+
+            // 破片はプールのプレハブの設定で球を作るため、数が足りなければ自分の側を増やす
+            List<SphereCollider> sourceColliders = fragment._colliders;
+            if (sourceColliders.Count > _colliders.Count)
+            {
+                AddSphereColliders(sourceColliders.Count - _colliders.Count);
+            }
+
+            for (int i = 0; i < _colliders.Count; i++)
+            {
+                SphereCollider col = _colliders[i];
+
+                if (i >= sourceColliders.Count)
+                {
+                    col.enabled = false;
+                    continue;
+                }
+
+                SphereCollider source = sourceColliders[i];
+                col.center = source.center;
+                col.radius = source.radius;
+                col.enabled = source.enabled;
+            }
+
+            DisableOwnColliders();
+
+            _canMultiCut = fragment._canMultiCut;
+            _maxCutCount = fragment._maxCutCount;
+            _cutCount = fragment._cutCount;
+
+            if (fragment.IsCuttable)
+            {
+                SetRegisteredMesh(fragment.MeshId);
+
+                if (MeshDataCache.Instance != null)
+                {
+                    MeshDataCache.Instance.RegisterUser(this);
+                }
+            }
+            else
+            {
+                DisableCutting();
+            }
+
+            fragment.DisableCutting();
+        }
+
+        /// <summary>
+        /// 初期化の時点のメッシュとマテリアルに戻し、球コライダーを無効に、元から持っていたコライダーを初期の状態に戻します。
+        /// 切断設定は初期の値に、切断回数は0に戻ります。持ち主になっていた切断後のメッシュは破棄し、共有メッシュは破棄しません。
+        /// 戻したあとは切断できない状態になるので、切断できるようにするには MeshDataCache.Register で登録し直してください。
+        /// アクティブ・非アクティブは変えません。
+        /// </summary>
+        public void RestoreInitialShape()
+        {
+            EnsureInitialized();
+
+            UnityEngine.Mesh owned = _ownedCutMesh;
+            _ownedCutMesh = null;
+
+            if (Mesh != null)
+            {
+                Mesh.sharedMesh = _initialMesh;
+            }
+
+            if (owned != null)
+            {
+                Destroy(owned);
+            }
+
+            if (Renderer != null && _initialMaterials != null)
+            {
+                Renderer.sharedMaterials = _initialMaterials;
+            }
+
+            foreach (SphereCollider col in _colliders)
+            {
+                col.enabled = false;
+            }
+
+            RestoreOwnColliders();
+
+            _canMultiCut = _initialCanMultiCut;
+            _maxCutCount = _initialMaxCutCount;
+            _cutCount = 0;
+
+            DisableCutting();
         }
 
         /// <summary> この破片の球コライダーを ColliderClusterJob で求めるときの設定値 </summary>
@@ -215,13 +431,20 @@ namespace UsefulToolkit.MeshCut
         /// <summary>
         /// ColliderClusterJob が求めた球を球コライダーへ反映します。
         /// spheres[start] から ColliderSettings.ClusterCount 個を、自身の球コライダーに順に割り当てます。
-        /// 半径が負(ColliderClusterJob.Disabled)の球に対応するコライダーは無効にします。
+        /// 半径が負(ColliderClusterJob.Disabled)の球に対応するコライダーと、AdoptCutShape で ClusterCount を超えて増えたコライダーは無効にします。
         /// </summary>
         public void ApplyColliderSpheres(NativeArray<float4> spheres, int start)
         {
             for (int i = 0; i < _colliders.Count; i++)
             {
                 SphereCollider col = _colliders[i];
+
+                if (i >= _colliderNum)
+                {
+                    col.enabled = false;
+                    continue;
+                }
+
                 float4 sphere = spheres[start + i];
 
                 if (sphere.w < 0f)

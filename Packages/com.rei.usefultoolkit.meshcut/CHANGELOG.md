@@ -52,6 +52,16 @@
 - 計測結果の付帯情報に、閉じた断面ループ数・途切れた断面ループ区間数・断面が生成されなかった対象数を追加しました。
 - `ColliderClusterJob` / `ColliderClusterSettings`、`CuttableObject.ColliderSettings` / `ApplyColliderSpheres` / `SetCutMesh`
 - `MeshDataCache.AddStoreReader` / `CompleteStoreReaders`
+- `MeshDataCache.Register` — 実行中に 1 つの `CuttableObject` を登録し、切断できる状態にします。
+  非アクティブなものや `MeshDataCache` の子でないものも登録でき、同じ共有メッシュを何度登録してもストアへの追加は 1 回だけです。
+  - `NativeMeshDataStore.Add` に断面サブメッシュの番号を渡す省略可能な引数を足しました。切断後のメッシュを登録したとき、次の切断で断面を増やさずそこへ追記させるためです。
+- `CuttableObject.MaxCutCount` / `CutCount` — 部位の系統(そのオブジェクトと、そこから生まれた破片)ごとの切断回数の上限(Inspector の **Max Cut Count**、既定 0 = 上限なし)と、これまでに切られた回数。
+  破片は切断元の上限と「切断元の回数 + 1」を引き継ぎ、回数が上限に達した破片は切れなくなります。上限は Can Multi Cut が有効なときだけ効きます。
+  - `CuttableObject.InheritCutSettings(CuttableObject)` は、上限と回数も引き継ぐようになりました。
+- `CuttableObject.AdoptCutShape` — 破片の切断後の形(メッシュの持ち主・マテリアル・球コライダー・切断設定と回数・切断可否)を自分に移し、元から持っていたコライダーを無効にします。
+  移したあとの破片はプールへ返して使い回せます。
+- `CuttableObject.RestoreInitialShape` — 初期化の時点のメッシュ・マテリアル・コライダー・切断設定に戻し、切断回数を 0 にします。
+- 一度もアクティブになっていない(`Awake` が走っていない) `CuttableObject` も、上の操作で扱えるようにしました。
 
 ### Fixed
 
