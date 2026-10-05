@@ -77,7 +77,7 @@ namespace UsefulToolkit.Initialization
             // 他の Initializer の Awake から既にシーンシステムを使えるよう、ここで真っ先に初期化する。
             if (_runtimeInitializer != null)
             {
-                _runtimeInitializer.Initialize(blackBoard);
+                _runtimeInitializer.Initialize(blackBoard, blackBoard);
             }
             else
             {
@@ -120,7 +120,7 @@ namespace UsefulToolkit.Initialization
         /// SceneBoard は BlackBoard のコンストラクタが受け取るため、ここでは登録しない。
         /// 生成された派生クラスがプロジェクト全体の ChildBoard を列挙して override する。
         /// </summary>
-        protected abstract void RegisterChildBoards(IBlackBoard blackBoard);
+        protected abstract void RegisterChildBoards(IBlackBoardController blackBoardController);
 
         /// <summary>
         /// <see cref="_startScene"/> が指定されていれば、そのシーンへ単発で遷移する。

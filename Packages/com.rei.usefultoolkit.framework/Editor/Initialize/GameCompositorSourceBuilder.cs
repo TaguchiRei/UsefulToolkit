@@ -120,7 +120,7 @@ namespace UsefulToolkit.Editor.Initialize
             IReadOnlyList<Type> eventBoardTypes)
         {
             builder.AppendLine(
-                "        protected override void RegisterChildBoards(UsefulToolkit.BlackBoard.BlackBoard.IBlackBoard blackBoard)");
+                "        protected override void RegisterChildBoards(UsefulToolkit.BlackBoard.BlackBoard.IBlackBoardController blackBoardController)");
             builder.AppendLine("        {");
 
             if (stateBoardTypes.Count == 0 && eventBoardTypes.Count == 0)
@@ -131,13 +131,13 @@ namespace UsefulToolkit.Editor.Initialize
             foreach (var boardType in stateBoardTypes)
             {
                 string typeName = TypeName(boardType);
-                builder.AppendLine($"            blackBoard.TryRegisterStateBoard(new {typeName}());");
+                builder.AppendLine($"            blackBoardController.TryRegisterStateBoard(new {typeName}());");
             }
 
             foreach (var boardType in eventBoardTypes)
             {
                 string typeName = TypeName(boardType);
-                builder.AppendLine($"            blackBoard.TryRegisterEventBoard(new {typeName}());");
+                builder.AppendLine($"            blackBoardController.TryRegisterEventBoard(new {typeName}());");
             }
 
             builder.AppendLine("        }");
