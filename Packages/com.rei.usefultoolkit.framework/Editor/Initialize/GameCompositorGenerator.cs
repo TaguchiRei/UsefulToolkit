@@ -34,7 +34,7 @@ namespace UsefulToolkit.Editor.Initialize
 
             if (string.IsNullOrEmpty(scene.path))
             {
-                EditorUtility.DisplayDialog("エラー", "シーンが保存されていません。先にシーンを保存してください。", "OK");
+                EditorPrompt.Notify("エラー", "シーンが保存されていません。先にシーンを保存してください。", LogType.Error);
                 return;
             }
 
@@ -48,7 +48,8 @@ namespace UsefulToolkit.Editor.Initialize
                       "(このシーンは常駐シーンではない為、ChildBoardの登録も行いません)\n" +
                       "ほぼ空のCompositorを生成しますか？";
 
-                if (!EditorUtility.DisplayDialog("確認", message, "生成する", "中止"))
+                if (!EditorPrompt.Confirm(
+                        "Compositor.GenerateWithoutInitializer", "確認", message, "生成する", "中止", true))
                 {
                     return;
                 }
@@ -65,14 +66,13 @@ namespace UsefulToolkit.Editor.Initialize
 
             var result = GenerateTo(scene, saveDirectory);
 
-            EditorUtility.DisplayDialog(
+            EditorPrompt.Notify(
                 "生成完了",
                 $"{Path.GetFileName(result.FilePath)} を生成しました。\n\n" +
                 $"ChildStateBoard : {result.StateBoardCount} 件\n" +
                 $"ChildEventBoard : {result.EventBoardCount} 件\n" +
                 $"Initializer : {result.InitializerCount} 種類\n\n" +
-                "生成されたコンポーネントをシーンに配置し、Inspectorから各フィールドを割り当ててください。",
-                "OK");
+                "生成されたコンポーネントをシーンに配置し、Inspectorから各フィールドを割り当ててください。");
         }
 
         /// <summary>生成結果の内訳。</summary>
@@ -231,7 +231,8 @@ namespace UsefulToolkit.Editor.Initialize
         internal static string SelectSaveDirectory()
         {
             string lastFolder = EditorPrefs.GetString(LastFolderKey, "Assets");
-            string selectedPath = EditorUtility.OpenFolderPanel("GameCompositorの保存先を選択", lastFolder, "");
+            string selectedPath = EditorPrompt.OpenFolderPanel(
+                "Compositor.SaveDirectory", "GameCompositorの保存先を選択", lastFolder, "");
 
             if (string.IsNullOrEmpty(selectedPath)) return null;
 
@@ -240,7 +241,7 @@ namespace UsefulToolkit.Editor.Initialize
 
             if (!fullSelectedPath.StartsWith(assetsPath, StringComparison.OrdinalIgnoreCase))
             {
-                EditorUtility.DisplayDialog("エラー", "Assetsフォルダ内を選択してください。", "OK");
+                EditorPrompt.Notify("エラー", "Assetsフォルダ内を選択してください。", LogType.Error);
                 return null;
             }
 

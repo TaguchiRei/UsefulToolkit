@@ -2,6 +2,7 @@
 using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEngine;
+using UsefulToolkit.Editor.Utility;
 
 namespace UsefulToolkit.Editor.GitSupport
 {
@@ -34,7 +35,7 @@ namespace UsefulToolkit.Editor.GitSupport
                     case BranchWarningType.None:
                         break;
                     default:
-                        EditorUtility.DisplayDialog("警告", $"現在のブランチは[{currentBranch}]です。ブランチを切ってから作業してください", "OK");
+                        EditorPrompt.Notify("警告", $"現在のブランチは[{currentBranch}]です。ブランチを切ってから作業してください", LogType.Warning);
                         break;
                 }
             }
@@ -66,11 +67,12 @@ namespace UsefulToolkit.Editor.GitSupport
                 switch (setting.WarningType)
                 {
                     case BranchWarningType.Warning:
-                        save = EditorUtility.DisplayDialog("確認", "保存しますか？", "保存", "キャンセル");
+                        save = EditorPrompt.Confirm("GitSupport.SaveOnWarningBranch", "確認",
+                            $"現在のブランチは[{currentBranch}]です。保存しますか？", "保存", "キャンセル", false);
                         break;
                     case BranchWarningType.CantSave:
                         save = false;
-                        EditorUtility.DisplayDialog("警告", $"現在のブランチは[{currentBranch}]です。ブランチを切ってから作業してください", "OK");
+                        EditorPrompt.Notify("警告", $"現在のブランチは[{currentBranch}]です。ブランチを切ってから作業してください", LogType.Warning);
                         break;
                     default:
                         //Noneの場合

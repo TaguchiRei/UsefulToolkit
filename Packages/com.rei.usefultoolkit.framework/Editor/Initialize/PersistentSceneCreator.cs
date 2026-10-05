@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UsefulToolkit.Editor.Utility;
 using UsefulToolkit.EngineAdapter;
 using UsefulToolkit.Initialization;
 
@@ -47,7 +48,7 @@ namespace UsefulToolkit.Editor.Initialize
         [MenuItem("UsefulToolkit/Scene/GenerateUsefulPersistentScene", false, 20)]
         public static void CreatePersistentScene()
         {
-            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            if (!EditorPrompt.SaveModifiedScenes())
             {
                 return;
             }
@@ -55,11 +56,12 @@ namespace UsefulToolkit.Editor.Initialize
             string existingScenePath = FindExistingPersistentScenePath();
             if (!string.IsNullOrEmpty(existingScenePath))
             {
-                if (!EditorUtility.DisplayDialog(
+                if (!EditorPrompt.Confirm(
+                        "PersistentScene.UpdateExisting",
                         "常駐シーンの更新",
                         $"既存の常駐シーン {existingScenePath} を最新状態に更新します。\n" +
                         "保存先の選択は行わず、このシーンとそのCompositorを再生成します。",
-                        "更新", "キャンセル"))
+                        "更新", "キャンセル", true))
                 {
                     return;
                 }
@@ -78,7 +80,8 @@ namespace UsefulToolkit.Editor.Initialize
                 return;
             }
 
-            string scenePath = EditorUtility.SaveFilePanelInProject(
+            string scenePath = EditorPrompt.SaveFilePanelInProject(
+                "PersistentScene.ScenePath",
                 "常駐シーンの保存先", DefaultSceneName, "unity",
                 "UsefulToolkitの初期化を行う常駐シーンを保存する場所を選んでください。");
 
@@ -317,7 +320,7 @@ namespace UsefulToolkit.Editor.Initialize
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
             if (!scene.IsValid())
             {
-                EditorUtility.DisplayDialog("エラー", $"シーン {scenePath} を開けませんでした。", "OK");
+                EditorPrompt.Notify("エラー", $"シーン {scenePath} を開けませんでした。", LogType.Error);
                 return default;
             }
 
@@ -349,7 +352,7 @@ namespace UsefulToolkit.Editor.Initialize
                 return scene;
             }
 
-            EditorUtility.DisplayDialog("エラー", $"シーンを {scenePath} へ保存できませんでした。", "OK");
+            EditorPrompt.Notify("エラー", $"シーンを {scenePath} へ保存できませんでした。", LogType.Error);
             return default;
         }
 
@@ -375,7 +378,7 @@ namespace UsefulToolkit.Editor.Initialize
                 return scene;
             }
 
-            EditorUtility.DisplayDialog("エラー", $"シーンを {scenePath} へ保存できませんでした。", "OK");
+            EditorPrompt.Notify("エラー", $"シーンを {scenePath} へ保存できませんでした。", LogType.Error);
             return default;
         }
 
@@ -432,14 +435,15 @@ namespace UsefulToolkit.Editor.Initialize
                 return;
             }
 
-            int choice = EditorUtility.DisplayDialogComplex(
+            int choice = EditorPrompt.Choose(
+                "PersistentScene.BuildSettingsPosition",
                 "BuildSettingsへの登録",
                 "常駐シーンをBuildSettingsのどこへ追加しますか？\n\n" +
                 "先頭へ追加すると起動時に最初に読まれるシーンになりますが、\n" +
                 "既存シーンのビルドインデックスが1つずつ後ろへずれます。\n" +
                 "ビルドインデックスはSceneGroupの保存内容と対応しているため、\n" +
                 "既にSceneGroupを作成している場合は指し先が変わります。",
-                "末尾へ追加", "追加しない", "先頭へ追加");
+                "末尾へ追加", "追加しない", "先頭へ追加", 0);
 
             switch (choice)
             {

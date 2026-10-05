@@ -150,7 +150,7 @@ namespace UsefulToolkit.Editor.Input
                     "Input Actions の編集ウィンドウが開いている為、バインディングを書き換えられません。\n" +
                     "開いたままだと、書き換え後に古い内容で上書きされる恐れがあります。閉じてから再度生成してください。";
 
-                if (interactive) EditorUtility.DisplayDialog(title, openMessage, "OK");
+                if (interactive) EditorPrompt.Notify(title, openMessage, LogType.Error);
                 else Debug.LogError($"[UsefulToolkit.Input] {openMessage}");
 
                 return false;
@@ -170,7 +170,7 @@ namespace UsefulToolkit.Editor.Input
                 "該当するコントロールのリバインド設定は失われます。\n" +
                 "Project Settings の Input System Package 画面を開いている場合は、閉じてから実行してください。";
 
-            return EditorUtility.DisplayDialog(title, message, "書き換えて生成", "中止");
+            return EditorPrompt.Confirm("ExternalInput.RewriteBindings", title, message, "書き換えて生成", "中止", true);
         }
 
         /// <summary>
