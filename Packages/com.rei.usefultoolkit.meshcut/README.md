@@ -45,6 +45,8 @@ Burst / Collections / Mathematics と Framework パッケージは、本パッ�
 - 実行中に足すオブジェクトや、プールで非アクティブのまま待たせるオブジェクトは、`MeshDataCache.Register(CuttableObject)` で登録してください。
   `Register` は非アクティブなものや `MeshDataCache` の子でないものも登録でき、同じ共有メッシュ(プレハブのメッシュ等)を
   何度登録してもストアへの追加は 1 回だけです。`MeshDataCache` の `Start()` より前には呼べません。
+- 切断対象のメッシュは **Read/Write を有効**にしてください(モデルの Import Settings)。無効なメッシュは登録時にエラーログを出して登録されません
+  (`Register` は false を返します)。
 
 ## 1回だけ切断 / 何回でも切断
 
@@ -214,7 +216,7 @@ Console に出さずに結果だけ取りたい場合は `MultiCutBlade.CollectP
 |---|---|
 | `static MeshDataCache Instance` | シーンの `MeshDataCache`。`Start()` で設定される |
 | `void Initialize()` | 配下のアクティブな `CuttableObject` を走査してストアを作り直す(`Start()` で呼ばれる) |
-| `bool Register(CuttableObject)` | 実行中に 1 つの `CuttableObject` を登録し、切断できる状態にする。非アクティブなものも登録できる。ストアが無い、メッシュが無いときは false |
+| `bool Register(CuttableObject)` | 実行中に 1 つの `CuttableObject` を登録し、切断できる状態にする。非アクティブなものも登録できる。ストアが無い、メッシュが無い、メッシュの Read/Write が無効なときは false |
 | `void RegisterUser(CuttableObject)` | 追加登録されたメッシュを持つ `CuttableObject` を、再構築の対象として記録する |
 | `void Rebuild()` / `void RebuildIfNeeded()` | 切断できる `CuttableObject` が参照するメッシュだけを残してストアを作り直す |
 | `void AddStoreReader(JobHandle)` / `void CompleteStoreReaders()` | ストアを読む Job の記録と、その完了待ち |
@@ -247,7 +249,8 @@ Console に出さずに結果だけ取りたい場合は `MultiCutBlade.CollectP
 | `void SetupCollider(List<Vector3>)` | サンプリング点から球コライダーを求めて配置する(破片1つぶん) |
 | `void ApplyColliderSpheres(NativeArray<float4>, int)` | `ColliderClusterJob` が求めた球をコライダーへ反映する |
 | `void SetCutMesh(Mesh)` | 切断で生成されたメッシュを表示し、持ち主になる。以前に持っていたメッシュは破棄する |
-| `void AdoptCutShape(CuttableObject)` | 破片の切断後の形を自分に移す。下記参照 |
+| `void AdoptCutShape(CuttableObject)` | 破片の切断後の形を自分に移す。当たり判定は破片の球コライダーを写す(`AdoptColliderMode.Spheres`)。下記参照 |
+| `void AdoptCutShape(CuttableObject, AdoptColliderMode)` | 破片の切断後の形を自分に移す。当たり判定の作り方を選ぶ。下記参照 |
 | `void RestoreInitialShape()` | 初期化の時点の形に戻し、切断回数を 0 にする。下記参照 |
 
 `MultiMeshCut.CutMesh` のメッシュは切断のたびに新しく生成されます。自前で反映処理を書く場合は `SetCutMesh` で破片に渡すか、
@@ -257,12 +260,21 @@ Console に出さずに結果だけ取りたい場合は `MultiCutBlade.CollectP
 #### 切断後の形を元のオブジェクトへ移す / 元に戻す
 
 切断した元のオブジェクト(例：敵の体に付いたままの部位)に、切断後の形を持たせたいときは `AdoptCutShape(fragment)` を使います。
-破片のメッシュ(持ち主ごと)、マテリアル、球コライダーの位置と大きさ、切断設定と回数、切断できるかどうかを移し、
-移した先が元から持っていたコライダー(プレハブに付けた `BoxCollider` など)は無効にします。
+破片のメッシュ(持ち主ごと)、マテリアル、切断設定と回数、切断できるかどうかを移します。
 移したあとの破片はメッシュの持ち主でなくなり、切断もできなくなるので、**そのままプールへ返して使い回してかまいません**(移した形は消えません)。
-破片の球コライダーの数が移す先より多いときは、移す先の球コライダーを増やします。
 
-`RestoreInitialShape()` は、初期化(`Awake`)の時点のメッシュとマテリアルに戻し、球コライダーを無効に、元から持っていたコライダーを初期の状態に戻し、
+移した先の当たり判定は、2 つ目の引数の `AdoptColliderMode` で選びます。省略したときは `Spheres` です。
+
+| `AdoptColliderMode` | 移した先の当たり判定 |
+|---|---|
+| `Spheres`(既定) | 破片の球コライダーの位置と大きさを写し、移した先が元から持っていたコライダー(プレハブに付けた `BoxCollider` など)は無効にします。破片の球コライダーの数が移す先より多いときは、移す先の球コライダーを増やします。球はメッシュの頂点から求めるため、頂点の少ない長い形では**球の並びに隙間ができ**、隙間だけに重なる範囲の `OverlapBox` などでは見つかりません |
+| `FitOwnColliders` | 移した先が元から持っていたコライダーのうち、初期化の時点で有効だったものを、移したメッシュの `bounds`(ローカル空間)を覆う形に合わせて有効のまま使い、球コライダーは無効にします。メッシュと交わる平面は、必ずこのコライダーとも交わります。`BoxCollider` は bounds と同じ中心と大きさ、`SphereCollider` は bounds の角まで届く半径、`CapsuleCollider` は最も長い軸を向きにして bounds を含む大きさ、`MeshCollider` は移したメッシュそのものになります。それ以外の種類のコライダーは無効にします。合わせられるコライダーが 1 つも無いときは、警告を出して `Spheres` と同じにします |
+
+`FitOwnColliders` の当たり判定は bounds を覆う形なので、斜めに切った形では、メッシュの無い角の部分にも当たり判定があります。
+切る前に、対象の `Renderer.bounds` などで刃の平面をまたぐかを確かめると、空振りの切断を避けられます。
+
+`RestoreInitialShape()` は、初期化(`Awake`)の時点のメッシュとマテリアルに戻し、球コライダーを無効に、
+元から持っていたコライダーを初期の状態(有効・無効と、中心・大きさ・半径・高さ・向き・`MeshCollider` のメッシュ)に戻し、
 切断回数を 0 にします。持ち主になっていた切断後のメッシュは破棄し、共有メッシュは破棄しません。
 戻したあとは切断できない状態なので、もう一度切れるようにするには `MeshDataCache.Register` で登録し直してください。
 
@@ -273,7 +285,8 @@ MultiCutResult[] results = await _blade.ExecuteCut(new[] { part });
 MultiCutResult result = results[0];
 
 // 体に残す側の形を、元の部位へ移す(Original は非アクティブになっている)
-result.Original.AdoptCutShape(result.Front);
+// 部位の BoxCollider を移した形に合わせて使うので、長い部位でも当たり判定に隙間ができない
+result.Original.AdoptCutShape(result.Front, AdoptColliderMode.FitOwnColliders);
 result.Original.gameObject.SetActive(true);
 _pool.ReleaseObject(result.Front);
 
@@ -288,12 +301,17 @@ MeshDataCache.Instance.Register(part);
 クラスタリングは Burst の `ColliderClusterJob` で行い、`MultiCutBlade` は全破片ぶんをまとめて並列に計算します。
 `_colliderNum` は 7 以上である必要があります。
 
+球はサンプリング点(破片の頂点)から求めるため、頂点の少ない長い形では、頂点の無い中ほどに球が置かれず、球の並びに隙間ができることがあります。
+破片の当たり判定に隙間を作りたくないときは、破片をそのまま使わず、`AdoptCutShape(fragment, AdoptColliderMode.FitOwnColliders)` で
+コライダーを持つオブジェクトへ形を移してください。
+
 `MultiMeshCut.SamplingPoints` が返す点は**元オブジェクトのローカル空間**の座標です(切断はローカル空間で行われるため)。
 破片の Transform は切断元と同一に設定されるので、`SetupCollider` はこれを変換せずそのまま
 `SphereCollider.center` のローカル座標として扱います。自前で反映処理を書く場合はこの座標系に注意してください。
 
 ## 既知の制限
 
+- 破片の球コライダーは破片の頂点から求めるため、頂点の少ない長い形では球の並びに隙間ができます(「球コライダー」を参照)。
 - 切断結果を受け取れるのは、切断を開始した次のフレームです(全 Job を 1 本の依存チェーンで実行し、完了を 1 回だけ待つため)。
 - 切断のたびに、切断対象の頂点・三角形の合計に比例する中間バッファを確保します(切断対象の頂点・三角形データの複製と、
   破片用のバッファ)。破片用のバッファは実際に必要な量から求めますが、切断面付近の三角形については上限で見積もります。
