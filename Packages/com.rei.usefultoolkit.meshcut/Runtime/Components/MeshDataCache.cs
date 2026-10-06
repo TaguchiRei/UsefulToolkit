@@ -80,6 +80,7 @@ namespace UsefulToolkit.MeshCut
             {
                 var mesh = cuttable.Mesh.sharedMesh;
                 if (mesh == null) continue;
+                if (!CheckReadable(cuttable, mesh)) continue;
 
                 if (!_sourceMeshIds.TryGetValue(mesh, out int meshId))
                 {
@@ -101,7 +102,7 @@ namespace UsefulToolkit.MeshCut
         /// 非アクティブなものや、このコンポーネントの子でないものも登録できます。
         /// 共有メッシュ(プレハブのメッシュ等)はストアへ1回だけ追加し、2回目以降は同じメッシュIDを使います。
         /// </summary>
-        /// <returns>ストアがまだ無い、または表示中のメッシュが無いときは false</returns>
+        /// <returns>ストアがまだ無い、表示中のメッシュが無い、またはメッシュの Read/Write が無効なときは false</returns>
         public bool Register(CuttableObject cuttable)
         {
             if (cuttable == null) return false;
@@ -122,6 +123,8 @@ namespace UsefulToolkit.MeshCut
                 return false;
             }
 
+            if (!CheckReadable(cuttable, mesh)) return false;
+
             int meshId;
 
             if (cuttable.ShowsOwnedCutMesh)
@@ -140,6 +143,20 @@ namespace UsefulToolkit.MeshCut
             cuttable.SetRegisteredMesh(meshId);
             _users.Add(cuttable);
             return true;
+        }
+
+        /// <summary>
+        /// ストアへの追加はメッシュの頂点を CPU 側で読むため、Read/Write が無効なメッシュは登録できない。
+        /// 無効なときは原因と対処をエラーログに出します。
+        /// </summary>
+        private static bool CheckReadable(CuttableObject cuttable, Mesh mesh)
+        {
+            if (mesh.isReadable) return true;
+
+            Debug.LogError(
+                $"[UsefulToolkit.MeshCut] {cuttable.name} のメッシュ {mesh.name} は Read/Write が無効なため登録できません。モデルの Import Settings で Read/Write を有効にしてください。",
+                cuttable);
+            return false;
         }
 
         /// <summary>

@@ -39,6 +39,8 @@
   切断 1 回ぶんを 1 つの表として出力します。Job の実行時間はワーカー上で記録します。
 - `MultiCutBlade` の計測結果に、プール生成待ち・破片取得・破片反映(うち `SetupCollider`)を含めるようにしました。
   破片反映をフレーム分割したときの個別ログは廃止し、表の付帯情報「破片反映のフレーム分割回数」にまとめました。
+- `MeshDataCache.Register` / `Initialize` は、Read/Write が無効なメッシュを、原因を書いたエラーログを出して登録しないようにしました(`Register` は false)。
+  従来は `NativeMeshDataStore.Add` で「source and destination length must be the same」の `ArgumentException` になっていました。
 
 ### Added
 
@@ -62,6 +64,11 @@
   移したあとの破片はプールへ返して使い回せます。
 - `CuttableObject.RestoreInitialShape` — 初期化の時点のメッシュ・マテリアル・コライダー・切断設定に戻し、切断回数を 0 にします。
 - 一度もアクティブになっていない(`Awake` が走っていない) `CuttableObject` も、上の操作で扱えるようにしました。
+- `CuttableObject.AdoptCutShape(CuttableObject, AdoptColliderMode)` と `AdoptColliderMode` — 形を移した先の当たり判定の作り方を選べるようにしました。
+  `FitOwnColliders` は、移した先が元から持っていたコライダー(Box / Sphere / Capsule / Mesh)を移したメッシュの bounds を覆う形に合わせて使い、球コライダーを無効にします。
+  球コライダーを写す方法では、頂点の少ない長い形で球の並びに隙間ができ、その隙間を通る刃の範囲では対象が見つからなかったためです。
+  引数 1 つの `AdoptCutShape(CuttableObject)` は `Spheres`(従来どおり)です。
+  - `RestoreInitialShape` は、元から持っていたコライダーの有効・無効に加えて、中心・大きさ・半径・高さ・向き・`MeshCollider` のメッシュも初期化の時点に戻します。
 
 ### Fixed
 
