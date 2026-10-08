@@ -7,9 +7,9 @@ namespace UsefulToolkit.Editor.WorkTrack
 {
     /// <summary>
     /// Unity Editorの起動・終了に合わせて作業セッションを自動記録する。
-    /// CurrentSession.jsonへの書き込みはEditorの起動時と終了時のみで、途中経過は書き戻さない。
-    /// クラッシュ等で終了処理が走らなかった場合は終了時刻が不明になり、開始時刻を終了時刻として作業時間0で確定する。
-    ///
+    /// 記録中のセッションはUnityプロセスごとのファイルに置き、書き込むのはEditorの起動時と終了時だけで、途中経過は書き戻さない。
+    /// クラッシュ等で終了処理が走らなかったセッションは終了時刻が不明になるため、持ち主のプロセスが終わっていれば、
+    /// 次に起動したUnityが開始時刻を終了時刻として作業時間0で確定する。
     /// [InitializeOnLoad]の静的コンストラクタはスクリプトのドメインリロード毎に再実行されるため、
     /// SessionState(ドメインリロードをまたいでEditorプロセス内で保持される)で
     /// 「本当にEditorが起動した直後か、単なる再コンパイルによる再実行か」を区別する。
@@ -23,15 +23,17 @@ namespace UsefulToolkit.Editor.WorkTrack
 
         static WorkSessionRecorder()
         {
+            if (!ShouldRecord()) return;
+
             var activeSessionId = SessionState.GetString(ActiveSessionIdKey, string.Empty);
             if (!string.IsNullOrEmpty(activeSessionId))
             {
-                _currentSession = WorkTrackRepository.LoadCurrentSession();
+                _currentSession = WorkTrackRepository.LoadCurrentSessionRecord(activeSessionId)?.Session;
             }
 
             if (_currentSession == null)
             {
-                RecoverOrphanedSession();
+                RecoverOrphanedSessions();
                 StartNewSession();
                 SessionState.SetString(ActiveSessionIdKey, _currentSession.SessionId);
             }
@@ -39,14 +41,30 @@ namespace UsefulToolkit.Editor.WorkTrack
             EditorApplication.quitting += OnQuitting;
         }
 
-        private static void RecoverOrphanedSession()
-        {
-            var orphaned = WorkTrackRepository.LoadCurrentSession();
-            if (orphaned == null) return;
+        /// <summary>
+        /// アセットインポート用のワーカーとバッチモードのUnityも[InitializeOnLoad]を実行するが、人の作業時間ではないため記録から外す。
+        /// </summary>
+        private static bool ShouldRecord() => !AssetDatabase.IsAssetImportWorkerProcess() && !Application.isBatchMode;
 
-            // クラッシュ等で終了処理が走らなかったセッション。正確な終了時刻は追えないため、開始時刻を終了時刻として確定する。
-            FinalizeSession(orphaned, orphaned.StartTime);
-            WorkTrackRepository.DeleteCurrentSession();
+        /// <summary>
+        /// クラッシュ等で終了処理が走らなかったセッションを確定する。正確な終了時刻は追えないため、開始時刻を終了時刻とする。
+        /// 他のUnityが記録中のセッションは、持ち主のプロセスが動いている間は確定しない。
+        /// </summary>
+        private static void RecoverOrphanedSessions()
+        {
+            // 旧形式のファイルは持ち主を特定できないため、無条件に確定する
+            if (WorkTrackRepository.TryTakeLegacyCurrentSession(out var legacy))
+            {
+                FinalizeSession(legacy, legacy.StartTime);
+            }
+
+            foreach (var record in WorkTrackRepository.LoadCurrentSessionRecords())
+            {
+                if (record.IsOwnerAlive()) continue;
+                if (!WorkTrackRepository.TryTakeCurrentSessionRecord(record.Session.SessionId)) continue;
+
+                FinalizeSession(record.Session, record.Session.StartTime);
+            }
         }
 
         private static void StartNewSession()
@@ -70,7 +88,7 @@ namespace UsefulToolkit.Editor.WorkTrack
                 UpdatedAt = now
             };
 
-            WorkTrackRepository.SaveCurrentSession(_currentSession);
+            WorkTrackRepository.SaveCurrentSessionRecord(CurrentSessionRecord.CreateForCurrentProcess(_currentSession));
         }
 
         private static void OnQuitting()
@@ -78,7 +96,7 @@ namespace UsefulToolkit.Editor.WorkTrack
             if (_currentSession == null) return;
 
             FinalizeSession(_currentSession, NowIso());
-            WorkTrackRepository.DeleteCurrentSession();
+            WorkTrackRepository.DeleteCurrentSessionRecord(_currentSession.SessionId);
             SessionState.EraseString(ActiveSessionIdKey);
             _currentSession = null;
         }
