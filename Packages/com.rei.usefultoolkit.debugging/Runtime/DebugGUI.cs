@@ -60,6 +60,9 @@ namespace UsefulToolkit.Debugging
         // スレッドセーフなログキュー
         private readonly System.Collections.Concurrent.ConcurrentQueue<LogData> _threadedLogQueue = new();
 
+        // ログ受信はメインスレッド外からも呼ばれ、EditorPrefs はメインスレッドでしか読めないため、メインスレッドで読んだ値を保持する
+        private volatile bool _logCaptureEnabled;
+
 #endif
 
         private void Awake()
@@ -71,6 +74,7 @@ namespace UsefulToolkit.Debugging
 #if UNITY_EDITOR
                 InitializeStyles();
                 InitializeBuffers();
+                RefreshLogCaptureEnabled();
                 Application.logMessageReceivedThreaded += OnLogReceived;
 #endif
 
@@ -94,7 +98,7 @@ namespace UsefulToolkit.Debugging
 
         private void OnLogReceived(string condition, string stackTrace, LogType type)
         {
-            if (!UnityEditor.EditorPrefs.GetBool("UsefulToolkit.Debug.LogCaptureEnabled", false)) return;
+            if (!_logCaptureEnabled) return;
 
             // メインスレッド以外からも呼ばれるためキューに積む
             _threadedLogQueue.Enqueue(new LogData
@@ -103,6 +107,11 @@ namespace UsefulToolkit.Debugging
                 Type = type,
                 Time = -1f // UpdateでTime.timeを代入
             });
+        }
+
+        private void RefreshLogCaptureEnabled()
+        {
+            _logCaptureEnabled = UnityEditor.EditorPrefs.GetBool("UsefulToolkit.Debug.LogCaptureEnabled", false);
         }
 
         private void InitializeStyles()
@@ -274,6 +283,7 @@ namespace UsefulToolkit.Debugging
 
         private void Update()
         {
+            RefreshLogCaptureEnabled();
             ProcessThreadedLogs();
             UpdateFPS();
             UpdateLogs();

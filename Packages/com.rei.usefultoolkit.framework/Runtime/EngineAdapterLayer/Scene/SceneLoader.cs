@@ -35,7 +35,9 @@ namespace UsefulToolkit.EngineAdapter
                 var operation = SceneManager.LoadSceneAsync(sceneIds[i], LoadSceneMode.Additive);
                 if (operation == null)
                 {
-                    UsefulLogger.LogError($"シーンID{sceneIds[i]}はビルド設定に含まれていない可能性があります。", this);
+                    UsefulLogger.LogError(
+                        $"シーンID{sceneIds[i]}のロードを開始できませんでした。ビルド設定に含まれていないか、" +
+                        "シーンのロードが許可されていない状態（前回のプレイ終了時に起きた例外などが原因）の可能性があります。", this);
                     return false;
                 }
 
