@@ -23,6 +23,8 @@ namespace UsefulToolkit.Editor.WorkTrack
 
         static WorkSessionRecorder()
         {
+            if (!ShouldRecord()) return;
+
             var activeSessionId = SessionState.GetString(ActiveSessionIdKey, string.Empty);
             if (!string.IsNullOrEmpty(activeSessionId))
             {
@@ -38,6 +40,11 @@ namespace UsefulToolkit.Editor.WorkTrack
 
             EditorApplication.quitting += OnQuitting;
         }
+
+        /// <summary>
+        /// アセットインポート用のワーカーとバッチモードのUnityも[InitializeOnLoad]を実行するが、人の作業時間ではないため記録から外す。
+        /// </summary>
+        private static bool ShouldRecord() => !AssetDatabase.IsAssetImportWorkerProcess() && !Application.isBatchMode;
 
         /// <summary>
         /// クラッシュ等で終了処理が走らなかったセッションを確定する。正確な終了時刻は追えないため、開始時刻を終了時刻とする。
