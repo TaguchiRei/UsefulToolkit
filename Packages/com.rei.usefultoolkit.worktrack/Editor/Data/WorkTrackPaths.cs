@@ -31,13 +31,21 @@ namespace UsefulToolkit.Editor.WorkTrack
         public static void ResetToDefault() => EditorPrefs.DeleteKey(SaveDirectoryKey);
 
         public static string SessionsFilePath => Path.Combine(SaveDirectory, "Sessions.json");
-        public static string CurrentSessionFilePath => Path.Combine(SaveDirectory, "CurrentSession.json");
+        public static string CurrentSessionsDirectory => Path.Combine(SaveDirectory, "CurrentSessions");
+
+        /// <summary> 1つのファイルを全Unityで共有する旧形式の記録中セッション。見つけたら確定して削除する </summary>
+        public static string LegacyCurrentSessionFilePath => Path.Combine(SaveDirectory, "CurrentSession.json");
+
         public static string ProjectsFilePath => Path.Combine(SaveDirectory, "Projects.json");
         public static string ExportDirectory => Path.Combine(SaveDirectory, "Export");
+
+        public static string GetCurrentSessionFilePath(string sessionId) =>
+            Path.Combine(CurrentSessionsDirectory, sessionId + ".json");
 
         public static void EnsureDirectories()
         {
             Directory.CreateDirectory(SaveDirectory);
+            Directory.CreateDirectory(CurrentSessionsDirectory);
             Directory.CreateDirectory(ExportDirectory);
         }
     }

@@ -44,8 +44,8 @@ namespace UsefulToolkit.Editor.WorkTrack
         // Sessions.jsonの内容(編集・削除対象)。表示用の合成前の生データ。
         private List<WorkSession> _finalizedSessions = new();
 
-        // CurrentSession.jsonの内容(表示専用、編集・削除の対象外)。
-        private WorkSession _currentSession;
+        // 他のUnityの分も含めた記録中のセッション(表示専用、編集・削除の対象外)。
+        private List<WorkSession> _currentSessions = new();
 
         // 履歴/集計タブの表示用に、確定履歴と進行中セッションを合成したもの。
         private List<WorkSession> _displaySessions = new();
@@ -76,10 +76,15 @@ namespace UsefulToolkit.Editor.WorkTrack
             _finalizedSessions = WorkTrackRepository.LoadSessions();
             _finalizedSessions.Sort((a, b) => string.CompareOrdinal(b.StartTime, a.StartTime));
 
-            _currentSession = WorkTrackRepository.LoadCurrentSession();
+            // 持ち主のプロセスが終わったものは、次にUnityが起動したときに作業時間0で確定されるため表示しない
+            _currentSessions = WorkTrackRepository.LoadCurrentSessionRecords()
+                .Where(r => r.IsOwnerAlive())
+                .Select(r => r.Session)
+                .ToList();
+            _currentSessions.Sort((a, b) => string.CompareOrdinal(b.StartTime, a.StartTime));
 
-            _displaySessions = new List<WorkSession>(_finalizedSessions);
-            if (_currentSession != null) _displaySessions.Insert(0, _currentSession);
+            _displaySessions = new List<WorkSession>(_currentSessions);
+            _displaySessions.AddRange(_finalizedSessions);
 
             _editingSessionId = null;
 

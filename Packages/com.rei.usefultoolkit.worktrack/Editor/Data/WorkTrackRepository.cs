@@ -7,7 +7,7 @@ using UnityEngine;
 namespace UsefulToolkit.Editor.WorkTrack
 {
     /// <summary>
-    /// WorkTrackのJSONファイル(Sessions/CurrentSession/Projects)への読み書きを担う。
+    /// WorkTrackのJSONファイル(Sessions/CurrentSessions/Projects)への読み書きを担う。
     /// 複数のUnityプロセスから同じ保存先を共有する可能性があるため、書き込みは一時ファイル経由の
     /// アトミックな置き換えとし、読み書きどちらもファイルロック競合時は短時間リトライする。
     /// 保存内容はWorkTrackCryptoで簡易暗号化しており、テキストエディタで開いても読めない。
@@ -28,21 +28,63 @@ namespace UsefulToolkit.Editor.WorkTrack
             SaveJsonAtomic(WorkTrackPaths.SessionsFilePath, new WorkSessionListData { Sessions = sessions });
         }
 
-        public static WorkSession LoadCurrentSession()
+        internal static CurrentSessionRecord LoadCurrentSessionRecord(string sessionId)
         {
-            var path = WorkTrackPaths.CurrentSessionFilePath;
-            return File.Exists(path) ? LoadJson<WorkSession>(path) : null;
+            return LoadJson<CurrentSessionRecord>(WorkTrackPaths.GetCurrentSessionFilePath(sessionId));
         }
 
-        public static void SaveCurrentSession(WorkSession session)
+        /// <summary>
+        /// 保存先にある記録中セッションを、他のUnityが記録しているものも含めてすべて読む。
+        /// </summary>
+        internal static List<CurrentSessionRecord> LoadCurrentSessionRecords()
         {
-            SaveJsonAtomic(WorkTrackPaths.CurrentSessionFilePath, session);
+            var records = new List<CurrentSessionRecord>();
+            var directory = WorkTrackPaths.CurrentSessionsDirectory;
+            if (!Directory.Exists(directory)) return records;
+
+            foreach (var path in Directory.GetFiles(directory, "*.json"))
+            {
+                if (Path.GetExtension(path) != ".json") continue;
+
+                CurrentSessionRecord record;
+                try
+                {
+                    record = LoadJson<CurrentSessionRecord>(path);
+                }
+                catch (IOException)
+                {
+                    // 一覧を取ってから読むまでの間に、他のUnityが削除または引き取った
+                    continue;
+                }
+
+                if (record?.Session != null && !string.IsNullOrEmpty(record.Session.SessionId)) records.Add(record);
+            }
+
+            return records;
         }
 
-        public static void DeleteCurrentSession()
+        internal static void SaveCurrentSessionRecord(CurrentSessionRecord record)
         {
-            var path = WorkTrackPaths.CurrentSessionFilePath;
+            SaveJsonAtomic(WorkTrackPaths.GetCurrentSessionFilePath(record.Session.SessionId), record);
+        }
+
+        internal static void DeleteCurrentSessionRecord(string sessionId)
+        {
+            var path = WorkTrackPaths.GetCurrentSessionFilePath(sessionId);
             if (File.Exists(path)) File.Delete(path);
+        }
+
+        /// <summary>
+        /// 記録中セッションのファイルを削除して引き取る。同じファイルを複数のUnityが同時に引き取ろうとしても、trueを返すのは1つだけ。
+        /// </summary>
+        internal static bool TryTakeCurrentSessionRecord(string sessionId)
+        {
+            return TryTakeJson<CurrentSessionRecord>(WorkTrackPaths.GetCurrentSessionFilePath(sessionId), out _);
+        }
+
+        internal static bool TryTakeLegacyCurrentSession(out WorkSession session)
+        {
+            return TryTakeJson(WorkTrackPaths.LegacyCurrentSessionFilePath, out session) && session != null;
         }
 
         public static List<ProjectInfo> LoadProjects()
@@ -74,6 +116,30 @@ namespace UsefulToolkit.Editor.WorkTrack
                 Debug.LogError($"[WorkTrack] JSONの読み込みに失敗しました: {path}\n{e.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// ファイルを一時的な名前へ移してから読み、削除する。移動に成功するのは1つのプロセスだけなので、これを引き取りの排他に使う。
+        /// </summary>
+        private static bool TryTakeJson<T>(string path, out T data) where T : class
+        {
+            data = null;
+            if (!File.Exists(path)) return false;
+
+            var takenPath = path + ".taking";
+            try
+            {
+                File.Move(path, takenPath);
+            }
+            catch (IOException)
+            {
+                // 他のUnityが先に引き取った
+                return false;
+            }
+
+            data = LoadJson<T>(takenPath);
+            File.Delete(takenPath);
+            return true;
         }
 
         private static string DecryptOrFallback(string raw)
