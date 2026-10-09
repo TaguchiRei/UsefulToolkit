@@ -108,6 +108,8 @@ namespace UsefulToolkit.Editor.Setting
 
         // 導入状況とリクエストの状態
         private static readonly HashSet<string> InstalledPackageNames = new();
+        /// <summary>Git URL で再Addできない導入元（Embedded・file: 参照など）のパッケージ名。</summary>
+        private static readonly HashSet<string> NonUpdatablePackageNames = new();
         private static ListRequest _listRequest;
         private static AddAndRemoveRequest _addRequest;
         private static PackageOperation _pendingOperation = PackageOperation.Install;
@@ -441,31 +443,43 @@ namespace UsefulToolkit.Editor.Setting
 
         /// <summary>
         /// 導入済みのUsefulToolkitパッケージをすべて Git URL で再Addし、リモート既定ブランチの最新コミットへ再解決する。
-        /// 外部依存パッケージ（UniTask等）は対象にしない。
+        /// 外部依存パッケージ（UniTask等）と、Embedded・file: 参照で導入されたパッケージは対象にしない。
         /// </summary>
         private void StartUpdateAll()
         {
             var identifiers = new List<string>();
             var packageNames = new List<string>();
+            var skippedNames = new List<string>();
 
             foreach (var pkg in _packages)
             {
                 if (!IsInstalled(pkg.PackageName)) continue;
 
+                if (NonUpdatablePackageNames.Contains(pkg.PackageName))
+                {
+                    skippedNames.Add(pkg.PackageName);
+                    continue;
+                }
+
                 identifiers.Add(pkg.GetFullIdentifier());
                 packageNames.Add(pkg.PackageName);
             }
 
+            string skippedDetail = skippedNames.Count == 0
+                ? string.Empty
+                : "\n\nEmbedded・ローカル参照のため対象外（開発中のプロジェクトではありませんか？）:\n" +
+                  string.Join("\n", skippedNames.Select(name => "・" + name));
+
             if (identifiers.Count == 0)
             {
-                EditorUtility.DisplayDialog(ToolkitName, "アップデート対象の導入済みパッケージがありません。", "OK");
+                EditorUtility.DisplayDialog(ToolkitName, "アップデート対象の導入済みパッケージがありません。" + skippedDetail, "OK");
                 return;
             }
 
             string detail = string.Join("\n", packageNames.Select(name => "・" + name));
             if (!EditorUtility.DisplayDialog(ToolkitName,
                     $"導入済みの {identifiers.Count} 個のパッケージをリモートの最新コミットへ更新しますか？\n" +
-                    "（外部依存パッケージは対象外です）\n\n" + detail,
+                    "（外部依存パッケージは対象外です）\n\n" + detail + skippedDetail,
                     "アップデート", "キャンセル"))
             {
                 return;
@@ -606,9 +620,15 @@ namespace UsefulToolkit.Editor.Setting
             if (request.Status == StatusCode.Success)
             {
                 InstalledPackageNames.Clear();
+                NonUpdatablePackageNames.Clear();
                 foreach (var package in request.Result)
                 {
                     InstalledPackageNames.Add(package.name);
+                    // Embedded・Local は UPM が Git URL での上書きを拒否する
+                    if (package.source != PackageSource.Git && package.source != PackageSource.Registry)
+                    {
+                        NonUpdatablePackageNames.Add(package.name);
+                    }
                 }
             }
             else if (request.Status >= StatusCode.Failure)
