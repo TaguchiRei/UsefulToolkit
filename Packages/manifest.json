@@ -1,6 +1,7 @@
 {
     "dependencies": {
         "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
+        "com.rei.usefultoolkit.aitool": "file:./com.rei.usefultoolkit.aitool",
         "com.rei.usefultoolkit.debugging": "file:./com.rei.usefultoolkit.debugging",
         "com.rei.usefultoolkit.framework": "file:./com.rei.usefultoolkit.framework",
         "com.rei.usefultoolkit.input": "file:./com.rei.usefultoolkit.input",
@@ -23,8 +24,9 @@
         "com.unity.test-framework": "1.6.0",
         "com.unity.timeline": "1.8.10",
         "com.unity.ugui": "2.0.0",
+        "com.unity.visualeffectgraph": "17.3.0",
         "com.unity.visualscripting": "1.9.9",
-        "io.github.hatayama.uloopmcp": "https://github.com/hatayama/unity-cli-loop.git?path=/Packages/src",
+        "io.github.hatayama.uloopmcp": "https://github.com/hatayama/unity-cli-loop.git?path=/Packages/src#v3.14.0",
         "com.unity.modules.accessibility": "1.0.0",
         "com.unity.modules.adaptiveperformance": "1.0.0",
         "com.unity.modules.ai": "1.0.0",

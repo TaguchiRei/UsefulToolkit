@@ -1,0 +1,26 @@
+{
+    "name": "UsefulToolkit.Ai.VfxGraph.Editor",
+    "rootNamespace": "UsefulToolkit.Editor",
+    "references": [
+        "UnityCLILoop.ToolContracts"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "USEFULTOOLKIT_ULOOP_V3"
+    ],
+    "versionDefines": [
+        {
+            "name": "io.github.hatayama.uloopmcp",
+            "expression": "3.0.0",
+            "define": "USEFULTOOLKIT_ULOOP_V3"
+        }
+    ],
+    "noEngineReferences": false
+}
