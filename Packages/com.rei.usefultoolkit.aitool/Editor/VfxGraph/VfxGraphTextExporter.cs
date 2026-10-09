@@ -8,6 +8,7 @@ using System.Text;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using static UsefulToolkit.Editor.Ai.VfxGraphReflection;
 
 namespace UsefulToolkit.Editor.Ai
 {
@@ -22,117 +23,77 @@ namespace UsefulToolkit.Editor.Ai
     /// </remarks>
     internal static class VfxGraphTextExporter
     {
-        private const string VfxEditorAssembly = "Unity.VisualEffectGraph.Editor";
-        private const string VfxModuleAssembly = "UnityEditor.VFXModule";
         private const int MaxValueDepth = 3;
         private const int MaxListItems = 16;
-
-        private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        private const BindingFlags StaticFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
-        // VFXSettingAttribute.VisibleFlags の InInspector / InGraph。どちらかで表示される設定を出す。
-        private const int SettingVisibleInInspector = 1 << 0;
-        private const int SettingVisibleInGraph = 1 << 1;
 
         /// <summary>
         /// 指定パスの VFX Graph を Markdown にする。
         /// </summary>
         /// <param name="assetPath">Assets/ または Packages/ から始まるアセットのパス。</param>
         /// <param name="markdown">成功時の Markdown。</param>
+        /// <param name="revision">成功時の Revision。</param>
         /// <param name="error">失敗時の理由。</param>
-        public static bool TryExport(string assetPath, out string markdown, out string error)
+        public static bool TryExport(string assetPath, out string markdown, out string revision, out string error)
         {
             markdown = "";
-            if (string.IsNullOrEmpty(assetPath))
-            {
-                error = "AssetPath が空です。Assets/ または Packages/ から始まる VFX Graph アセットのパスを指定してください。";
-                return false;
-            }
-
-            Type resourceType = Type.GetType($"UnityEditor.VFX.VisualEffectResource, {VfxModuleAssembly}");
-            Type extensionsType = Type.GetType($"UnityEditor.VFX.VisualEffectResourceExtensions, {VfxEditorAssembly}");
-            if (resourceType == null || extensionsType == null)
-            {
-                error = "VFX Graph パッケージ (com.unity.visualeffectgraph) が見つかりません。";
-                return false;
-            }
-
-            object resource = resourceType.GetMethod("GetResourceAtPath", StaticFlags)?.Invoke(null, new object[] { assetPath });
-            if (resource == null)
-            {
-                error = $"VFX Graph のアセットとして読み込めません: {assetPath}";
-                return false;
-            }
-
+            revision = "";
             try
             {
-                object graph = extensionsType.GetMethod("GetOrCreateGraph", StaticFlags, null, new[] { resourceType }, null)
-                    ?.Invoke(null, new[] { resource });
-                if (graph == null)
-                {
-                    error = $"グラフを取得できません: {assetPath}";
-                    return false;
-                }
-
-                markdown = new Writer(graph).Write(assetPath);
-                error = "";
+                if (!TryLoadGraph(assetPath, out _, out object graph, out error)) return false;
+                markdown = Export(graph, assetPath, out revision);
                 return true;
             }
             catch (Exception e)
             {
                 // VFX Graph の内部実装が変わってリフレクションが合わなくなったときはここに来る
-                Exception inner = e is TargetInvocationException { InnerException: not null } ? e.InnerException : e;
-                error = $"グラフの読み取りに失敗しました（VFX Graph のバージョンが想定と異なる可能性があります）: {inner}";
+                error = $"グラフの読み取りに失敗しました（VFX Graph のバージョンが想定と異なる可能性があります）: {e}";
                 return false;
             }
         }
 
         /// <summary>
-        /// 1 つのグラフを書き出す。ノードに振る ID（c = Context、o = Operator、p = Parameter）を保持する。
+        /// 読み込み済みのグラフを Markdown にする。編集中のグラフ（未保存の変更を含む）もそのまま書き出せる。
+        /// </summary>
+        public static string Export(object graph, string assetPath, out string revision)
+        {
+            var ids = new VfxGraphNodeIds(graph);
+            revision = ids.Revision;
+            return new Writer(graph, ids).Write(assetPath, revision);
+        }
+
+        /// <summary>
+        /// ノード名の表示用書式（「|」区切り、先頭の「_」は強調の印、改行を含みうる）を、空白区切りの普通の名前にする。
+        /// </summary>
+        public static string DisplayName(string rawName)
+        {
+            IEnumerable<string> words = (rawName ?? "").Split('|', '\n', '\r')
+                .Select(w => w.Trim().TrimStart('_'))
+                .Where(w => w.Length > 0);
+            return string.Join(" ", words);
+        }
+
+        /// <summary>
+        /// 1 つのグラフを書き出す。ノードの ID は VfxGraphNodeIds に従う。
         /// </summary>
         private sealed class Writer
         {
             private readonly object _graph;
-            private readonly List<Object> _contexts = new();
-            private readonly List<Object> _operators = new();
-            private readonly List<Object> _parameters = new();
-            private readonly Dictionary<Object, string> _ids = new();
+            private readonly VfxGraphNodeIds _ids;
+            private readonly Type _parameterType = VfxType("VFXParameter");
             private readonly StringBuilder _sb = new();
 
-            private readonly Type _contextType = VfxType("VFXContext");
-            private readonly Type _parameterType = VfxType("VFXParameter");
-            private readonly Type _slotContainerType = VfxType("IVFXSlotContainer");
-
-            public Writer(object graph)
+            public Writer(object graph, VfxGraphNodeIds ids)
             {
                 _graph = graph;
-                foreach (Object model in Children(graph))
-                {
-                    if (_contextType.IsInstanceOfType(model)) _contexts.Add(model);
-                    else if (_parameterType.IsInstanceOfType(model)) _parameters.Add(model);
-                    else if (_slotContainerType.IsInstanceOfType(model)) _operators.Add(model);
-                }
-
-                AssignIds(_contexts, "c");
-                AssignIds(_operators, "o");
-                AssignIds(_parameters, "p");
-
-                // Block も GPU Event の発火元などで接続元になるので、Context の ID の下に番号を振る
-                foreach (Object context in _contexts)
-                {
-                    int index = 1;
-                    foreach (Object block in Children(context))
-                    {
-                        _ids[block] = $"{_ids[context]}.b{index++}";
-                    }
-                }
+                _ids = ids;
             }
 
-            public string Write(string assetPath)
+            public string Write(string assetPath, string revision)
             {
                 _sb.AppendLine($"# VFX Graph: {System.IO.Path.GetFileNameWithoutExtension(assetPath)}");
                 _sb.AppendLine();
                 _sb.AppendLine($"- Path: `{assetPath}`");
+                _sb.AppendLine($"- Revision: `{revision}`");
                 _sb.AppendLine("- Legend: `name = value` is an input slot, `*` marks a value changed from the default, `<-` is the link source, IDs are c = context, o = operator, p = property");
                 _sb.AppendLine();
 
@@ -143,21 +104,13 @@ namespace UsefulToolkit.Editor.Ai
                 return _sb.ToString();
             }
 
-            private void AssignIds(List<Object> models, string prefix)
-            {
-                for (int i = 0; i < models.Count; i++)
-                {
-                    _ids[models[i]] = $"{prefix}{i + 1}";
-                }
-            }
-
             private void WriteProperties()
             {
-                if (_parameters.Count == 0) return;
+                if (_ids.Parameters.Count == 0) return;
 
                 _sb.AppendLine("## Properties");
                 _sb.AppendLine();
-                foreach (Object parameter in _parameters)
+                foreach (Object parameter in _ids.Parameters)
                 {
                     var type = Get(parameter, "type") as Type;
                     var attributes = new List<string>();
@@ -189,7 +142,7 @@ namespace UsefulToolkit.Editor.Ai
                     }
 
                     string suffix = attributes.Count > 0 ? $" ({string.Join(", ", attributes)})" : "";
-                    _sb.AppendLine($"- {_ids[parameter]} **{Get(parameter, "exposedName")}** : {type?.Name ?? "?"} {valueText}{suffix}");
+                    _sb.AppendLine($"- {IdOf(parameter)} **{Get(parameter, "exposedName")}** : {type?.Name ?? "?"} {valueText}{suffix}");
                 }
 
                 _sb.AppendLine();
@@ -197,14 +150,14 @@ namespace UsefulToolkit.Editor.Ai
 
             private void WriteSystems()
             {
-                if (_contexts.Count == 0) return;
+                if (_ids.Contexts.Count == 0) return;
 
                 _sb.AppendLine("## Systems");
                 _sb.AppendLine();
 
                 // 同じ VFXData を共有する Context が 1 つの System。Data を持たない Context は単独で扱う
                 var systems = new List<(object key, List<Object> contexts)>();
-                foreach (Object context in _contexts)
+                foreach (Object context in _ids.Contexts)
                 {
                     object key = Call(context, "GetData") ?? context;
                     int index = systems.FindIndex(s => ReferenceEquals(s.key, key));
@@ -234,7 +187,7 @@ namespace UsefulToolkit.Editor.Ai
             {
                 string label = Get(context, "label") as string;
                 string labelText = string.IsNullOrEmpty(label) ? "" : $" \"{label}\"";
-                _sb.AppendLine($"#### {_ids[context]} {ModelName(context)}{labelText} `{context.GetType().Name}`");
+                _sb.AppendLine($"#### {IdOf(context)} {ModelName(context)}{labelText} `{context.GetType().Name}`");
 
                 var flowOut = new List<string>();
                 if (Get(context, "outputFlowSlot") is IEnumerable outputFlowSlots)
@@ -258,7 +211,7 @@ namespace UsefulToolkit.Editor.Ai
                 if (flowOut.Count > 0) _sb.AppendLine($"- Flow: {string.Join(", ", flowOut)}");
                 WriteSettingsAndInputs(context, "");
 
-                var blocks = Children(context).ToList();
+                var blocks = VfxGraphNodeIds.Children(context).ToList();
                 if (blocks.Count > 0)
                 {
                     _sb.AppendLine("- Blocks:");
@@ -266,7 +219,7 @@ namespace UsefulToolkit.Editor.Ai
                     {
                         Object block = blocks[i];
                         string disabled = Get(block, "enabled") is false ? " [disabled]" : "";
-                        _sb.AppendLine($"  {i + 1}. {_ids[block]} {ModelName(block)} `{block.GetType().Name}`{disabled}");
+                        _sb.AppendLine($"  {i + 1}. {IdOf(block)} {ModelName(block)} `{block.GetType().Name}`{disabled}");
                         if (Get(block, "activationSlot") is { } activationSlot && HasLink(activationSlot))
                         {
                             _sb.AppendLine($"     - enabled <- {LinkSource(activationSlot)}");
@@ -281,13 +234,13 @@ namespace UsefulToolkit.Editor.Ai
 
             private void WriteOperators()
             {
-                if (_operators.Count == 0) return;
+                if (_ids.Operators.Count == 0) return;
 
                 _sb.AppendLine("## Operators");
                 _sb.AppendLine();
-                foreach (Object op in _operators)
+                foreach (Object op in _ids.Operators)
                 {
-                    _sb.AppendLine($"#### {_ids[op]} {ModelName(op)} `{op.GetType().Name}`");
+                    _sb.AppendLine($"#### {IdOf(op)} {ModelName(op)} `{op.GetType().Name}`");
                     WriteSettingsAndInputs(op, "");
                     _sb.AppendLine();
                 }
@@ -363,7 +316,7 @@ namespace UsefulToolkit.Editor.Ai
 
             private void CollectChildLinks(object slot, string path, List<string> results)
             {
-                foreach (object child in Children(slot))
+                foreach (object child in VfxGraphNodeIds.Children(slot))
                 {
                     string childPath = $"{path}.{Get(child, "name")}";
                     if (HasLink(child)) results.Add($"{childPath} <- {LinkSource(child)}");
@@ -391,7 +344,7 @@ namespace UsefulToolkit.Editor.Ai
             private string IdOf(Object model)
             {
                 if (model == null) return "?";
-                return _ids.TryGetValue(model, out string id) ? id : ModelName(model);
+                return _ids.IdOf(model) ?? ModelName(model);
             }
 
             /// <summary>主スロットから指定スロットまでのスロット名。</summary>
@@ -423,25 +376,7 @@ namespace UsefulToolkit.Editor.Ai
 
             private static string FormatSettings(Object model)
             {
-                MethodInfo getSettings = model.GetType().GetMethods(InstanceFlags)
-                    .FirstOrDefault(m => m.Name == "GetSettings" && m.GetParameters().Length == 2);
-                if (getSettings == null) return "";
-
-                Type flagsType = getSettings.GetParameters()[1].ParameterType;
-                var entries = new List<string>();
-                var names = new HashSet<string>();
-                foreach (int flag in new[] { SettingVisibleInInspector, SettingVisibleInGraph })
-                {
-                    var settings = getSettings.Invoke(model, new[] { false, Enum.ToObject(flagsType, flag) }) as IEnumerable;
-                    foreach (object setting in settings ?? Array.Empty<object>())
-                    {
-                        string name = Get(setting, "name") as string;
-                        if (name == null || !names.Add(name)) continue;
-                        entries.Add($"{name}={FormatValue(Get(setting, "value"))}");
-                    }
-                }
-
-                return string.Join(", ", entries);
+                return string.Join(", ", GetVisibleSettings(model).Select(s => $"{s.name}={FormatValue(s.value)}"));
             }
 
             private static Dictionary<string, object> DefaultInputValues(Object model)
@@ -467,18 +402,8 @@ namespace UsefulToolkit.Editor.Ai
 
             private static string ModelName(Object model)
             {
-                string name = Get(model, "name") as string;
-                if (string.IsNullOrEmpty(name)) name = model.GetType().Name;
-                // ノード名は「|」区切りの表示用書式で、先頭の「_」は強調表示の印。改行も含みうる
-                IEnumerable<string> words = name.Split('|', '\n', '\r')
-                    .Select(w => w.Trim().TrimStart('_'))
-                    .Where(w => w.Length > 0);
-                return string.Join(" ", words);
-            }
-
-            private static IEnumerable<Object> Children(object model)
-            {
-                return (Get(model, "children") as IEnumerable)?.OfType<Object>() ?? Enumerable.Empty<Object>();
+                string name = DisplayName(Get(model, "name") as string);
+                return name.Length > 0 ? name : model.GetType().Name;
             }
         }
 
@@ -576,33 +501,6 @@ namespace UsefulToolkit.Editor.Ai
             FieldInfo[] fields = value.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public);
             if (fields.Length == 0) return value.ToString();
             return "{" + string.Join(", ", fields.Select(f => $"{f.Name}={FormatValue(f.GetValue(value), depth + 1)}")) + "}";
-        }
-
-        private static Type VfxType(string name)
-        {
-            return Type.GetType($"UnityEditor.VFX.{name}, {VfxEditorAssembly}", true);
-        }
-
-        private static object Get(object target, string memberName)
-        {
-            if (target == null) return null;
-            for (Type type = target.GetType(); type != null; type = type.BaseType)
-            {
-                PropertyInfo property = type.GetProperty(memberName, InstanceFlags | BindingFlags.DeclaredOnly);
-                if (property != null && property.GetIndexParameters().Length == 0) return property.GetValue(target);
-                FieldInfo field = type.GetField(memberName, InstanceFlags | BindingFlags.DeclaredOnly);
-                if (field != null) return field.GetValue(target);
-            }
-
-            return null;
-        }
-
-        private static object Call(object target, string methodName, params object[] args)
-        {
-            if (target == null) return null;
-            MethodInfo method = target.GetType().GetMethods(InstanceFlags)
-                .FirstOrDefault(m => m.Name == methodName && m.GetParameters().Length == args.Length);
-            return method?.Invoke(target, args);
         }
     }
 }

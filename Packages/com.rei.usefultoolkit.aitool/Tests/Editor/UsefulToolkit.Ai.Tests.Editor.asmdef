@@ -1,0 +1,33 @@
+{
+    "name": "UsefulToolkit.Ai.Tests.Editor",
+    "rootNamespace": "UsefulToolkit.Editor",
+    "references": [
+        "UsefulToolkit.Ai.VfxGraph.Editor",
+        "UnityCLILoop.ToolContracts",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "Newtonsoft.Json.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS",
+        "USEFULTOOLKIT_ULOOP_V3"
+    ],
+    "versionDefines": [
+        {
+            "name": "io.github.hatayama.uloopmcp",
+            "expression": "3.0.0",
+            "define": "USEFULTOOLKIT_ULOOP_V3"
+        }
+    ],
+    "noEngineReferences": false
+}

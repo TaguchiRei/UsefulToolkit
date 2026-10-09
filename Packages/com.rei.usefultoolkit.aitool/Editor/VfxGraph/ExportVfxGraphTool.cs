@@ -20,9 +20,10 @@ namespace UsefulToolkit.Editor.Ai
             string assetPath = parameters.AssetPath?.Trim() ?? "";
             var response = new ExportVfxGraphResponse { AssetPath = assetPath };
 
-            if (VfxGraphTextExporter.TryExport(assetPath, out string markdown, out string error))
+            if (VfxGraphTextExporter.TryExport(assetPath, out string markdown, out string revision, out string error))
             {
                 response.Markdown = markdown;
+                response.Revision = revision;
             }
             else
             {
