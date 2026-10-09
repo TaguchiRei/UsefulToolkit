@@ -280,6 +280,17 @@ namespace UsefulToolkit.Editor.Ai
 
             private void WriteSettingsAndInputs(Object model, string indent)
             {
+                // 型のドロップダウンは Settings ではない（非表示の m_Type）ので別の行に出す
+                List<(string operand, Type type)> operandTypes = GetOperandTypes(model);
+                if (operandTypes.Count == 1 && operandTypes[0].operand.Length == 0)
+                {
+                    _sb.AppendLine($"{indent}- Type: {FriendlyTypeName(operandTypes[0].type)}");
+                }
+                else if (operandTypes.Count > 0)
+                {
+                    _sb.AppendLine($"{indent}- Operand types: {string.Join(", ", operandTypes.Select(o => $"{o.operand}={FriendlyTypeName(o.type)}"))}");
+                }
+
                 string settings = FormatSettings(model);
                 if (settings.Length > 0) _sb.AppendLine($"{indent}- Settings: {settings}");
 

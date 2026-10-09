@@ -137,6 +137,31 @@ namespace UsefulToolkit.Editor.Ai.Tests
         }
 
         [Test]
+        public void Edit_SetsOperandType()
+        {
+            EditVfxGraphResponse response = Edit(Export().Revision, new JArray(
+                Op("addOperator", new { type = "Sample Graphics Buffer", @as = "buffer" }),
+                Op("setOperandType", new { target = "$buffer", type = "Vector4" }),
+                Op("addOperator", new { type = "Multiply", @as = "mul" }),
+                Op("setOperandType", new { target = "$mul", operand = "a", type = "Vector3" })));
+
+            Assert.IsTrue(response.Success, response.ErrorMessage);
+            StringAssert.Contains("- Type: Vector4", response.Markdown);
+            StringAssert.Contains("- Operand types: a=Vector3, b=float", response.Markdown);
+        }
+
+        [Test]
+        public void Edit_WithInvalidOperandType_ListsValidTypes()
+        {
+            EditVfxGraphResponse response = Edit(Export().Revision, new JArray(
+                Op("addOperator", new { type = "Sample Graphics Buffer", @as = "buffer" }),
+                Op("setOperandType", new { target = "$buffer", type = "NoSuchType" })));
+
+            Assert.IsFalse(response.Success);
+            StringAssert.Contains("Vector4", response.ErrorMessage);
+        }
+
+        [Test]
         public void Edit_RemovesAndUnlinks()
         {
             string revision = Export().Revision;
