@@ -78,6 +78,38 @@ namespace UsefulToolkit.Editor.Ai
             return true;
         }
 
+        /// <summary>グラフ画面の型のドロップダウンと同じ表示名（float、Vector4 など）。</summary>
+        public static string FriendlyTypeName(Type type)
+        {
+            if (type == null) return "null";
+            return CallStatic(VfxType("VFXTypeExtension"), "UserFriendlyName", type) as string ?? type.Name;
+        }
+
+        /// <summary>
+        /// 型を選べる Operator の、今の型の一覧（入力の名前と型）。型を選べない Operator は空。
+        /// 型が 1 つだけの Operator（Sample Graphics Buffer など）は名前を空にした 1 件を返す。
+        /// </summary>
+        public static List<(string operand, Type type)> GetOperandTypes(object model)
+        {
+            var result = new List<(string, Type)>();
+            if (VfxType("IVFXOperatorUniform").IsInstanceOfType(model))
+            {
+                result.Add(("", (Type)Call(model, "GetOperandType")));
+            }
+            else if (VfxType("IVFXOperatorNumericUnified").IsInstanceOfType(model))
+            {
+                List<object> inputs = (Get(model, "inputSlots") as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
+                int count = (int)Get(model, "operandCount");
+                for (int i = 0; i < count; i++)
+                {
+                    string name = i < inputs.Count ? Get(inputs[i], "name") as string : i.ToString();
+                    result.Add((name, (Type)Call(model, "GetOperandType", i)));
+                }
+            }
+
+            return result;
+        }
+
         /// <summary>
         /// グラフ画面かインスペクターに表示される設定（VFXSetting）。非表示の内部設定は含めない。
         /// </summary>

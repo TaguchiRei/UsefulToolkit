@@ -217,6 +217,9 @@ namespace UsefulToolkit.Editor.Ai
                     case "setSetting":
                         SetSetting(Node(op, "target"), Text(op, "setting"), Required(op, "value"));
                         break;
+                    case "setOperandType":
+                        SetOperandType(Node(op, "target"), Text(op, "type"), op["operand"]);
+                        break;
                     case "setProperty":
                         SetProperty(op);
                         break;
@@ -270,6 +273,67 @@ namespace UsefulToolkit.Editor.Ai
                 }
 
                 Call(model, "SetSettingValue", settingName, ConvertValue(value, setting.type, setting.current));
+            }
+
+            /// <summary>
+            /// 型を選べる Operator の型を変える。グラフ画面の型のドロップダウン（VFXMultiOperatorEdit）と同じ呼び方をする。
+            /// </summary>
+            private static void SetOperandType(Object model, string typeName, JToken operand)
+            {
+                List<(string operand, Type type)> current = GetOperandTypes(model);
+                if (current.Count == 0) throw new EditException($"{model.GetType().Name} には型の選択がありません。");
+
+                var validTypes = ((IEnumerable)Get(model, "validTypes")).Cast<Type>().ToList();
+                Type type = validTypes.FirstOrDefault(t => string.Equals(FriendlyTypeName(t), typeName, StringComparison.OrdinalIgnoreCase))
+                            ?? validTypes.FirstOrDefault(t => string.Equals(t.Name, typeName, StringComparison.OrdinalIgnoreCase))
+                            ?? throw new EditException($"型 \"{typeName}\" は選べません。選べる型: {string.Join(", ", validTypes.Select(FriendlyTypeName))}");
+
+                // 型が 1 つだけの Operator（Sample Graphics Buffer など）
+                if (current.Count == 1 && current[0].operand.Length == 0)
+                {
+                    if (operand != null) throw new EditException("この Operator の型は 1 つだけなので operand は指定できません。");
+                    Call(model, "SetOperandType", type);
+                    return;
+                }
+
+                int index = OperandIndex(current, operand);
+                Call(model, "SetOperandType", index, type);
+
+                // 同じ型にそろえる必要がある入力にも伝える。グラフ画面のドロップダウンと同じ規則
+                if (!VfxType("IVFXOperatorNumericUnifiedConstrained").IsInstanceOfType(model)) return;
+                var canBeScalar = ((IEnumerable)Get(model, "slotIndicesThatCanBeScalar")).Cast<int>().ToList();
+                if (canBeScalar.Contains(index)) return;
+                var matchingScalar = (Type)CallStatic(VfxUiType("VFXUnifiedConstraintOperatorController"), "GetMatchingScalar", type);
+                foreach (int other in ((IEnumerable)Get(model, "slotIndicesThatMustHaveSameType")).Cast<int>().ToList())
+                {
+                    if (other != index && (!canBeScalar.Contains(other) || matchingScalar != (Type)Call(model, "GetOperandType", other)))
+                    {
+                        Call(model, "SetOperandType", other, type);
+                    }
+                }
+            }
+
+            /// <summary>operand（入力の名前か 0 始まりの番号）を番号にする。入力が 1 つなら省略できる。</summary>
+            private static int OperandIndex(List<(string operand, Type type)> operands, JToken operand)
+            {
+                if (operand == null || operand.Type == JTokenType.Null)
+                {
+                    if (operands.Count == 1) return 0;
+                    throw new EditException($"入力ごとに型を持つ Operator です。operand で入力を指定してください: {string.Join(", ", operands.Select(o => o.operand))}");
+                }
+
+                if (operand.Type == JTokenType.Integer)
+                {
+                    int index = operand.Value<int>();
+                    if (index >= 0 && index < operands.Count) return index;
+                }
+                else
+                {
+                    int index = operands.FindIndex(o => string.Equals(o.operand, operand.ToString(), StringComparison.OrdinalIgnoreCase));
+                    if (index >= 0) return index;
+                }
+
+                throw new EditException($"operand \"{operand}\" はありません。指定できる入力: {string.Join(", ", operands.Select(o => o.operand))}");
             }
 
             private void SetProperty(JObject op)

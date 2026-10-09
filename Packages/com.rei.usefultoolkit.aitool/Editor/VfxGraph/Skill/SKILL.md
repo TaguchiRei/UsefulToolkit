@@ -62,6 +62,7 @@ Search the blocks, operators, contexts and property types that edit-vfx-graph ca
 - `## Notes`: 付箋とグループ
 - 入力スロット: `name = value` は値で、`*` はデフォルトから変更された値、`[World]` / `[Local]` は座標空間。`name <- o3.r` は `o3` の出力 `r` からの接続。`name = value; .x <- p2` は子スロット単位の接続
 - Block の `[disabled]` は無効化された Block
+- `Type: Vector4` は型を選べる Operator（Sample Graphics Buffer、Random、Branch など）の今の型。`Operand types: a=Vector3, b=float` は入力ごとに型を持つ Operator（Multiply、Add など）の各入力の型。グラフ画面のドロップダウンにあたる
 - Settings は VFX Graph 内部のフィールド名・enum 名のまま出る（`blendMode=Additive`、`m_Subgraph=<path>` など）。Subgraph はそのパスをもう一度書き出すと中身を読める
 
 ## 操作リスト
@@ -85,6 +86,7 @@ Search the blocks, operators, contexts and property types that edit-vfx-graph ca
 | `setInput` | `target`, `slot`, `value` | 入力スロットの値。`slot` は `A`、`arcSphere.sphere.radius` のように主スロットから `.` でつなぐ。接続されているスロットは変更できない |
 | `setSetting` | `target`, `setting`, `value` | Settings の値（書き出しの名前のまま） |
 | `setBlockEnabled` | `target`, `enabled` | Block の有効・無効 |
+| `setOperandType` | `target`, `type`, `operand`? | 型を選べる Operator の型（`"Vector4"`、`"float"` など書き出しの表記）。入力ごとに型を持つ Operator は `operand` に入力の名前（`"a"`）か 0 始まりの番号を指定する。型を変えるとスロットが作り直され、合わない接続は外れる |
 | `setProperty` | `target`, `value`?, `name`?, `exposed`? | Property の値・名前・公開 |
 | `link` | `from`, `fromSlot`?, `to`, `toSlot` | 出力から入力へ接続。出力が 1 つの Operator と Property は `fromSlot` を省略できる。Property の子は `p1` + `x` のように主スロット名を省く |
 | `unlink` | `to`, `toSlot` | その入力スロットへの接続をすべて外す |
