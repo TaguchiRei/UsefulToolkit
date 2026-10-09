@@ -11,7 +11,7 @@ namespace UsefulToolkit.Editor.Ai
 {
     /// <summary>
     /// hatayama/unity-cli-loop（旧uLoopMCP）の導入を自動化するツール。
-    /// UPMパッケージの追加、CLI(uloop-cli)のグローバルインストール、Skillsの導入までを画面上から実行できる。
+    /// UPMパッケージの追加とSkillsの導入を画面上から実行する。CLI本体の導入は本体の設定ウィンドウのInstall CLIに任せる。
     /// https://github.com/hatayama/unity-cli-loop
     /// </summary>
     public class UnityCliLoopInstaller : EditorWindow
@@ -71,13 +71,9 @@ namespace UsefulToolkit.Editor.Ai
 
             DrawStepInstallPackage();
             GUILayout.Space(8);
-            DrawStepCheckNode();
-            GUILayout.Space(8);
             DrawStepInstallCli();
             GUILayout.Space(8);
             DrawStepInstallSkills();
-            GUILayout.Space(8);
-            DrawStepOpenSettings();
 
             EditorGUI.EndDisabledGroup();
 
@@ -140,33 +136,28 @@ namespace UsefulToolkit.Editor.Ai
             }
         }
 
-        private void DrawStepCheckNode()
-        {
-            EditorGUILayout.LabelField("② Node.js を確認", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField("CLI/Skillsの導入にはNode.js 22.0以上が必要です。",
-                EditorStyles.wordWrappedMiniLabel);
-
-            if (GUILayout.Button("node --version を実行", GUILayout.Height(24)))
-            {
-                RunCommand("Node.jsバージョン確認", "node --version");
-            }
-        }
-
         private void DrawStepInstallCli()
         {
-            EditorGUILayout.LabelField("③ CLI (uloop-cli) をインストール", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField("npm install -g uloop-cli を実行し、CLIをグローバルインストールします。",
-                EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField("② CLI (uloop) をインストール", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "CLIはUnity CLI Loop本体の設定ウィンドウにある Install CLI ボタンから導入します。" +
+                "npm版の uloop-cli は入れないでください（V3のCLIより優先されて隠してしまうため）。" +
+                "パッケージ追加直後はドメインリロードが必要なため、少し待ってから開いてください。",
+                MessageType.Info);
 
-            if (GUILayout.Button("npm install -g uloop-cli を実行", GUILayout.Height(28)))
+            if (GUILayout.Button("Unity CLI Loop の設定ウィンドウを開く", GUILayout.Height(28)))
             {
-                RunCommand("uloop-cli インストール", "npm install -g uloop-cli");
+                if (!EditorApplication.ExecuteMenuItem(SettingsMenuPath))
+                {
+                    EditorUtility.DisplayDialog("Useful Toolkit",
+                        "設定ウィンドウを開けませんでした。パッケージのインポート・コンパイルが完了してから再度お試しください。", "OK");
+                }
             }
         }
 
         private void DrawStepInstallSkills()
         {
-            EditorGUILayout.LabelField("④ Skills を導入", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("③ Skills を導入", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("導入先のAIツールとスコープを選択してSkillsを導入します。",
                 EditorStyles.wordWrappedMiniLabel);
 
@@ -183,24 +174,6 @@ namespace UsefulToolkit.Editor.Ai
                     ? $"uloop skills install {flag} --global"
                     : $"uloop skills install {flag}";
                 RunCommand("Skills導入", command);
-            }
-        }
-
-        private void DrawStepOpenSettings()
-        {
-            EditorGUILayout.LabelField("⑤ MCP接続設定を開く", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox(
-                "MCPクライアント（Claude Code等）へのmcp.json自動設定は、Unity CLI Loop本体の設定ウィンドウから行います。" +
-                "パッケージ追加直後はドメインリロードが必要なため、少し待ってから開いてください。",
-                MessageType.Info);
-
-            if (GUILayout.Button("Unity CLI Loop の設定ウィンドウを開く", GUILayout.Height(28)))
-            {
-                if (!EditorApplication.ExecuteMenuItem(SettingsMenuPath))
-                {
-                    EditorUtility.DisplayDialog("Useful Toolkit",
-                        "設定ウィンドウを開けませんでした。パッケージのインポート・コンパイルが完了してから再度お試しください。", "OK");
-                }
             }
         }
 
@@ -294,7 +267,7 @@ namespace UsefulToolkit.Editor.Ai
             _addRequest = null;
         }
 
-        //  外部コマンド実行（npm / uloop CLI）
+        //  外部コマンド実行（uloop CLI）
 
         private static void RunCommand(string label, string command)
         {
@@ -337,7 +310,7 @@ namespace UsefulToolkit.Editor.Ai
             {
                 Debug.LogError($"[UsefulToolkit] コマンド実行に失敗しました: {e.Message}");
                 EditorUtility.DisplayDialog("Useful Toolkit",
-                    $"コマンドの実行に失敗しました:\n{e.Message}\n\nNode.js / npm がインストールされ、PATHが通っているか確認してください。", "閉じる");
+                    $"コマンドの実行に失敗しました:\n{e.Message}\n\nuloop CLI がインストールされ、PATHが通っているか確認してください。", "閉じる");
                 _runningProcess = null;
             }
         }
