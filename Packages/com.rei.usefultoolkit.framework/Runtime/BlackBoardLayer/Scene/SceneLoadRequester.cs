@@ -160,6 +160,67 @@ namespace UsefulToolkit.BlackBoard.Scene
         }
 
         /// <summary>
+        /// シーンを読み直す。
+        /// 常駐シーンを除く管理シーンを、アクティブシーンも含めて全てアンロードしてから、要求シーンを新しくロードする。
+        /// ロード済みのシーンも読み直されるため、シーンに紐づくStateは一度登録が外れる。
+        /// 同じビルドインデックスのシーンを二重に持たないよう、ロードより先にアンロードする。
+        /// ローダーが未登録の場合と、他のロード/アンロードが進行中の場合はfalseを返す。
+        /// </summary>
+        /// <param name="mainSceneId">アクティブシーンにするシーンID。<see cref="SceneState.NoSceneId"/>ならアクティブシーンをNoneにする</param>
+        /// <param name="subSceneIds">共にロードするシーンID</param>
+        /// <param name="cancellationToken">ロードの中断に使う</param>
+        /// <returns>アンロードと要求した全てのシーンのロードがStateへ反映されたか</returns>
+        public async UniTask<bool> RequestReloadAsync(int mainSceneId, IReadOnlyList<int> subSceneIds,
+            CancellationToken cancellationToken)
+        {
+            if (_loadFunc == null || _unLoadFunc == null)
+            {
+                UsefulLogger.LogError("シーンローダーが登録されていない為、読み直しを要求できません。", this);
+                return false;
+            }
+
+            if (!CanLoadAsActiveScene(mainSceneId))
+            {
+                return false;
+            }
+
+            if (!_sceneState.TryBeginLoad())
+            {
+                return false;
+            }
+
+            try
+            {
+                var unloadTargets = new List<int>();
+                _sceneState.CopyLoadedScenesTo(unloadTargets);
+
+                var unloadApplied = true;
+                if (unloadTargets.Count > 0)
+                {
+                    if (!await _unLoadFunc(unloadTargets, _sceneState, cancellationToken))
+                    {
+                        return false;
+                    }
+
+                    unloadApplied = _sceneState.OverwriteUnload(unloadTargets.ToArray());
+                }
+
+                // アンロード後なので、常駐シーン以外の要求シーンは全てロード対象になる
+                var loadTargets = CollectLoadTargets(mainSceneId, subSceneIds, out var loadMainScene);
+                if (!await _loadFunc(loadTargets, mainSceneId, _sceneState, cancellationToken))
+                {
+                    return false;
+                }
+
+                return unloadApplied & ApplyLoaded(mainSceneId, loadTargets, loadMainScene);
+            }
+            finally
+            {
+                _sceneState.EndPhase();
+            }
+        }
+
+        /// <summary>
         /// シーンのアンロードを要求する。
         /// ロードされていないシーン、アクティブシーン、常駐シーンは対象から外れ、対象が無い場合はtrueを返す。
         /// ローダーが未登録の場合と、他のロード/アンロードが進行中の場合はfalseを返す。

@@ -269,6 +269,12 @@ namespace UsefulToolkit.BlackBoard.Scene
             return _loadRequester.RequestOverwriteLoadAsync(mainSceneId, subSceneIds, cancellationToken);
         }
 
+        public UniTask<bool> RequestReloadAsync(int mainSceneId, IReadOnlyList<int> subSceneIds,
+            CancellationToken cancellationToken = default)
+        {
+            return _loadRequester.RequestReloadAsync(mainSceneId, subSceneIds, cancellationToken);
+        }
+
         #endregion
 
         #region シーンのロード状況をStateへ反映するメソッド

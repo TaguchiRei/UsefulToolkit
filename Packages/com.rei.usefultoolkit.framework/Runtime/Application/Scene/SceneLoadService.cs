@@ -97,6 +97,27 @@ namespace UsefulToolkit.Application.Scene
         }
 
         /// <summary>
+        /// 指定したシーングループを読み直す。
+        /// 常駐シーンを除くロード済みシーンを、グループのシーンも含めて全てアンロードしてから、グループを新しくロードする。
+        /// ロード済みのグループを指定すると、そのシーンのAwake・Initializer・Compositorが初めから動き、
+        /// シーンに紐づくStateも作り直される。リトライなどでグループを初期状態へ戻すときに使う。
+        /// インデックスが範囲外の場合と、ISceneStateが未登録の場合はエラーログを出してfalseを返す。
+        /// </summary>
+        /// <param name="groupIndex">読み直すシーングループのインデックス</param>
+        /// <param name="cancellationToken">ロードの中断に使う</param>
+        /// <returns>アンロードとグループの全てのシーンのロードが終わったか</returns>
+        public UniTask<bool> ReloadGroupAsync(int groupIndex, CancellationToken cancellationToken = default)
+        {
+            if (!TryGetGroup(groupIndex, out var group) || !TryGetSceneState(out var sceneState))
+            {
+                return UniTask.FromResult(false);
+            }
+
+            var mainSceneId = group.TryGetMainSceneId(out var id) ? id : SceneState.NoSceneId;
+            return sceneState.RequestReloadAsync(mainSceneId, group.AdditiveSceneIds, cancellationToken);
+        }
+
+        /// <summary>
         /// 指定したシーングループのシーンをアンロードする。
         /// ロードされていないシーンとアクティブシーンは対象から外れる。
         /// インデックスが範囲外の場合と、ISceneStateが未登録の場合はエラーログを出してfalseを返す。

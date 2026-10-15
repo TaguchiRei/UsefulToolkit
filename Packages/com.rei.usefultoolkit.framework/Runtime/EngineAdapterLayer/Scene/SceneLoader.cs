@@ -67,6 +67,11 @@ namespace UsefulToolkit.EngineAdapter
         {
             var sceneCount = sceneIds?.Count ?? 0;
 
+            if (sceneCount > 0 && !TryMoveActiveSceneOutOf(sceneIds))
+            {
+                return false;
+            }
+
             for (int i = 0; i < sceneCount; i++)
             {
                 var operation = SceneManager.UnloadSceneAsync(sceneIds[i]);
@@ -101,6 +106,48 @@ namespace UsefulToolkit.EngineAdapter
                 progress?.Report((completedCount + operation.progress) / totalCount);
                 await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
             }
+        }
+
+        /// <summary>
+        /// アクティブシーンがアンロード対象に含まれるとき、対象外のロード済みシーン(通常は常駐シーン)をアクティブシーンにする。
+        /// 読み直しのように、アクティブシーンごとアンロードする要求に備える。
+        /// </summary>
+        /// <param name="unloadSceneIds">アンロードするシーンID</param>
+        /// <returns>アンロードを進めてよいか。退避先のシーンが無い場合はエラーログを出してfalseを返す</returns>
+        private bool TryMoveActiveSceneOutOf(IReadOnlyList<int> unloadSceneIds)
+        {
+            if (!Contains(unloadSceneIds, SceneManager.GetActiveScene().buildIndex))
+            {
+                return true;
+            }
+
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (!scene.isLoaded || Contains(unloadSceneIds, scene.buildIndex))
+                {
+                    continue;
+                }
+
+                SceneManager.SetActiveScene(scene);
+                return true;
+            }
+
+            UsefulLogger.LogError("アンロード対象に含まれないロード済みシーンが無い為、アクティブシーンをアンロードできません。", this);
+            return false;
+        }
+
+        private static bool Contains(IReadOnlyList<int> sceneIds, int sceneId)
+        {
+            for (int i = 0; i < sceneIds.Count; i++)
+            {
+                if (sceneIds[i] == sceneId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
