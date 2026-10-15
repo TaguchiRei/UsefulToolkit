@@ -33,7 +33,9 @@ namespace UsefulToolkit.Debugging
 
 #endif
 
-        private readonly List<(string, Func<string>)> _getValueFunc = new();
+        /// <summary>監視する値。HasOwnerがtrueの項目はOwnerが破棄されたときに外れる</summary>
+        private readonly List<(string Name, Func<string> Func, UnityEngine.Object Owner, bool HasOwner)> _getValueFunc =
+            new();
 
         private static DebugGUI _instance;
 
@@ -199,21 +201,24 @@ namespace UsefulToolkit.Debugging
 
         private void DrawVariables()
         {
+            // 持ち主が破棄された監視は、値を読む前に外す
+            _getValueFunc.RemoveAll(item => item.HasOwner && item.Owner == null);
+
             int index = 0;
             foreach (var item in _getValueFunc)
             {
                 try
                 {
                     _stringBuilder.Clear();
-                    _stringBuilder.Append(item.Item1);
+                    _stringBuilder.Append(item.Name);
                     _stringBuilder.Append(" : ");
-                    _stringBuilder.Append(item.Item2.Invoke());
+                    _stringBuilder.Append(item.Func.Invoke());
 
                     GUILayout.Label(_stringBuilder.ToString(), _debugStyle);
                 }
                 catch (Exception)
                 {
-                    DrawMissing(item.Item1, index);
+                    DrawMissing(item.Name, index);
                 }
 
                 index++;
@@ -331,17 +336,55 @@ namespace UsefulToolkit.Debugging
 
 #endif
 
+        /// <summary>
+        /// 値の監視を登録する。登録した監視は外れないため、シーンをまたいで登録し直す用途には持ち主を指定する版を使う。
+        /// </summary>
+        /// <param name="name">表示名</param>
+        /// <param name="debugValue">表示する値を返す処理</param>
         [Conditional("UNITY_EDITOR")]
         public static void ObserveVariable(string name, Func<string> debugValue)
         {
 #if UNITY_EDITOR
-            if (_instance == null)
+            AddObserve(name, debugValue, null, false);
+#endif
+        }
+
+        /// <summary>
+        /// 持ち主に紐づけて値の監視を登録する。
+        /// 持ち主が破棄される(シーンのアンロードを含む)と監視は外れ、以降debugValueは呼ばれない。
+        /// <see cref="ConditionalAttribute"/>で戻り値を返せないため、解除は持ち主の破棄か<see cref="StopObserving"/>で行う。
+        /// </summary>
+        /// <param name="name">表示名</param>
+        /// <param name="debugValue">表示する値を返す処理</param>
+        /// <param name="owner">監視の持ち主</param>
+        [Conditional("UNITY_EDITOR")]
+        public static void ObserveVariable(string name, Func<string> debugValue, UnityEngine.Object owner)
+        {
+#if UNITY_EDITOR
+            if (owner == null)
             {
-                Debug.LogWarning("DebugGUIの初期化前に登録メソッドが呼ばれました");
+                Debug.LogWarning($"DebugGUIの監視{name}の持ち主が指定されていない為、登録しません");
                 return;
             }
 
-            _instance._getValueFunc.Add((name, debugValue));
+            AddObserve(name, debugValue, owner, true);
+#endif
+        }
+
+        /// <summary>
+        /// 持ち主に紐づけて登録した監視を全て外す。
+        /// </summary>
+        /// <param name="owner">外す監視の持ち主</param>
+        [Conditional("UNITY_EDITOR")]
+        public static void StopObserving(UnityEngine.Object owner)
+        {
+#if UNITY_EDITOR
+            if (_instance == null || owner == null)
+            {
+                return;
+            }
+
+            _instance._getValueFunc.RemoveAll(item => item.HasOwner && item.Owner == owner);
 #endif
         }
 
@@ -362,6 +405,19 @@ namespace UsefulToolkit.Debugging
         {
             AddLog(message, LogType.Error);
         }
+
+#if UNITY_EDITOR
+        private static void AddObserve(string name, Func<string> debugValue, UnityEngine.Object owner, bool hasOwner)
+        {
+            if (_instance == null)
+            {
+                Debug.LogWarning("DebugGUIの初期化前に登録メソッドが呼ばれました");
+                return;
+            }
+
+            _instance._getValueFunc.Add((name, debugValue, owner, hasOwner));
+        }
+#endif
 
         private static void AddLog(string message, LogType type)
         {
