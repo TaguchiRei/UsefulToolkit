@@ -112,5 +112,20 @@ namespace UsefulToolkit.BlackBoard.Scene
         /// <returns>要求した全てのシーンがロードされ、余剰シーンのアンロードまでStateへ反映されたか</returns>
         public UniTask<bool> RequestOverwriteLoadAsync(int mainSceneId, IReadOnlyList<int> subSceneIds,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// シーンを読み直す。
+        /// 常駐シーンを除く管理シーンを、アクティブシーンも含めて全てアンロードしてから、要求シーンを新しくロードする。
+        /// ロード済みのシーンも読み直されるため、Awake・Initializer・Compositorが初めから動き、
+        /// シーンに紐づくStateは通常のシーン遷移と同じく一度登録が外れる。
+        /// 同じステージのやり直しなど、ロード済みのグループを初期状態へ戻す用途向け。
+        /// 他のロード/アンロードが進行中の場合はfalseを返す。
+        /// </summary>
+        /// <param name="mainSceneId">アクティブシーンにするシーンID。SceneState.NoSceneIdならアクティブシーンはNoneになる</param>
+        /// <param name="subSceneIds">共にロードするシーンID</param>
+        /// <param name="cancellationToken">ロードの中断に使う</param>
+        /// <returns>アンロードと要求した全てのシーンのロードがStateへ反映されたか</returns>
+        public UniTask<bool> RequestReloadAsync(int mainSceneId, IReadOnlyList<int> subSceneIds,
+            CancellationToken cancellationToken = default);
     }
 }
